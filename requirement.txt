@@ -1,0 +1,27 @@
+Create a game using phaserjs with following instructions:
+
+Game Name: Fish Quiz
+
+Game asset:
+./assets is a folder that contains all the assets for the fishing game
+./assets/maps will has map png files as map of the game
+./assets/character will have 3 sprites contains 3 different character of the game
+./assets/fish will have 47  folder of the fish in the games
+
+Game play:
+- From the Boat assets, render 1 boat which can move with AWDS with 4 direction.
+- Create the menu of the game with new game, show leaderboard, and exit button.
+- User can use key "space" to drop the floater with lure in the water.
+- The gameplay of Pixel Fishing Quiz revolves around the following cycle:
+    Move the boat -> Cast the fishing rod -> Wait for fish -> Hook & Reel in the fish -> Fish on the boat -> Activate Quiz -> Answer Quiz -> Keep or Lose the fish -> Repeat. 
+    The key factor to keeping your catch is passing the Quiz challenge after successfully reeling the fish onto the boat. 
+    A random question from the question bank will appear with four answer choices and a countdown timer (e.g., 10-15 seconds). 
+    The player must select the correct answer within this time limit. If successful, the fish is considered caught, the player earns points, and can continue fishing. 
+    If unsuccessful (choosing the wrong answer or running out of time), the fish is lost, and the player loses a “chance” or “life”. 
+    The game usually provides a limited number of lives (e.g., 3 lives). When all lives are lost, the game ends.
+
+Game rule:
+- user only have 3 lives.
+
+Code constant:
+- Only use Typescript
