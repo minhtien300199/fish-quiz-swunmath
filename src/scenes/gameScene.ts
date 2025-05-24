@@ -1,4 +1,5 @@
 import { GameState } from '../types/gameState';
+import { BoatFactory, BoatType } from '../factories/boatFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -20,6 +21,7 @@ export class GameScene extends Phaser.Scene {
     fishCaught: 0,
     score: 0
   };
+  private currentBoatType: BoatType = BoatType.BLUE;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -39,13 +41,13 @@ export class GameScene extends Phaser.Scene {
     this.map = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map');
     this.map.setScale(1);
     
-    // Add player (boat)
-    this.player = this.physics.add.sprite(
+    // Add player (boat) using the BoatFactory
+    this.player = BoatFactory.createBoat(
+      this,
       this.cameras.main.width / 2,
       this.cameras.main.height / 2,
-      'boat-blue'
+      this.currentBoatType
     );
-    this.player.setScale(0.5);
     
     // Set up keyboard input
     if (this.input && this.input.keyboard) {
@@ -58,11 +60,11 @@ export class GameScene extends Phaser.Scene {
     
     // Create world bounds
     this.physics.world.setBounds(0, 0, this.map.width, this.map.height);
-    this.player.setCollideWorldBounds(true);
+    // Note: setCollideWorldBounds is already set in the BoatFactory
     
     // Set up camera to follow player
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-    this.cameras.main.setZoom(1);
+    this.cameras.main.setZoom(3.0); // Increased zoom from 1.5 to 2.0 for a much closer view
   }
 
   update(): void {
@@ -79,6 +81,7 @@ export class GameScene extends Phaser.Scene {
   private handlePlayerMovement(): void {
     // Only allow movement when not fishing
     if (this.fishingState === 'idle') {
+      // Reset velocity at the start of each update
       this.player.setVelocity(0);
       
       // Handle WASD movement
@@ -88,18 +91,30 @@ export class GameScene extends Phaser.Scene {
         const keyS = this.input.keyboard.addKey('S');
         const keyD = this.input.keyboard.addKey('D');
         
+        // Get boat speed from factory
+        const boatSpeed = BoatFactory.getBoatSpeed(this.currentBoatType);
+        let velocityX = 0;
+        let velocityY = 0;
+        
+        // Calculate velocity based on key presses
         if (keyW.isDown) {
-          this.player.setVelocityY(-150);
+          velocityY = -boatSpeed;
         } else if (keyS.isDown) {
-          this.player.setVelocityY(150);
+          velocityY = boatSpeed;
         }
         
         if (keyA.isDown) {
-          this.player.setVelocityX(-150);
-          this.player.flipX = true;
+          velocityX = -boatSpeed;
         } else if (keyD.isDown) {
-          this.player.setVelocityX(150);
-          this.player.flipX = false;
+          velocityX = boatSpeed;
+        }
+        
+        // Apply velocity to the player
+        this.player.setVelocity(velocityX, velocityY);
+        
+        // Update boat direction based on velocity
+        if (velocityX !== 0 || velocityY !== 0) {
+          BoatFactory.updateBoatDirection(this.player, velocityX, velocityY);
         }
       }
     } else {
@@ -302,6 +317,28 @@ export class GameScene extends Phaser.Scene {
     for (let i = 0; i < this.livesIcons.length; i++) {
       this.livesIcons[i].setVisible(i < this.lives);
     }
+  }
+
+  /**
+   * Switch to a different boat type
+   * @param boatType The new boat type to use
+   */
+  public switchBoat(boatType: BoatType): void {
+    // Store the current boat type
+    this.currentBoatType = boatType;
+    
+    // Get current position
+    const x = this.player.x;
+    const y = this.player.y;
+    
+    // Remove current boat
+    this.player.destroy();
+    
+    // Create new boat at the same position
+    this.player = BoatFactory.createBoat(this, x, y, boatType);
+    
+    // Set up camera to follow the new boat
+    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
   }
 
   private gameOver(): void {

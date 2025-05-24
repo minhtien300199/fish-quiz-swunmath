@@ -52,10 +52,19 @@ export class PreloadScene extends Phaser.Scene {
     // Load map
     this.load.image('map', 'assets/maps/first_map.png');
 
-    // Load boats
-    this.load.image('boat-blue', 'assets/boats/fishing_boat_blue/fishing_boat_blue.png');
-    this.load.image('boat-yellow', 'assets/boats/fishing_boat_yellow/fishing_boat_yellow.png');
-    this.load.image('boat-small', 'assets/boats/small_boat/small_boat.png');
+    // Load boats as spritesheets (8 frames for 8 directions)
+    this.load.spritesheet('boat-fishing_boat_blue', 'assets/boats/fishing_boat_blue/full_boat.png', {
+      frameWidth: 128, // Adjust these values based on your actual sprite dimensions
+      frameHeight: 128
+    });
+    this.load.spritesheet('boat-fishing_boat_yellow', 'assets/boats/fishing_boat_yellow/full_boat.png', {
+      frameWidth: 128,
+      frameHeight: 128
+    });
+    this.load.spritesheet('boat-small_boat', 'assets/boats/small_boat/full_boat.png', {
+      frameWidth: 128,
+      frameHeight: 128
+    });
     this.load.image('all-boats', 'assets/boats/all_full_boats.png');
 
     // Load fish (we'll load a few for now, can add more as needed)
