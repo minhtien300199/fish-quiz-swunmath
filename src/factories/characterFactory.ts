@@ -11,14 +11,14 @@ export enum CharacterType {
 // Define character directions based on frame order
 // Each direction has 2 frames for animation
 export enum CharacterDirection {
-  DOWN_1 = 0,      // First frame for DOWN
-  DOWN_2 = 1,      // Second frame for DOWN
+  DOWN_1 = 4,      // First frame for DOWN
+  DOWN_2 = 5,      // Second frame for DOWN
   LEFT_1 = 2,      // First frame for LEFT
   LEFT_2 = 3,      // Second frame for LEFT
   UP_1 = 6,        // First frame for UP
   UP_2 = 7,        // Second frame for UP
-  RIGHT_1 = 4,     // First frame for RIGHT
-  RIGHT_2 = 5      // Second frame for RIGHT
+  RIGHT_1 = 0,     // First frame for RIGHT
+  RIGHT_2 = 1      // Second frame for RIGHT
 }
 
 // Character properties interface
@@ -34,22 +34,22 @@ export class CharacterFactory {
     [CharacterType.LIGHT]: {
       scale: 0.5,  // Reduced scale to make character smaller
       offsetX: 0,
-      offsetY: 28  // Lowered by 48px from previous -20 value
+      offsetY: 0  // Lowered by 48px from previous -20 value
     },
     [CharacterType.DARK]: {
       scale: 0.5,  // Reduced scale to make character smaller
       offsetX: 0,
-      offsetY: 28  // Lowered by 48px from previous -20 value
+      offsetY: 0  // Lowered by 48px from previous -20 value
     },
     [CharacterType.BROWN]: {
       scale: 0.5,  // Reduced scale to make character smaller
       offsetX: 0,
-      offsetY: 28  // Lowered by 48px from previous -20 value
+      offsetY: 0  // Lowered by 48px from previous -20 value
     },
     [CharacterType.BLACK]: {
       scale: 0.5,  // Reduced scale to make character smaller
       offsetX: 0,
-      offsetY: 28  // Lowered by 48px from previous -20 value
+      offsetY: 0  // Lowered by 48px from previous -20 value
     }
   };
 
@@ -86,14 +86,15 @@ export class CharacterFactory {
       character.setOrigin(0.5, 0.5); // Center origin point
     }
     
-    // Create idle animation for each direction
+    // Create idle animation for each direction with precise frame matching
+    // Ensure we're using the correct frames for each direction based on the sprite sheet layout
     if (!scene.anims.exists(`${characterType}-idle-down`)) {
       scene.anims.create({
         key: `${characterType}-idle-down`,
         frames: scene.anims.generateFrameNumbers(`character-idle-${characterType}`, { 
           frames: [CharacterDirection.DOWN_1, CharacterDirection.DOWN_2] 
         }),
-        frameRate: 4,
+        frameRate: 3, // Slightly slower animation for better visibility
         repeat: -1
       });
     }
@@ -104,18 +105,7 @@ export class CharacterFactory {
         frames: scene.anims.generateFrameNumbers(`character-idle-${characterType}`, { 
           frames: [CharacterDirection.LEFT_1, CharacterDirection.LEFT_2] 
         }),
-        frameRate: 4,
-        repeat: -1
-      });
-    }
-    
-    if (!scene.anims.exists(`${characterType}-idle-up`)) {
-      scene.anims.create({
-        key: `${characterType}-idle-up`,
-        frames: scene.anims.generateFrameNumbers(`character-idle-${characterType}`, { 
-          frames: [CharacterDirection.UP_1, CharacterDirection.UP_2] 
-        }),
-        frameRate: 4,
+        frameRate: 3,
         repeat: -1
       });
     }
@@ -126,7 +116,18 @@ export class CharacterFactory {
         frames: scene.anims.generateFrameNumbers(`character-idle-${characterType}`, { 
           frames: [CharacterDirection.RIGHT_1, CharacterDirection.RIGHT_2] 
         }),
-        frameRate: 4,
+        frameRate: 3,
+        repeat: -1
+      });
+    }
+    
+    if (!scene.anims.exists(`${characterType}-idle-up`)) {
+      scene.anims.create({
+        key: `${characterType}-idle-up`,
+        frames: scene.anims.generateFrameNumbers(`character-idle-${characterType}`, { 
+          frames: [CharacterDirection.UP_1, CharacterDirection.UP_2] 
+        }),
+        frameRate: 3,
         repeat: -1
       });
     }
@@ -158,18 +159,21 @@ export class CharacterFactory {
       // Horizontal movement is dominant
       if (velocityX > 0) {
         // Moving right
+        character.setVisible(true); // Ensure character is visible
         character.play(`${characterType}-idle-right`, true);
       } else {
         // Moving left
+        character.setVisible(true); // Ensure character is visible
         character.play(`${characterType}-idle-left`, true);
       }
     } else {
       // Vertical movement is dominant
       if (velocityY > 0) {
-        // Moving down
-        character.play(`${characterType}-idle-down`, true);
+        // Moving down (S direction) - hide the character as it would be behind the boat
+        character.setVisible(false);
       } else {
         // Moving up
+        character.setVisible(true); // Ensure character is visible
         character.play(`${characterType}-idle-up`, true);
       }
     }
