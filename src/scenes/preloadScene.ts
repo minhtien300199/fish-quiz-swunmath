@@ -90,10 +90,29 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
     this.load.image('life-icon', 'assets/ui_fishing_minigame/life.png');
     
-    // Load character animations
+    // Load character animations for fishing actions
     this.load.image('character-fishing', 'assets/character/tool_fishing_rod_throw/tool_fishing_rod_throw.png');
     this.load.image('character-pull', 'assets/character/tool_fishing_rod_pull/tool_fishing_rod_pull.png');
     this.load.image('character-reel', 'assets/character/tool_fishing_rod_reel/tool_fishing_rod_reel.png');
     this.load.image('character-catch', 'assets/character/tool_fishing_rod_catch/tool_fishing_rod_catch.png');
+    
+    // Load character idle sprites (8 frames for 4 directions - 2 frames per direction)
+    this.load.spritesheet('character-idle-light', 'assets/character/idle/character_idle_body_light.png', {
+      frameWidth: 64,  // Adjust based on your actual sprite dimensions
+      frameHeight: 64
+    });
+    this.load.spritesheet('character-idle-dark', 'assets/character/idle/character_idle_body_dark.png', {
+      frameWidth: 64,
+      frameHeight: 64
+    });
+    this.load.spritesheet('character-idle-brown', 'assets/character/idle/character_idle_body_brown.png', {
+      frameWidth: 64,
+      frameHeight: 64
+    });
+    // Also load the black variant that might be randomly selected
+    this.load.spritesheet('character-idle-black', 'assets/character/idle/character_idle_body_black.png', {
+      frameWidth: 64,
+      frameHeight: 64
+    });
   }
 }

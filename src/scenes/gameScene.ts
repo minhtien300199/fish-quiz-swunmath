@@ -1,8 +1,10 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
+import { CharacterFactory, CharacterType } from '../factories/characterFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
+  private character!: Phaser.GameObjects.Sprite; // Character sprite
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private map!: Phaser.GameObjects.Image;
@@ -23,12 +25,16 @@ export class GameScene extends Phaser.Scene {
     score: 0
   };
   private currentBoatType: BoatType = BoatType.BLUE;
+  private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
 
   constructor() {
     super({ key: 'GameScene' });
   }
 
   create(): void {
+    // Clean up any existing objects first
+    this.cleanup();
+    
     // Reset game state
     this.gameState = {
       lives: 3,
@@ -67,6 +73,15 @@ export class GameScene extends Phaser.Scene {
       this.currentBoatType
     );
     
+    // Add character on top of the boat (only one character)
+    const characterOffset = CharacterFactory.getCharacterOffset(this.currentCharacterType);
+    this.character = CharacterFactory.createCharacter(
+      this,
+      this.player.x + characterOffset.x,
+      this.player.y + characterOffset.y,
+      this.currentCharacterType
+    );
+    
     // Set up keyboard input
     if (this.input && this.input.keyboard) {
       this.cursors = this.input.keyboard.createCursorKeys();
@@ -91,6 +106,15 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.startFollow(this.player);
     this.cameras.main.setZoom(3.0); // Zoom in for better visibility
     this.cameras.main.setName('MainCamera'); // Name the main camera for easier reference
+    
+    // Ensure the character is only visible to the main camera
+    // This must be done before creating any additional cameras
+    for (let i = 1; i < this.cameras.cameras.length; i++) {
+      const camera = this.cameras.cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.character);
+      }
+    }
     
     // Create UI elements - must be done after main camera setup
     this.createUI();
@@ -126,38 +150,58 @@ export class GameScene extends Phaser.Scene {
       // Reset velocity at the start of each update
       this.player.setVelocity(0);
       
-      // Handle WASD movement
-      if (this.input && this.input.keyboard) {
-        const keyW = this.input.keyboard.addKey('W');
-        const keyA = this.input.keyboard.addKey('A');
-        const keyS = this.input.keyboard.addKey('S');
-        const keyD = this.input.keyboard.addKey('D');
-        
-        // Get boat speed from factory
-        const boatSpeed = BoatFactory.getBoatSpeed(this.currentBoatType);
-        let velocityX = 0;
-        let velocityY = 0;
-        
-        // Calculate velocity based on key presses
-        if (keyW.isDown) {
-          velocityY = -boatSpeed;
-        } else if (keyS.isDown) {
-          velocityY = boatSpeed;
-        }
-        
-        if (keyA.isDown) {
-          velocityX = -boatSpeed;
-        } else if (keyD.isDown) {
-          velocityX = boatSpeed;
-        }
-        
-        // Apply velocity to the player
-        this.player.setVelocity(velocityX, velocityY);
-        
-        // Update boat direction based on velocity
-        if (velocityX !== 0 || velocityY !== 0) {
-          BoatFactory.updateBoatDirection(this.player, velocityX, velocityY);
-        }
+      // Get boat speed from factory
+      const boatSpeed = BoatFactory.getBoatSpeed(this.currentBoatType);
+      
+      // Create key objects once in create() instead of every frame
+      // But for now, we'll handle it here with proper null checks
+      const keyA = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.A) : null;
+      const keyD = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.D) : null;
+      const keyW = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W) : null;
+      const keyS = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S) : null;
+      
+      // Handle horizontal movement
+      if (this.cursors.left.isDown || (keyA && keyA.isDown)) {
+        this.player.setVelocityX(-boatSpeed);
+      } else if (this.cursors.right.isDown || (keyD && keyD.isDown)) {
+        this.player.setVelocityX(boatSpeed);
+      }
+      
+      // Handle vertical movement
+      if (this.cursors.up.isDown || (keyW && keyW.isDown)) {
+        this.player.setVelocityY(-boatSpeed);
+      } else if (this.cursors.down.isDown || (keyS && keyS.isDown)) {
+        this.player.setVelocityY(boatSpeed);
+      }
+      
+      // Safe access to body.velocity with null checks
+      const velocityX = this.player.body ? this.player.body.velocity.x : 0;
+      const velocityY = this.player.body ? this.player.body.velocity.y : 0;
+      
+      // Update boat direction based on velocity
+      BoatFactory.updateBoatDirection(
+        this.player,
+        velocityX,
+        velocityY
+      );
+      
+      // Update character position to follow the boat
+      const characterOffset = CharacterFactory.getCharacterOffset(this.currentCharacterType);
+      if (this.character && this.player) {
+        this.character.setPosition(
+          this.player.x + characterOffset.x,
+          this.player.y + characterOffset.y
+        );
+      }
+      
+      // Update character animation based on movement direction
+      if (this.character) {
+        CharacterFactory.updateCharacterDirection(
+          this.character,
+          velocityX,
+          velocityY,
+          this.currentCharacterType
+        );
       }
     } else {
       // Stop movement when fishing
@@ -395,8 +439,13 @@ export class GameScene extends Phaser.Scene {
     
     // Make the UI container only visible to the UI camera and not the main camera
     this.cameras.main.ignore(uiContainer);
+    
+    // Make gameplay elements only visible to the main camera and not the UI camera
     uiCamera.ignore(this.player);
     uiCamera.ignore(this.map);
+    
+    // Make sure the character is only visible to the main camera
+    if (this.character) uiCamera.ignore(this.character);
     
     // If there's a floater or lure, ignore them in the UI camera
     if (this.floater) uiCamera.ignore(this.floater);
@@ -434,15 +483,30 @@ export class GameScene extends Phaser.Scene {
     // Store the current boat type
     this.currentBoatType = boatType;
     
+    // Make sure player exists before proceeding
+    if (!this.player) return;
+    
     // Get current position
     const x = this.player.x;
     const y = this.player.y;
     
-    // Remove current boat
+    // Remove current boat and character
     this.player.destroy();
+    if (this.character) {
+      this.character.destroy();
+    }
     
     // Create new boat at the same position
     this.player = BoatFactory.createBoat(this, x, y, boatType);
+    
+    // Create new character at the same position
+    const characterOffset = CharacterFactory.getCharacterOffset(this.currentCharacterType);
+    this.character = CharacterFactory.createCharacter(
+      this,
+      x + characterOffset.x,
+      y + characterOffset.y,
+      this.currentCharacterType
+    );
     
     // Set up camera to follow the new boat
     this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
@@ -450,5 +514,40 @@ export class GameScene extends Phaser.Scene {
 
   private gameOver(): void {
     this.scene.start('GameOverScene', { gameState: this.gameState });
+  }
+  
+  /**
+   * Clean up any existing game objects to prevent duplicates
+   * This is called at the start of create() to ensure we don't have multiple instances
+   */
+  private cleanup(): void {
+    // Clean up character if it exists
+    if (this.character) {
+      this.character.destroy();
+      this.character = null as unknown as Phaser.GameObjects.Sprite;
+    }
+    
+    // Clean up player if it exists
+    if (this.player) {
+      this.player.destroy();
+      this.player = null as unknown as Phaser.Physics.Arcade.Sprite;
+    }
+    
+    // Clean up fishing objects
+    if (this.floater) {
+      this.floater.destroy();
+      this.floater = null;
+    }
+    
+    if (this.lure) {
+      this.lure.destroy();
+      this.lure = null;
+    }
+    
+    // Clear any timers
+    if (this.fishingTimer) {
+      this.fishingTimer.remove();
+      this.fishingTimer = null;
+    }
   }
 }
