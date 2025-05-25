@@ -219,18 +219,37 @@ export class GameScene extends Phaser.Scene {
   private startFishing(): void {
     this.fishingState = 'casting';
     
-    // Create floater and lure
+    // Create floater with improved rendering settings to prevent shadow artifacts
     this.floater = this.add.image(
       this.player.x,
       this.player.y + 50,
       'floater'
-    ).setScale(0.3);
+    )
+    .setScale(0.3)
+    .setDepth(5) // Set depth to be above map but below character
+    .setOrigin(0.5, 0.5) // Center origin point
+    .setAlpha(1) // Full opacity
+    .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
     
+    // Create lure with improved rendering settings to prevent shadow artifacts
     this.lure = this.add.image(
       this.floater!.x,
       this.floater!.y + 20,
       'lure'
-    ).setScale(0.2);
+    )
+    .setScale(0.2)
+    .setDepth(5) // Same depth as floater
+    .setOrigin(0.5, 0.5) // Center origin point
+    .setAlpha(1) // Full opacity
+    .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
+    
+    // Make sure these objects are only visible to the main camera
+    // This prevents them from showing up in UI cameras
+    const uiCamera = this.cameras.getCamera('UICamera');
+    if (uiCamera) {
+      uiCamera.ignore(this.floater);
+      uiCamera.ignore(this.lure);
+    }
     
     // Start waiting for fish
     this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
