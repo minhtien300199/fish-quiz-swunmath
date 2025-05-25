@@ -5,6 +5,7 @@ import { MenuScene } from './scenes/menuScene';
 import { GameScene } from './scenes/gameScene';
 import { QuizScene } from './scenes/quizScene';
 import { GameOverScene } from './scenes/gameOverScene';
+import { UIScene } from './scenes/uiScene';
 
 export class Game extends Phaser.Game {
   constructor(config: Phaser.Types.Core.GameConfig) {
@@ -15,7 +16,8 @@ export class Game extends Phaser.Game {
       MenuScene,
       GameScene,
       QuizScene,
-      GameOverScene
+      GameOverScene,
+      UIScene
     ];
     
     // Add scenes to the config

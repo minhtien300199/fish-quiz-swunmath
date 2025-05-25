@@ -16,6 +16,7 @@ export class GameScene extends Phaser.Scene {
   private livesIcons: Phaser.GameObjects.Image[] = [];
   private fishCaught: number = 0;
   private fishCaughtText!: Phaser.GameObjects.Text;
+  private coordsText!: Phaser.GameObjects.Text;
   private gameState: GameState = {
     lives: 3,
     fishCaught: 0,
@@ -37,9 +38,26 @@ export class GameScene extends Phaser.Scene {
     this.fishingState = 'idle';
     this.currentFish = null;
     
-    // Add map
+    // Add map with fixed dimensions of 1280 × 640
     this.map = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map');
-    this.map.setScale(1);
+    
+    // Calculate scale to fit the map to the specified dimensions
+    // We're setting the map to exactly 1280 × 640 pixels
+    const targetWidth = 1280;
+    const targetHeight = 640;
+    const scaleX = targetWidth / this.map.width;
+    const scaleY = targetHeight / this.map.height;
+    this.map.setScale(scaleX, scaleY);
+    
+    // Get the actual dimensions of the map after scaling
+    const mapWidth = targetWidth;
+    const mapHeight = targetHeight;
+    
+    // Calculate map boundaries to match the game dimensions
+    const mapLeft = this.cameras.main.width / 2 - mapWidth / 2;
+    const mapTop = this.cameras.main.height / 2 - mapHeight / 2;
+    const mapRight = mapLeft + mapWidth;
+    const mapBottom = mapTop + mapHeight;
     
     // Add player (boat) using the BoatFactory
     this.player = BoatFactory.createBoat(
@@ -55,16 +73,33 @@ export class GameScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
     
-    // Add UI elements
+    // Create world bounds based on the actual map dimensions
+    this.physics.world.setBounds(mapLeft, mapTop, mapWidth, mapHeight);
+    
+    // Make sure the player stays within the map boundaries
+    this.player.setCollideWorldBounds(true);
+    
+    // Add a debug graphics to visualize the boundaries (can be removed in production)
+    if (this.physics.world.debugGraphic) {
+      const debugGraphics = this.add.graphics();
+      debugGraphics.lineStyle(2, 0xff0000, 1);
+      debugGraphics.strokeRect(mapLeft, mapTop, mapWidth, mapHeight);
+    }
+    
+    // Configure the main camera to follow player with zoom
+    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
+    this.cameras.main.startFollow(this.player);
+    this.cameras.main.setZoom(3.0); // Zoom in for better visibility
+    this.cameras.main.setName('MainCamera'); // Name the main camera for easier reference
+    
+    // Create UI elements - must be done after main camera setup
     this.createUI();
     
-    // Create world bounds
-    this.physics.world.setBounds(0, 0, this.map.width, this.map.height);
-    // Note: setCollideWorldBounds is already set in the BoatFactory
+    // Set up collision detection for map boundaries
+    this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
     
-    // Set up camera to follow player
-    this.cameras.main.startFollow(this.player, true, 0.1, 0.1);
-    this.cameras.main.setZoom(3.0); // Increased zoom from 1.5 to 2.0 for a much closer view
+    // Update UI elements
+    this.updateUI();
   }
 
   update(): void {
@@ -76,6 +111,13 @@ export class GameScene extends Phaser.Scene {
     
     // Update UI elements
     this.updateUI();
+    
+    // Ensure UI camera stays fixed
+    const uiCamera = this.cameras.getCamera('UICamera');
+    if (uiCamera) {
+      uiCamera.setScroll(0, 0);
+      uiCamera.setZoom(1); // Always keep UI at normal zoom
+    }
   }
 
   private handlePlayerMovement(): void {
@@ -276,21 +318,43 @@ export class GameScene extends Phaser.Scene {
   }
 
   private createUI(): void {
-    // Create lives display
+    // Create a UI scene camera that won't move or zoom with the main camera
+    // This ensures UI elements stay fixed regardless of main camera zoom/position
+    const uiCamera = this.cameras.add(0, 0, this.cameras.main.width, this.cameras.main.height);
+    uiCamera.setScroll(0, 0);
+    uiCamera.setName('UICamera');
+    
+    // Create a UI container that will hold all UI elements
+    // This container will only be visible to the UI camera
+    const uiContainer = this.add.container(0, 0);
+    
+    // Add a semi-transparent background for the UI
+    const bgWidth = 350;
+    const bgHeight = 180;
+    const bg = this.add.rectangle(10, 10, bgWidth, bgHeight, 0x000000, 0.7)
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.5);
+    
+    // Create lives display with clear visibility
     this.livesText = this.add.text(20, 20, 'Lives:', {
       fontSize: '24px',
       color: '#ffffff',
+      fontStyle: 'bold',
       stroke: '#000000',
-      strokeThickness: 4
-    }).setScrollFactor(0);
+      strokeThickness: 5
+    });
+    
+    // Clear any existing life icons
+    this.livesIcons = [];
     
     // Add life icons
+    const iconStartX = this.livesText.x + this.livesText.width + 10;
     for (let i = 0; i < this.lives; i++) {
       const lifeIcon = this.add.image(
-        this.livesText.x + this.livesText.width + 30 + (i * 40),
-        this.livesText.y + 12,
+        iconStartX + (i * 30),
+        this.livesText.y + this.livesText.height/2,
         'life-icon'
-      ).setScrollFactor(0).setScale(0.5);
+      ).setScale(0.8);
       
       this.livesIcons.push(lifeIcon);
     }
@@ -298,25 +362,68 @@ export class GameScene extends Phaser.Scene {
     // Create fish caught display
     this.fishCaughtText = this.add.text(
       20,
-      this.livesText.y + this.livesText.height + 20,
-      `Fish Caught: ${this.fishCaught}`,
+      this.livesText.y + this.livesText.height + 10,
+      `Fish: ${this.fishCaught}`,
       {
         fontSize: '24px',
         color: '#ffffff',
+        fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: 5
       }
-    ).setScrollFactor(0);
+    );
+    
+    // Create coordinates display
+    this.coordsText = this.add.text(
+      20,
+      this.fishCaughtText.y + this.fishCaughtText.height + 10,
+      `X: 0, Y: 0`,
+      {
+        fontSize: '24px',
+        color: '#ffff00',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 5
+      }
+    );
+    
+    // Add all UI elements to the container
+    uiContainer.add([bg, this.livesText, ...this.livesIcons, this.fishCaughtText, this.coordsText]);
+    
+    // Set high depth for the UI container to ensure it's on top
+    uiContainer.setDepth(1000);
+    
+    // Make the UI container only visible to the UI camera and not the main camera
+    this.cameras.main.ignore(uiContainer);
+    uiCamera.ignore(this.player);
+    uiCamera.ignore(this.map);
+    
+    // If there's a floater or lure, ignore them in the UI camera
+    if (this.floater) uiCamera.ignore(this.floater);
+    if (this.lure) uiCamera.ignore(this.lure);
   }
 
   private updateUI(): void {
     // Update fish caught text
-    this.fishCaughtText.setText(`Fish Caught: ${this.fishCaught}`);
+    if (this.fishCaughtText) {
+      this.fishCaughtText.setText(`Fish: ${this.fishCaught}`);
+    }
     
     // Update lives icons
     for (let i = 0; i < this.livesIcons.length; i++) {
       this.livesIcons[i].setVisible(i < this.lives);
     }
+    
+    // Update coordinates text with player position (rounded to integers for readability)
+    if (this.coordsText && this.player) {
+      const x = Math.round(this.player.x);
+      const y = Math.round(this.player.y);
+      this.coordsText.setText(`X: ${x}, Y: ${y}`);
+    }
+    
+    // Update game state
+    this.gameState.lives = this.lives;
+    this.gameState.fishCaught = this.fishCaught;
   }
 
   /**
