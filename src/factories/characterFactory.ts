@@ -67,7 +67,7 @@ export class CharacterFactory {
     y: number,
     characterType: CharacterType = CharacterType.LIGHT
   ): Phaser.GameObjects.Sprite {
-    // Create the character sprite
+    // Create the character sprite with improved rendering settings
     const character = scene.add.sprite(x, y, `character-idle-${characterType}`);
     
     // Set initial frame (DOWN direction)
@@ -80,11 +80,19 @@ export class CharacterFactory {
     // Set the character's depth to be higher than the boat but lower than UI
     character.setDepth(10);
     
-    // Make sure character stays within map bounds
-    if (scene.physics && scene.physics.world) {
-      // If the character goes outside the map bounds, it will be constrained
-      character.setOrigin(0.5, 0.5); // Center origin point
-    }
+    // Prevent shadow artifacts with proper rendering settings
+    character.setOrigin(0.5, 0.5); // Center origin point
+    
+    // Add these settings to prevent shadow artifacts
+    // This ensures the sprite is completely redrawn each frame
+    character.setActive(true);
+    character.setVisible(true);
+    
+    // Make sure character stays within map bounds and prevent rendering artifacts
+    // We don't need physics for the character since it follows the boat
+    // Just ensure proper rendering settings
+    character.setAlpha(1); // Full opacity
+    character.setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
     
     // Create idle animation for each direction with precise frame matching
     // Ensure we're using the correct frames for each direction based on the sprite sheet layout

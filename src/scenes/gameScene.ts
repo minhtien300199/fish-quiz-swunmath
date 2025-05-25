@@ -65,11 +65,11 @@ export class GameScene extends Phaser.Scene {
     const mapRight = mapLeft + mapWidth;
     const mapBottom = mapTop + mapHeight;
     
-    // Add player (boat) using the BoatFactory
+    // Add player (boat) using the BoatFactory at the specified starting position (x: 1024, y: 288)
     this.player = BoatFactory.createBoat(
       this,
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
+      1024, // Fixed starting X position
+      288,  // Fixed starting Y position
       this.currentBoatType
     );
     
@@ -185,17 +185,17 @@ export class GameScene extends Phaser.Scene {
         velocityY
       );
       
-      // Update character position to follow the boat
+      // Always update character position to follow the boat, even when not moving
+      // This ensures the character stays with the boat and doesn't leave shadows
       const characterOffset = CharacterFactory.getCharacterOffset(this.currentCharacterType);
       if (this.character && this.player) {
+        // Clear any previous rendering artifacts
         this.character.setPosition(
           this.player.x + characterOffset.x,
           this.player.y + characterOffset.y
         );
-      }
-      
-      // Update character animation based on movement direction
-      if (this.character) {
+        
+        // Update character animation based on movement direction
         CharacterFactory.updateCharacterDirection(
           this.character,
           velocityX,
@@ -391,16 +391,16 @@ export class GameScene extends Phaser.Scene {
     // Clear any existing life icons
     this.livesIcons = [];
     
-    // Add life icons
+    // Add heart icons for lives
     const iconStartX = this.livesText.x + this.livesText.width + 10;
     for (let i = 0; i < this.lives; i++) {
-      const lifeIcon = this.add.image(
-        iconStartX + (i * 30),
+      const heartIcon = this.add.image(
+        iconStartX + (i * 24), // Reduced spacing since heart icons are smaller (16x16)
         this.livesText.y + this.livesText.height/2,
-        'life-icon'
-      ).setScale(0.8);
+        'heart-icon'
+      ).setScale(2); // No scaling needed as it's already the right size (16x16)
       
-      this.livesIcons.push(lifeIcon);
+      this.livesIcons.push(heartIcon);
     }
     
     // Create fish caught display

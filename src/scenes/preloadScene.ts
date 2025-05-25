@@ -88,7 +88,7 @@ export class PreloadScene extends Phaser.Scene {
     // Load UI elements
     this.load.image('button', 'assets/ui_fishing_minigame/button.png');
     this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
-    this.load.image('life-icon', 'assets/ui_fishing_minigame/life.png');
+    this.load.image('heart-icon', 'assets/game_ui/icons/heart-icon.png'); // 16x16 heart icon for lives
     
     // Load character animations for fishing actions
     this.load.image('character-fishing', 'assets/character/tool_fishing_rod_throw/tool_fishing_rod_throw.png');
