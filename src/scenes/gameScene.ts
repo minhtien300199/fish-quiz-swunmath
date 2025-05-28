@@ -38,7 +38,7 @@ export class GameScene extends Phaser.Scene {
     this.load.image('new-sand-tile', 'assets/tilesets/new-sand-tile.png');
     this.load.image('beach-objects', 'assets/tilesets/beach-objects.png');
     this.load.image('palm_tree', 'assets/tilesets/palm_tree.png');
-    this.load.image('sub-objects', 'assets/tilesets/coconut.png');
+    this.load.image('coconut', 'assets/tilesets/coconut.png');
   }
   create(): void {
     // Clean up any existing objects first
@@ -52,47 +52,32 @@ export class GameScene extends Phaser.Scene {
     };
     this.fishingState = 'idle';
     this.currentFish = null;
-    // Create a simple tilemap programmatically instead of loading from JSON
-    // This avoids issues with external tileset references
-    const map = this.make.tilemap({
-      tileWidth: 32,
-      tileHeight: 32,
-      width: 40,
-      height: 20
-    });
+    // Load the tilemap from the JSON file
+    const map = this.make.tilemap({ key: 'map' });
     
-    // Add the tilesets using the loaded image assets
+    // Add the tilesets
+    // The first parameter must match the tileset name in the JSON file
+    // The second parameter is the key of the image we loaded in preload
     const seaSandTileset = map.addTilesetImage('new-sand-tile', 'new-sand-tile');
     const objectsTileset = map.addTilesetImage('beach-objects', 'beach-objects');
     const palmTreeTileset = map.addTilesetImage('palm_tree', 'palm_tree');
-    const subObjectsTileset = map.addTilesetImage('sub-objects', 'coconut');
+    const coconutTileset = map.addTilesetImage('coconut', 'coconut');
     
-    if (!seaSandTileset || !objectsTileset || !palmTreeTileset || !subObjectsTileset) {
+    if (!seaSandTileset || !objectsTileset || !palmTreeTileset || !coconutTileset) {
       console.error('Failed to load one or more tilesets');
       return;
     }
     
-    // Create blank layers
+    // Create layers from the tilemap
     const seaLayer = map.createLayer('sea', seaSandTileset);
     const sandLayer = map.createLayer('sand', seaSandTileset);
     const objectsLayer = map.createLayer('objects', objectsTileset);
-    const subObjectsLayer = map.createLayer('sub-objects', subObjectsTileset);
+    const subObjectsLayer = map.createLayer('sub-objects', coconutTileset);
     
     if (!seaLayer || !sandLayer || !objectsLayer || !subObjectsLayer) {
       console.error('Failed to create one or more layers');
       return;
     }
-    
-    // Fill the sea layer with water tiles
-    seaLayer.fill(1);
-    
-    // Add some sand around the edges
-    sandLayer.fill(1, 0, 0, 3, 20); // Left edge
-    sandLayer.fill(1, 0, 0, 40, 3); // Top edge
-    
-    // Add some objects (trees, rocks, etc.)
-    objectsLayer.fill(1, 0, 17, 3, 3); // Bottom left corner
-    objectsLayer.fill(1, 37, 17, 3, 3); // Bottom right corner
     
     // Store layers in the mapLayers object for easy access
     this.mapLayers = {
@@ -103,8 +88,9 @@ export class GameScene extends Phaser.Scene {
     };
     
     // Set collision for sand and objects layers
-    sandLayer.setCollisionByProperty({ collides: true });
-    objectsLayer.setCollisionByProperty({ collides: true });
+    // For tilemaps created in Tiled, we can use setCollisionByExclusion to set all non-empty tiles as collidable
+    sandLayer.setCollisionByExclusion([-1]); // -1 is the empty tile
+    objectsLayer.setCollisionByExclusion([-1]);
     
     // Store map reference
     this.map = map;
@@ -158,7 +144,7 @@ export class GameScene extends Phaser.Scene {
     // Configure the main camera to follow player with zoom
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     this.cameras.main.startFollow(this.player);
-    this.cameras.main.setZoom(3.0); // Zoom in for better visibility
+    this.cameras.main.setZoom(1.0); // Normal zoom level for better visibility
     this.cameras.main.setName('MainCamera'); // Name the main camera for easier reference
     
     // Ensure the character is only visible to the main camera
