@@ -1,21 +1,31 @@
-export class MenuScene extends Phaser.Scene {
+export class HowToPlayScene extends Phaser.Scene {
   constructor() {
-    super({ key: 'MenuScene' });
+    super({ key: 'HowToPlayScene' });
   }
 
   create(): void {
-    // Add background
+    // Add semi-transparent background
     this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map')
       .setScale(0.5)
-      .setAlpha(0.5);
+      .setAlpha(0.3);
+
+    // Add panel background for better text readability
+    const panel = this.add.rectangle(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
+      this.cameras.main.width * 0.8,
+      this.cameras.main.height * 0.8,
+      0x000000,
+      0.7
+    );
 
     // Add title
     this.add.text(
       this.cameras.main.width / 2,
-      this.cameras.main.height / 4,
-      'Fish Quiz',
+      panel.y - panel.height / 2 + 50,
+      'How To Play',
       {
-        fontSize: '64px',
+        fontSize: '48px',
         color: '#ffffff',
         fontStyle: 'bold',
         stroke: '#000000',
@@ -23,40 +33,67 @@ export class MenuScene extends Phaser.Scene {
       }
     ).setOrigin(0.5);
 
-    // Create buttons
-    this.createButton(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'New Game',
-      () => this.scene.start('GameScene')
-    );
+    // Add instructions text
+    const instructions = [
+      "Welcome to Fish Quiz!",
+      "",
+      "OBJECTIVE:",
+      "• Catch as many fish as you can and answer math questions correctly",
+      "• Each correct answer earns you points",
+      "• You have 3 lives - don't let them run out!",
+      "",
+      "CONTROLS:",
+      "• Arrow Keys or WASD - Move your boat",
+      "• SPACE - Cast your fishing line",
+      "• SPACE (when fish bites) - Reel in the fish",
+      "",
+      "FISHING TIPS:",
+      "• Watch for the bobber to move when a fish bites",
+      "• React quickly to catch the fish before it gets away",
+      "• Different fish are worth different point values",
+      "",
+      "GOOD LUCK AND HAVE FUN!"
+    ];
 
-    this.createButton(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 80,
-      'How to Play',
-      () => this.scene.start('HowToPlayScene')
-    );
-
-    this.createButton(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 160,
-      'Leaderboard',
-      () => this.showLeaderboard()
-    );
-
-    this.createButton(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 240,
-      'Exit',
-      () => this.exitGame()
-    );
+    let y = panel.y - panel.height / 2 + 120;
+    instructions.forEach(line => {
+      const fontSize = line.startsWith("•") ? "24px" : 
+                      line === "" ? "16px" : 
+                      line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") || line.includes("GOOD LUCK") ? "32px" : "24px";
+      
+      const fontColor = line.startsWith("•") ? "#ccccff" : 
+                        line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") ? "#ffcc00" : 
+                        line.includes("GOOD LUCK") ? "#00ff00" : "#ffffff";
+      
+      this.add.text(
+        this.cameras.main.width / 2,
+        y,
+        line,
+        {
+          fontSize: fontSize,
+          color: fontColor,
+          align: 'center',
+          stroke: '#000000',
+          strokeThickness: line === "" ? 0 : 2
+        }
+      ).setOrigin(0.5);
+      
+      y += line === "" ? 15 : (fontSize === "32px" ? 45 : 30);
+    });
 
     // Add decorative fish images
-    this.add.image(150, 150, 'fish-clown_fish').setScale(2);
-    this.add.image(this.cameras.main.width - 150, 150, 'fish-rainbow_fish').setScale(2);
-    this.add.image(150, this.cameras.main.height - 150, 'fish-bass').setScale(2);
-    this.add.image(this.cameras.main.width - 150, this.cameras.main.height - 150, 'fish-puffer_fish').setScale(2);
+    this.add.image(panel.x - panel.width / 2 + 80, panel.y - panel.height / 2 + 80, 'fish-clown_fish').setScale(1.5);
+    this.add.image(panel.x + panel.width / 2 - 80, panel.y - panel.height / 2 + 80, 'fish-rainbow_fish').setScale(1.5);
+    this.add.image(panel.x - panel.width / 2 + 80, panel.y + panel.height / 2 - 80, 'fish-bass').setScale(1.5);
+    this.add.image(panel.x + panel.width / 2 - 80, panel.y + panel.height / 2 - 80, 'fish-puffer_fish').setScale(1.5);
+
+    // Add back button
+    this.createButton(
+      this.cameras.main.width / 2,
+      panel.y + panel.height / 2 + 50,
+      'Back to Menu',
+      () => this.scene.start('MenuScene')
+    );
   }
 
   private createButton(x: number, y: number, text: string, callback: () => void): void {
@@ -133,37 +170,5 @@ export class MenuScene extends Phaser.Scene {
       buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
       callback();
     });
-  }
-
-  private showLeaderboard(): void {
-    // Placeholder for leaderboard functionality
-    const leaderboardPanel = this.add.image(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'panel'
-    ).setScale(4);
-
-    const closeButton = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 200,
-      'Close',
-      {
-        fontSize: '28px',
-        color: '#ffffff',
-        backgroundColor: '#222222',
-        padding: { x: 20, y: 10 }
-      }
-    ).setOrigin(0.5)
-      .setInteractive();
-
-    closeButton.on('pointerup', () => {
-      leaderboardPanel.destroy();
-      closeButton.destroy();
-    });
-  }
-
-  private exitGame(): void {
-    // In a web context, we can't truly exit the game, but we can reload the page
-    window.location.reload();
   }
 }

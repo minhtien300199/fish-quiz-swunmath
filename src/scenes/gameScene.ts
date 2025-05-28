@@ -7,7 +7,8 @@ export class GameScene extends Phaser.Scene {
   private character!: Phaser.GameObjects.Sprite; // Character sprite
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
-  private map!: Phaser.GameObjects.Image;
+  private map!: Phaser.Tilemaps.Tilemap;
+  private mapLayers: { [key: string]: Phaser.Tilemaps.TilemapLayer } = {};
   private floater: Phaser.GameObjects.Image | null = null;
   private lure: Phaser.GameObjects.Image | null = null;
   private fishingState: 'idle' | 'casting' | 'waiting' | 'catching' | 'reeling' = 'idle';
@@ -30,7 +31,15 @@ export class GameScene extends Phaser.Scene {
   constructor() {
     super({ key: 'GameScene' });
   }
-
+  preload(): void {
+    // Load tilemap from Tiled
+    this.load.tilemapTiledJSON('map', 'assets/maps/new-map.json');
+    // load images tileset
+    this.load.image('new-sand-tile', 'assets/tilesets/new-sand-tile.png');
+    this.load.image('beach-objects', 'assets/tilesets/beach-objects.png');
+    this.load.image('palm_tree', 'assets/tilesets/palm_tree.png');
+    this.load.image('sub-objects', 'assets/tilesets/coconut.png');
+  }
   create(): void {
     // Clean up any existing objects first
     this.cleanup();
@@ -43,27 +52,70 @@ export class GameScene extends Phaser.Scene {
     };
     this.fishingState = 'idle';
     this.currentFish = null;
+    // Create a simple tilemap programmatically instead of loading from JSON
+    // This avoids issues with external tileset references
+    const map = this.make.tilemap({
+      tileWidth: 32,
+      tileHeight: 32,
+      width: 40,
+      height: 20
+    });
     
-    // Add map with fixed dimensions of 1280 × 640
-    this.map = this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map');
+    // Add the tilesets using the loaded image assets
+    const seaSandTileset = map.addTilesetImage('new-sand-tile', 'new-sand-tile');
+    const objectsTileset = map.addTilesetImage('beach-objects', 'beach-objects');
+    const palmTreeTileset = map.addTilesetImage('palm_tree', 'palm_tree');
+    const subObjectsTileset = map.addTilesetImage('sub-objects', 'coconut');
     
-    // Calculate scale to fit the map to the specified dimensions
-    // We're setting the map to exactly 1280 × 640 pixels
-    const targetWidth = 1280;
-    const targetHeight = 640;
-    const scaleX = targetWidth / this.map.width;
-    const scaleY = targetHeight / this.map.height;
-    this.map.setScale(scaleX, scaleY);
+    if (!seaSandTileset || !objectsTileset || !palmTreeTileset || !subObjectsTileset) {
+      console.error('Failed to load one or more tilesets');
+      return;
+    }
     
-    // Get the actual dimensions of the map after scaling
-    const mapWidth = targetWidth;
-    const mapHeight = targetHeight;
+    // Create blank layers
+    const seaLayer = map.createLayer('sea', seaSandTileset);
+    const sandLayer = map.createLayer('sand', seaSandTileset);
+    const objectsLayer = map.createLayer('objects', objectsTileset);
+    const subObjectsLayer = map.createLayer('sub-objects', subObjectsTileset);
     
-    // Calculate map boundaries to match the game dimensions
-    const mapLeft = this.cameras.main.width / 2 - mapWidth / 2;
-    const mapTop = this.cameras.main.height / 2 - mapHeight / 2;
-    const mapRight = mapLeft + mapWidth;
-    const mapBottom = mapTop + mapHeight;
+    if (!seaLayer || !sandLayer || !objectsLayer || !subObjectsLayer) {
+      console.error('Failed to create one or more layers');
+      return;
+    }
+    
+    // Fill the sea layer with water tiles
+    seaLayer.fill(1);
+    
+    // Add some sand around the edges
+    sandLayer.fill(1, 0, 0, 3, 20); // Left edge
+    sandLayer.fill(1, 0, 0, 40, 3); // Top edge
+    
+    // Add some objects (trees, rocks, etc.)
+    objectsLayer.fill(1, 0, 17, 3, 3); // Bottom left corner
+    objectsLayer.fill(1, 37, 17, 3, 3); // Bottom right corner
+    
+    // Store layers in the mapLayers object for easy access
+    this.mapLayers = {
+      sea: seaLayer,
+      sand: sandLayer,
+      objects: objectsLayer,
+      subObjects: subObjectsLayer
+    };
+    
+    // Set collision for sand and objects layers
+    sandLayer.setCollisionByProperty({ collides: true });
+    objectsLayer.setCollisionByProperty({ collides: true });
+    
+    // Store map reference
+    this.map = map;
+    
+    // Set world bounds based on map dimensions
+    const mapWidth = map.widthInPixels;
+    const mapHeight = map.heightInPixels;
+    this.physics.world.setBounds(0, 0, mapWidth, mapHeight);
+    
+    // Set camera bounds
+    this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
     
     // Add player (boat) using the BoatFactory at the specified starting position (x: 1024, y: 288)
     this.player = BoatFactory.createBoat(
@@ -88,17 +140,19 @@ export class GameScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
     
-    // Create world bounds based on the actual map dimensions
-    this.physics.world.setBounds(mapLeft, mapTop, mapWidth, mapHeight);
-    
     // Make sure the player stays within the map boundaries
     this.player.setCollideWorldBounds(true);
+    
+    // Add collision between player and land/object layers
+    this.physics.add.collider(this.player, this.mapLayers.sand);
+    this.physics.add.collider(this.player, this.mapLayers.objects);
     
     // Add a debug graphics to visualize the boundaries (can be removed in production)
     if (this.physics.world.debugGraphic) {
       const debugGraphics = this.add.graphics();
       debugGraphics.lineStyle(2, 0xff0000, 1);
-      debugGraphics.strokeRect(mapLeft, mapTop, mapWidth, mapHeight);
+      // Use the actual map dimensions from the tilemap
+      debugGraphics.strokeRect(0, 0, mapWidth, mapHeight);
     }
     
     // Configure the main camera to follow player with zoom
@@ -145,6 +199,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handlePlayerMovement(): void {
+    // Check if player exists before trying to move it
+    if (!this.player) {
+      return;
+    }
+    
     // Only allow movement when not fishing
     if (this.fishingState === 'idle') {
       // Reset velocity at the start of each update
@@ -210,6 +269,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private handleFishing(): void {
+    // Check if player exists and space key is defined
+    if (!this.player || !this.spaceKey) {
+      return;
+    }
+    
     // Start fishing when space is pressed
     if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.fishingState === 'idle') {
       this.startFishing();
@@ -461,7 +525,11 @@ export class GameScene extends Phaser.Scene {
     
     // Make gameplay elements only visible to the main camera and not the UI camera
     uiCamera.ignore(this.player);
-    uiCamera.ignore(this.map);
+    
+    // Make tilemap layers only visible to the main camera
+    Object.values(this.mapLayers).forEach(layer => {
+      if (layer) uiCamera.ignore(layer);
+    });
     
     // Make sure the character is only visible to the main camera
     if (this.character) uiCamera.ignore(this.character);
@@ -472,6 +540,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private updateUI(): void {
+    // Skip UI updates if critical elements aren't initialized yet
+    if (!this.player) {
+      return;
+    }
+    
     // Update fish caught text
     if (this.fishCaughtText) {
       this.fishCaughtText.setText(`Fish: ${this.fishCaught}`);
@@ -534,6 +607,8 @@ export class GameScene extends Phaser.Scene {
   private gameOver(): void {
     this.scene.start('GameOverScene', { gameState: this.gameState });
   }
+  
+
   
   /**
    * Clean up any existing game objects to prevent duplicates

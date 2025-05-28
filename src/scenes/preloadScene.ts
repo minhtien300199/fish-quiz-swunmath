@@ -49,8 +49,14 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private loadAssets(): void {
-    // Load map
-    this.load.image('map', 'assets/maps/first_map.png');
+    // Load tilemap assets
+    this.load.image('tiles-sea', 'assets/maps/sea.png');
+    this.load.image('tiles-sand', 'assets/maps/sand.png');
+    this.load.image('tiles-objects', 'assets/maps/objects.png');
+    this.load.image('tiles-sub-objects', 'assets/maps/sub-objects.png');
+    
+    // Load the single map JSON file
+    this.load.tilemapTiledJSON('game-map', 'assets/maps/map.json');
 
     // Load boats as spritesheets (8 frames for 8 directions)
     this.load.spritesheet('boat-fishing_boat_blue', 'assets/boats/fishing_boat_blue/full_boat.png', {

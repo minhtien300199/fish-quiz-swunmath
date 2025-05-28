@@ -1,0 +1,31 @@
+{
+    "Map/SizeTest": {
+        "height": 4300,
+        "width": 2
+    },
+    "activeFile": "",
+    "expandedProjectPaths": [
+    ],
+    "fileStates": {
+        "E:/work/game-map/beach_tile/new-sand-tile.tsx": {
+            "scaleInDock": 1
+        },
+        "new-map.tmx#beach-objects": {
+            "scaleInEditor": 1
+        },
+        "new-map.tmx#palm_tree": {
+            "scaleInEditor": 1
+        }
+    },
+    "last.exportedFilePath": "E:/work/fish-quiz-swunmath/assets/maps",
+    "last.imagePath": "E:/work/fish-quiz-swunmath/assets/tilesets",
+    "map.lastUsedExportFilter": "JSON map files (*.tmj *.json)",
+    "map.lastUsedFormat": "tmx",
+    "map.width": 40,
+    "openFiles": [
+    ],
+    "project": "new-map.tiled-project",
+    "recentFiles": [
+    ],
+    "tileset.embedInMap": true
+}
