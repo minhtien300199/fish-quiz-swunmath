@@ -1,0 +1,440 @@
+{
+	"textures": [
+		{
+			"image": "character_tools_fishing_rod_catch_body_brown.png",
+			"format": "RGBA8888",
+			"size": {
+				"w": 29,
+				"h": 118
+			},
+			"scale": 1,
+			"frames": [
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-10.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 26,
+						"y": 26,
+						"w": 11,
+						"h": 14
+					},
+					"frame": {
+						"x": 1,
+						"y": 1,
+						"w": 11,
+						"h": 14
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-11.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 26,
+						"y": 26,
+						"w": 11,
+						"h": 14
+					},
+					"frame": {
+						"x": 1,
+						"y": 1,
+						"w": 11,
+						"h": 14
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-15.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 27,
+						"y": 26,
+						"w": 11,
+						"h": 14
+					},
+					"frame": {
+						"x": 14,
+						"y": 1,
+						"w": 11,
+						"h": 14
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-16.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 27,
+						"y": 26,
+						"w": 11,
+						"h": 14
+					},
+					"frame": {
+						"x": 14,
+						"y": 1,
+						"w": 11,
+						"h": 14
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-18.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 26,
+						"y": 26,
+						"w": 12,
+						"h": 14
+					},
+					"frame": {
+						"x": 1,
+						"y": 17,
+						"w": 12,
+						"h": 14
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-0.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 26,
+						"y": 25,
+						"w": 13,
+						"h": 15
+					},
+					"frame": {
+						"x": 15,
+						"y": 17,
+						"w": 13,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-3.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 11,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 33,
+						"w": 11,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-4.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 11,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 33,
+						"w": 11,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-1.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 14,
+						"h": 15
+					},
+					"frame": {
+						"x": 14,
+						"y": 34,
+						"w": 14,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-2.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 14,
+						"h": 15
+					},
+					"frame": {
+						"x": 14,
+						"y": 34,
+						"w": 14,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-8.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 27,
+						"y": 25,
+						"w": 11,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 50,
+						"w": 11,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-9.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 27,
+						"y": 25,
+						"w": 11,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 50,
+						"w": 11,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-5.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 24,
+						"y": 25,
+						"w": 13,
+						"h": 15
+					},
+					"frame": {
+						"x": 14,
+						"y": 51,
+						"w": 13,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-17.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 27,
+						"y": 25,
+						"w": 11,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 67,
+						"w": 11,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-6.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 24,
+						"y": 25,
+						"w": 14,
+						"h": 15
+					},
+					"frame": {
+						"x": 14,
+						"y": 68,
+						"w": 14,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-7.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 24,
+						"y": 25,
+						"w": 14,
+						"h": 15
+					},
+					"frame": {
+						"x": 14,
+						"y": 68,
+						"w": 14,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-12.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 12,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 85,
+						"w": 12,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-13.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 24,
+						"y": 25,
+						"w": 13,
+						"h": 15
+					},
+					"frame": {
+						"x": 15,
+						"y": 85,
+						"w": 13,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-14.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 25,
+						"y": 25,
+						"w": 12,
+						"h": 15
+					},
+					"frame": {
+						"x": 1,
+						"y": 102,
+						"w": 12,
+						"h": 15
+					}
+				},
+				{
+					"filename": "character_tools_fishing_rod_catch_body_brown-19.png",
+					"rotated": false,
+					"trimmed": true,
+					"sourceSize": {
+						"w": 64,
+						"h": 64
+					},
+					"spriteSourceSize": {
+						"x": 26,
+						"y": 25,
+						"w": 12,
+						"h": 15
+					},
+					"frame": {
+						"x": 15,
+						"y": 102,
+						"w": 12,
+						"h": 15
+					}
+				}
+			]
+		}
+	],
+	"meta": {
+		"app": "https://www.codeandweb.com/texturepacker",
+		"version": "3.0",
+		"smartupdate": "$TexturePacker:SmartUpdate:cdf91c7225cf6e639042fb6a87af34d2:940d3365ddd68dd1396c3abeabf92b26:57dcc9c8053755e9d42265eaabf267f3$"
+	}
+}

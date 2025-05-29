@@ -1,10 +1,18 @@
 
 const idleBodyFileName = '../assets/character/idle/character_idle_body_';
+
+export const BodyColor = {
+    light: 'light',
+    dark: 'dark',
+    brown: 'brown',
+    black: 'black',
+}
 const idleBodyExtensionFileName = '.png';
 export const IdleBodyType = {
     light: idleBodyFileName + 'light' + idleBodyExtensionFileName,
-    dark: idleBodyFileName + (Math.random() < 0.5 ? 'dark' : 'black') + idleBodyExtensionFileName,
+    dark: idleBodyFileName + 'dark' + idleBodyExtensionFileName,
     brown: idleBodyFileName + 'brown' + idleBodyExtensionFileName,
+    black: idleBodyFileName + 'black' + idleBodyExtensionFileName,
 }
 
 // tool_fishing_rod_throw

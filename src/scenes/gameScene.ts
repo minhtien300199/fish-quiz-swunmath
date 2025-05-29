@@ -1,6 +1,6 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
-import { CharacterFactory, CharacterType } from '../factories/characterFactory';
+import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -84,7 +84,7 @@ export class GameScene extends Phaser.Scene {
       sea: seaLayer,
       sand: sandLayer,
       objects: objectsLayer,
-      subObjects: subObjectsLayer
+      subObjects: subObjectsLayer,
     };
     
     // Set collision for sand and objects layers
@@ -143,8 +143,8 @@ export class GameScene extends Phaser.Scene {
     
     // Configure the main camera to follow player with zoom
     this.cameras.main.setBounds(0, 0, mapWidth, mapHeight);
-    this.cameras.main.startFollow(this.player);
-    this.cameras.main.setZoom(1.0); // Normal zoom level for better visibility
+    this.cameras.main.startFollow(this.player, true, 0.5, 0.5); // Follow player with deadzone centered
+    this.cameras.main.setZoom(3.0); // Zoomed in for better detail
     this.cameras.main.setName('MainCamera'); // Name the main camera for easier reference
     
     // Ensure the character is only visible to the main camera
@@ -269,6 +269,16 @@ export class GameScene extends Phaser.Scene {
   private startFishing(): void {
     this.fishingState = 'casting';
     
+    // Set character to fishing throw action
+    if (this.character) {
+      CharacterFactory.setCharacterAction(
+        this.character,
+        this,
+        CharacterActionType.FISHING_THROW,
+        this.currentCharacterType
+      );
+    }
+    
     // Create floater with improved rendering settings to prevent shadow artifacts
     this.floater = this.add.image(
       this.player.x,
@@ -315,6 +325,16 @@ export class GameScene extends Phaser.Scene {
     
     // Fish is biting!
     this.fishingState = 'catching';
+    
+    // Change character animation to pull when the lure is bitten
+    if (this.character) {
+      CharacterFactory.setCharacterAction(
+        this.character,
+        this,
+        CharacterActionType.FISHING_PULL,
+        this.currentCharacterType
+      );
+    }
     
     // Make the floater bob
     this.tweens.add({

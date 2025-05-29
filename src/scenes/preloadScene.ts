@@ -1,7 +1,9 @@
+import { BodyColor } from "../const/bodyType";
+
 export class PreloadScene extends Phaser.Scene {
   private loadingBar!: Phaser.GameObjects.Graphics;
   private progressBar!: Phaser.GameObjects.Graphics;
-
+  public defaultCharacterColor: 'light' | 'dark' | 'brown' | 'black' = 'light';
   constructor() {
     super({ key: 'PreloadScene' });
   }
@@ -49,15 +51,8 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   private loadAssets(): void {
-    // Load tilemap assets
-    this.load.image('tiles-sea', 'assets/maps/sea.png');
-    this.load.image('tiles-sand', 'assets/maps/sand.png');
-    this.load.image('tiles-objects', 'assets/maps/objects.png');
-    this.load.image('tiles-sub-objects', 'assets/maps/sub-objects.png');
-    
-    // Load the single map JSON file
-    this.load.tilemapTiledJSON('game-map', 'assets/maps/map.json');
-
+    // set default character color:
+    this.defaultCharacterColor = 'light';
     // Load boats as spritesheets (8 frames for 8 directions)
     this.load.spritesheet('boat-fishing_boat_blue', 'assets/boats/fishing_boat_blue/full_boat.png', {
       frameWidth: 128, // Adjust these values based on your actual sprite dimensions
@@ -96,11 +91,44 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
     this.load.image('heart-icon', 'assets/game_ui/icons/heart-icon.png'); // 16x16 heart icon for lives
     
-    // Load character animations for fishing actions
-    this.load.image('character-fishing', 'assets/character/tool_fishing_rod_throw/tool_fishing_rod_throw.png');
-    this.load.image('character-pull', 'assets/character/tool_fishing_rod_pull/tool_fishing_rod_pull.png');
-    this.load.image('character-reel', 'assets/character/tool_fishing_rod_reel/tool_fishing_rod_reel.png');
-    this.load.image('character-catch', 'assets/character/tool_fishing_rod_catch/tool_fishing_rod_catch.png');
+    // Load character animations for fishing actions as spritesheets
+    // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
+    
+    // character_tools_fishing_rod_catch_body_light
+    this.load.spritesheet('character-fishing-throw', 
+      `assets/character/tool_fishing_rod_throw/character_body/character_tools_fishing_rod_throw_body_${this.defaultCharacterColor}.png`,
+      {
+        frameWidth: 64,  // Adjust based on your actual sprite dimensions
+        frameHeight: 64
+      }
+    );
+    
+    // Fishing rod pull
+    this.load.spritesheet('character-fishing-pull', 
+      `assets/character/tool_fishing_rod_pull/character_body/character_tools_fishing_rod_pull_body_${this.defaultCharacterColor}.png`,
+      {
+        frameWidth: 64,
+        frameHeight: 64
+      }
+    );
+    
+    // Fishing rod reel
+    this.load.spritesheet('character-fishing-reel', 
+      `assets/character/tool_fishing_rod_reel/character_body/character_tools_fishing_rod_reel_body_${this.defaultCharacterColor}.png`,
+      {
+        frameWidth: 64,
+        frameHeight: 64
+      }
+    );
+    
+    // Fishing rod catch (keeping for backward compatibility)
+    this.load.spritesheet('character-catch', 
+      `assets/character/tool_fishing_rod_catch/character_body/character_tools_fishing_rod_catch_body_${this.defaultCharacterColor}.png`,
+      {
+        frameWidth: 64,
+        frameHeight: 64
+      }
+    );
     
     // Load character idle sprites (8 frames for 4 directions - 2 frames per direction)
     this.load.spritesheet('character-idle-light', 'assets/character/idle/character_idle_body_light.png', {
