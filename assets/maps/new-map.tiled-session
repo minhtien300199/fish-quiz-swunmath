@@ -3,17 +3,34 @@
         "height": 4300,
         "width": 2
     },
-    "activeFile": "",
+    "activeFile": "new-map.tmx",
     "expandedProjectPaths": [
+        "."
     ],
     "fileStates": {
         "E:/work/game-map/beach_tile/new-sand-tile.tsx": {
             "scaleInDock": 1
         },
+        "new-map.tmx": {
+            "scale": 1,
+            "selectedLayer": 3,
+            "viewCenter": {
+                "x": 960.5,
+                "y": 528
+            }
+        },
         "new-map.tmx#beach-objects": {
+            "scaleInDock": 1,
             "scaleInEditor": 1
         },
+        "new-map.tmx#coconut": {
+            "scaleInDock": 1
+        },
+        "new-map.tmx#new-sand-tile": {
+            "scaleInDock": 1
+        },
         "new-map.tmx#palm_tree": {
+            "scaleInDock": 1,
             "scaleInEditor": 1
         }
     },
@@ -23,9 +40,11 @@
     "map.lastUsedFormat": "tmx",
     "map.width": 40,
     "openFiles": [
+        "new-map.tmx"
     ],
     "project": "new-map.tiled-project",
     "recentFiles": [
+        "new-map.tmx"
     ],
     "tileset.embedInMap": true
 }
