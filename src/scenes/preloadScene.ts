@@ -1,4 +1,5 @@
 import { BodyColor } from "../const/bodyType";
+import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets } from "../const/rodType";
 
 export class PreloadScene extends Phaser.Scene {
   private loadingBar!: Phaser.GameObjects.Graphics;
@@ -85,6 +86,36 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('fishing-rod', 'assets/fishing_rods/fishing_rod.png');
     this.load.image('floater', 'assets/floaters/floater.png');
     this.load.image('lure', 'assets/lure/lure.png');
+    
+    // Load fishing rod assets for different rod types and actions as spritesheets
+    // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
+    Object.keys(RodType).forEach(rodKey => {
+      const rodType = rodKey as keyof typeof RodType;
+      
+      // Throw action
+      this.load.spritesheet(`rod-throw-${rodType}`, RodThrowAssets[rodType], {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      
+      // Pull action
+      this.load.spritesheet(`rod-pull-${rodType}`, RodPullAssets[rodType], {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      
+      // Reel action
+      this.load.spritesheet(`rod-reel-${rodType}`, RodReelAssets[rodType], {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+      
+      // Catch action
+      this.load.spritesheet(`rod-catch-${rodType}`, RodCatchAssets[rodType], {
+        frameWidth: 64,
+        frameHeight: 64
+      });
+    });
     
     // Load UI elements
     this.load.image('button', 'assets/ui_fishing_minigame/button.png');

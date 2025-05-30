@@ -1,5 +1,6 @@
 import 'phaser';
 import { IdleBodyType, ToolFishingRodThrowType, ToolFishingRodPullType, ToolFishingRodReelType } from '../const/bodyType';
+import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets, RodDirectionThrow, RodDirectionPull, RodDirectionReel, RodDirectionCatch } from '../const/rodType';
 
 // Define character types
 export enum CharacterType {
@@ -14,7 +15,8 @@ export enum CharacterActionType {
   IDLE = 'idle',
   FISHING_THROW = 'fishing-throw',
   FISHING_PULL = 'fishing-pull',
-  FISHING_REEL = 'fishing-reel'
+  FISHING_REEL = 'fishing-reel',
+  FISHING_CATCH = 'fishing-catch'
 }
 
 // Define character directions based on frame order
@@ -37,7 +39,17 @@ interface CharacterProperties {
   offsetY: number; // Offset from boat position
 }
 
+// Rod properties interface
+interface RodProperties {
+  scale: number;
+  offsetX: number; // Offset from character position
+  offsetY: number; // Offset from character position
+}
+
 export class CharacterFactory {
+  // Current rod type - default to red
+  private static currentRodType: keyof typeof RodType = 'red';
+  
   // Character properties by type
   private static readonly characterProperties: Record<CharacterType, CharacterProperties> = {
     [CharacterType.LIGHT]: {
@@ -207,6 +219,22 @@ export class CharacterFactory {
       x: properties.offsetX,
       y: properties.offsetY
     };
+  }
+  
+  /**
+   * Set the current rod type to use for fishing actions
+   * @param rodType The rod type to use
+   */
+  public static setRodType(rodType: keyof typeof RodType): void {
+    this.currentRodType = rodType;
+  }
+  
+  /**
+   * Get the current rod type
+   * @returns The current rod type
+   */
+  public static getRodType(): keyof typeof RodType {
+    return this.currentRodType;
   }
   
   /**
@@ -395,12 +423,22 @@ export class CharacterFactory {
     switch (actionType) {
       case CharacterActionType.FISHING_THROW:
         this.setFishingThrowAction(character, scene);
+        // Load the rod sprite for throw action
+        this.loadRodSprite(scene, 'throw');
         break;
       case CharacterActionType.FISHING_PULL:
         this.setFishingPullAction(character, scene);
+        // Load the rod sprite for pull action
+        this.loadRodSprite(scene, 'pull');
         break;
       case CharacterActionType.FISHING_REEL:
         this.setFishingReelAction(character, scene);
+        // Load the rod sprite for reel action
+        this.loadRodSprite(scene, 'reel');
+        break;
+      case CharacterActionType.FISHING_CATCH:
+        // Load the rod sprite for catch action
+        this.loadRodSprite(scene, 'catch');
         break;
       case CharacterActionType.IDLE:
       default:
@@ -470,5 +508,301 @@ export class CharacterFactory {
     
     // Default to down if we can't determine the direction
     return 'down';
+  }
+  
+  /**
+   * Load the appropriate rod sprite for the current action
+   * @param scene The scene to load the rod in
+   * @param action The fishing action (throw, pull, reel, catch)
+   */
+  private static loadRodSprite(scene: Phaser.Scene, action: 'throw' | 'pull' | 'reel' | 'catch'): void {
+    // Get the current rod type
+    const rodType = this.currentRodType;
+    
+    // Get the appropriate asset path based on the action and rod type
+    let assetPath = '';
+    let spriteKey = '';
+    
+    switch (action) {
+      case 'throw':
+        assetPath = RodThrowAssets[rodType];
+        spriteKey = `rod-throw-${rodType}`;
+        break;
+      case 'pull':
+        assetPath = RodPullAssets[rodType];
+        spriteKey = `rod-pull-${rodType}`;
+        break;
+      case 'reel':
+        assetPath = RodReelAssets[rodType];
+        spriteKey = `rod-reel-${rodType}`;
+        break;
+      case 'catch':
+        assetPath = RodCatchAssets[rodType];
+        spriteKey = `rod-catch-${rodType}`;
+        break;
+    }
+    
+    // Check if the rod sprite is already loaded
+    if (!scene.textures.exists(spriteKey)) {
+      // If not loaded, load it now
+      scene.load.spritesheet(spriteKey, assetPath, {
+        frameWidth: 64,  // Assuming same dimensions as character sprites
+        frameHeight: 64
+      });
+      
+      scene.load.once('complete', () => {
+        // Create the animations once loaded
+        this.createRodAnimations(scene, spriteKey, action);
+        // Create the rod sprite
+        this.createRodSprite(scene, spriteKey, action);
+      });
+      scene.load.start();
+    } else {
+      // If already loaded, just create the sprite
+      this.createRodSprite(scene, spriteKey, action);
+    }
+  }
+  
+  /**
+   * Create animations for the rod based on direction
+   * @param scene The scene to create animations in
+   * @param spriteKey The key of the loaded rod spritesheet
+   * @param action The fishing action
+   */
+  private static createRodAnimations(scene: Phaser.Scene, spriteKey: string, action: 'throw' | 'pull' | 'reel' | 'catch'): void {
+    // Create animations for each direction if they don't exist
+    if (!scene.anims.exists(`${spriteKey}-down`)) {
+      // Use the appropriate direction enum based on the action
+      switch (action) {
+        case 'throw':
+          // Throw rod: 7x4 (4 rows 7 frame)
+          scene.anims.create({
+            key: `${spriteKey}-down`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionThrow.DOWN_START, 
+              end: RodDirectionThrow.DOWN_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-left`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionThrow.LEFT_START, 
+              end: RodDirectionThrow.LEFT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-up`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionThrow.UP_START, 
+              end: RodDirectionThrow.UP_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-right`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionThrow.RIGHT_START, 
+              end: RodDirectionThrow.RIGHT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          break;
+          
+        case 'pull':
+          // Pull rod: 8x4 (4 row 8 frame)
+          scene.anims.create({
+            key: `${spriteKey}-down`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionPull.DOWN_START, 
+              end: RodDirectionPull.DOWN_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-left`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionPull.LEFT_START, 
+              end: RodDirectionPull.LEFT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-up`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionPull.UP_START, 
+              end: RodDirectionPull.UP_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-right`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionPull.RIGHT_START, 
+              end: RodDirectionPull.RIGHT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          break;
+          
+        case 'reel':
+          // Reel rod: 4x4 (4 row 4 frame)
+          scene.anims.create({
+            key: `${spriteKey}-down`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionReel.DOWN_START, 
+              end: RodDirectionReel.DOWN_END 
+            }),
+            frameRate: 10,
+            repeat: -1 // Reel animation loops
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-left`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionReel.LEFT_START, 
+              end: RodDirectionReel.LEFT_END 
+            }),
+            frameRate: 10,
+            repeat: -1
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-up`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionReel.UP_START, 
+              end: RodDirectionReel.UP_END 
+            }),
+            frameRate: 10,
+            repeat: -1
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-right`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionReel.RIGHT_START, 
+              end: RodDirectionReel.RIGHT_END 
+            }),
+            frameRate: 10,
+            repeat: -1
+          });
+          break;
+          
+        case 'catch':
+          // Catch: 5x4 (4 row 5 frame)
+          scene.anims.create({
+            key: `${spriteKey}-down`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionCatch.DOWN_START, 
+              end: RodDirectionCatch.DOWN_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-left`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionCatch.LEFT_START, 
+              end: RodDirectionCatch.LEFT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-up`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionCatch.UP_START, 
+              end: RodDirectionCatch.UP_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          
+          scene.anims.create({
+            key: `${spriteKey}-right`,
+            frames: scene.anims.generateFrameNumbers(spriteKey, { 
+              start: RodDirectionCatch.RIGHT_START, 
+              end: RodDirectionCatch.RIGHT_END 
+            }),
+            frameRate: 10,
+            repeat: 0
+          });
+          break;
+      }
+    }
+  }
+  
+  /**
+   * Create a rod sprite and attach it to the character
+   * @param scene The scene to create the rod in
+   * @param spriteKey The key of the loaded rod sprite
+   * @param action The fishing action
+   */
+  private static createRodSprite(scene: Phaser.Scene, spriteKey: string, action: 'throw' | 'pull' | 'reel' | 'catch'): void {
+    // Find the character sprite
+    const character = scene.children.getChildren()
+      .find(child => child.type === 'Sprite' && 
+        (child as Phaser.GameObjects.Sprite).texture.key.includes('character-')) as Phaser.GameObjects.Sprite;
+    
+    if (!character) return;
+    
+    // Remove any existing rod sprites
+    scene.children.getChildren()
+      .filter(child => child.type === 'Sprite' && 
+        (child as Phaser.GameObjects.Sprite).texture.key.includes('rod-'))
+      .forEach(rod => rod.destroy());
+    
+    // Create the rod sprite
+    const rod = scene.add.sprite(
+      character.x,
+      character.y,
+      spriteKey
+    );
+    
+    // Scale down the rod to match the character (using the same scale as the character)
+    rod.setScale(0.5);
+    
+    // Set the rod's depth to be just above the character
+    rod.setDepth(character.depth + 1);
+    
+    // Get the current direction but don't apply any offsets
+    const direction = this.getCurrentDirection(character);
+    
+    // Play the appropriate animation based on direction
+    rod.play(`${spriteKey}-${direction}`);
+    
+    // Add an update listener to keep the rod with the character at the exact same position
+    scene.events.on('update', () => {
+      if (rod && rod.active && character && character.active) {
+        rod.x = character.x;
+        rod.y = character.y;
+      }
+    });
+    
+    // Make sure the rod is only visible to the main camera
+    const cameras = scene.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== scene.cameras.main) {
+        camera.ignore(rod);
+      }
+    }
   }
 }
