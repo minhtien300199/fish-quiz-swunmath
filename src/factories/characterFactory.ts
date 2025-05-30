@@ -420,31 +420,40 @@ export class CharacterFactory {
     actionType: CharacterActionType,
     characterType: CharacterType = CharacterType.LIGHT
   ): void {
+    // Store the current direction before changing animations
+    const currentDirection = this.getCurrentDirection(character);
+    
     switch (actionType) {
       case CharacterActionType.FISHING_THROW:
         this.setFishingThrowAction(character, scene);
-        // Load the rod sprite for throw action
-        this.loadRodSprite(scene, 'throw');
+        // Load the rod sprite for throw action and sync with character
+        this.loadRodSprite(scene, 'throw', currentDirection);
         break;
       case CharacterActionType.FISHING_PULL:
         this.setFishingPullAction(character, scene);
-        // Load the rod sprite for pull action
-        this.loadRodSprite(scene, 'pull');
+        // Load the rod sprite for pull action and sync with character
+        this.loadRodSprite(scene, 'pull', currentDirection);
         break;
       case CharacterActionType.FISHING_REEL:
         this.setFishingReelAction(character, scene);
-        // Load the rod sprite for reel action
-        this.loadRodSprite(scene, 'reel');
+        // Load the rod sprite for reel action and sync with character
+        this.loadRodSprite(scene, 'reel', currentDirection);
         break;
       case CharacterActionType.FISHING_CATCH:
-        // Load the rod sprite for catch action
-        this.loadRodSprite(scene, 'catch');
+        // Load the rod sprite for catch action and sync with character
+        this.loadRodSprite(scene, 'catch', currentDirection);
         break;
       case CharacterActionType.IDLE:
       default:
         // Reset to idle animation based on the last direction
         character.setTexture(`character-idle-${characterType}`);
-        character.play(`${characterType}-idle-down`);
+        character.play(`${characterType}-idle-${currentDirection}`);
+        
+        // Remove any existing rod sprites when going back to idle
+        scene.children.getChildren()
+          .filter(child => child.type === 'Sprite' && 
+            (child as Phaser.GameObjects.Sprite).texture.key.includes('rod-'))
+          .forEach(rod => rod.destroy());
         break;
     }
   }
@@ -514,8 +523,9 @@ export class CharacterFactory {
    * Load the appropriate rod sprite for the current action
    * @param scene The scene to load the rod in
    * @param action The fishing action (throw, pull, reel, catch)
+   * @param direction The direction to play the animation in
    */
-  private static loadRodSprite(scene: Phaser.Scene, action: 'throw' | 'pull' | 'reel' | 'catch'): void {
+  private static loadRodSprite(scene: Phaser.Scene, action: 'throw' | 'pull' | 'reel' | 'catch', direction: string = 'down'): void {
     // Get the current rod type
     const rodType = this.currentRodType;
     
@@ -553,13 +563,13 @@ export class CharacterFactory {
       scene.load.once('complete', () => {
         // Create the animations once loaded
         this.createRodAnimations(scene, spriteKey, action);
-        // Create the rod sprite
-        this.createRodSprite(scene, spriteKey, action);
+        // Create the rod sprite with the specified direction
+        this.createRodSprite(scene, spriteKey, action, direction);
       });
       scene.load.start();
     } else {
-      // If already loaded, just create the sprite
-      this.createRodSprite(scene, spriteKey, action);
+      // If already loaded, just create the sprite with the specified direction
+      this.createRodSprite(scene, spriteKey, action, direction);
     }
   }
   
@@ -754,8 +764,9 @@ export class CharacterFactory {
    * @param scene The scene to create the rod in
    * @param spriteKey The key of the loaded rod sprite
    * @param action The fishing action
+   * @param direction The direction to play the animation in
    */
-  private static createRodSprite(scene: Phaser.Scene, spriteKey: string, action: 'throw' | 'pull' | 'reel' | 'catch'): void {
+  private static createRodSprite(scene: Phaser.Scene, spriteKey: string, action: 'throw' | 'pull' | 'reel' | 'catch', direction: string = 'down'): void {
     // Find the character sprite
     const character = scene.children.getChildren()
       .find(child => child.type === 'Sprite' && 
@@ -782,17 +793,37 @@ export class CharacterFactory {
     // Set the rod's depth to be just above the character
     rod.setDepth(character.depth + 1);
     
-    // Get the current direction but don't apply any offsets
-    const direction = this.getCurrentDirection(character);
-    
+    // Use the provided direction or get it from the character if not provided
+    direction = direction || this.getCurrentDirection(character);
+  
     // Play the appropriate animation based on direction
-    rod.play(`${spriteKey}-${direction}`);
+    const animKey = `${spriteKey}-${direction}`;
+  
+    // Make sure the animation exists before playing it
+    if (scene.anims.exists(animKey)) {
+      rod.play(animKey);
+    } else {
+      // If animation doesn't exist yet, create it and then play
+      this.createRodAnimations(scene, spriteKey, action);
+      rod.play(animKey);
+    }
     
     // Add an update listener to keep the rod with the character at the exact same position
-    scene.events.on('update', () => {
+    // Use a unique key for this event listener to avoid duplicates
+    const updateKey = `rod_update_${Date.now()}`;
+    scene.events.on('update', function rodUpdateHandler() {
       if (rod && rod.active && character && character.active) {
         rod.x = character.x;
         rod.y = character.y;
+        
+        // If the animation is complete and it's not a looping animation (reel)
+        if (rod.anims.currentAnim && !rod.anims.isPlaying && action !== 'reel') {
+          // For non-looping animations, we need to stay on the last frame
+          rod.anims.currentAnim.hideOnComplete = false;
+        }
+      } else {
+        // Clean up this event handler if either the rod or character is destroyed
+        scene.events.off('update', rodUpdateHandler);
       }
     });
     

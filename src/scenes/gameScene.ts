@@ -448,6 +448,22 @@ export class GameScene extends Phaser.Scene {
       this.fishingTimer.remove();
       this.fishingTimer = null;
     }
+    
+    // Remove any rod sprites
+    this.children.getChildren()
+      .filter(child => child.type === 'Sprite' && 
+        (child as Phaser.GameObjects.Sprite).texture.key.includes('rod-'))
+      .forEach(rod => rod.destroy());
+    
+    // Reset character to idle if we have a character
+    if (this.character) {
+      CharacterFactory.setCharacterAction(
+        this.character,
+        this,
+        CharacterActionType.IDLE,
+        this.currentCharacterType
+      );
+    }
   }
 
   private createUI(): void {
