@@ -343,12 +343,12 @@ export class GameScene extends Phaser.Scene {
     // Fish is biting!
     this.fishingState = 'catching';
     
-    // Change character animation to pull when the lure is bitten
+    // Change character animation to REEL when the fish bites (not pull yet)
     if (this.character) {
       CharacterFactory.setCharacterAction(
         this.character,
         this,
-        CharacterActionType.FISHING_PULL,
+        CharacterActionType.FISHING_REEL,
         this.currentCharacterType
       );
     }
@@ -387,6 +387,16 @@ export class GameScene extends Phaser.Scene {
       delay: 100,
       callback: () => {
         if (this.spaceKey.isDown && this.fishingState === 'catching') {
+          // Change animation from reel to pull when space is pressed
+          if (this.character) {
+            CharacterFactory.setCharacterAction(
+              this.character,
+              this,
+              CharacterActionType.FISHING_PULL,
+              this.currentCharacterType
+            );
+          }
+          
           catchWindow.remove();
           spaceCheck.remove();
           this.catchFish();

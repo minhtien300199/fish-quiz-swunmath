@@ -7,7 +7,7 @@ export const questionBank = [
       {"key":"B","text":"<p>&lt;</p>"},
       {"key":"C","text":`<p>=</p>`},
     ],
-    "correctAnswer": "A",
+    "correctAnswer": "B",
     "difficulty":0
   },
   {

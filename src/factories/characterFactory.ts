@@ -363,7 +363,7 @@ export class CharacterFactory {
       scene.anims.create({
         key: 'fishing-reel-down',
         frames: scene.anims.generateFrameNumbers('character-fishing-reel', { 
-          start: 0, end: 4 // First row (DOWN): frames 0-4
+          start: 8, end: 11 // First row (DOWN): frames 8-11
         }),
         frameRate: 10,
         repeat: 0
@@ -373,7 +373,7 @@ export class CharacterFactory {
       scene.anims.create({
         key: 'fishing-reel-left',
         frames: scene.anims.generateFrameNumbers('character-fishing-reel', { 
-          start: 5, end: 9 // Second row (LEFT): frames 5-9
+          start: 4, end: 7 // Second row (LEFT): frames 4-7
         }),
         frameRate: 10,
         repeat: 0
@@ -383,7 +383,7 @@ export class CharacterFactory {
       scene.anims.create({
         key: 'fishing-reel-up',
         frames: scene.anims.generateFrameNumbers('character-fishing-reel', { 
-          start: 10, end: 14 // Third row (UP): frames 10-14
+          start: 12, end: 15 // Third row (UP): frames 10-14
         }),
         frameRate: 10,
         repeat: 0
@@ -393,7 +393,7 @@ export class CharacterFactory {
       scene.anims.create({
         key: 'fishing-reel-right',
         frames: scene.anims.generateFrameNumbers('character-fishing-reel', { 
-          start: 15, end: 19 // Fourth row (RIGHT): frames 15-19
+          start: 0, end: 3 // Fourth row (RIGHT): frames 0-3
         }),
         frameRate: 10,
         repeat: 0
