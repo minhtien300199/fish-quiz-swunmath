@@ -22,6 +22,7 @@ export class GameScene extends Phaser.Scene {
   private livesIcons: Phaser.GameObjects.Image[] = [];
   private fishCaught: number = 0;
   private fishCaughtText!: Phaser.GameObjects.Text;
+  private progressText!: Phaser.GameObjects.Text;
   private coordsText!: Phaser.GameObjects.Text;
   private gameState: GameState = {
     lives: 3,
@@ -33,9 +34,20 @@ export class GameScene extends Phaser.Scene {
   private pointsText!: Phaser.GameObjects.Text;
   private currentBoatType: BoatType = BoatType.BLUE;
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
+  private shouldReset: boolean = false;
 
   constructor() {
     super({ key: 'GameScene' });
+  }
+  
+  /**
+   * Initialize the scene with data
+   * @param data Optional data passed from other scenes
+   */
+  init(data: any): void {
+    // Check if we should reset the game (coming from WinScene)
+    this.shouldReset = data && data.reset === true;
+    console.log('GameScene init with reset:', this.shouldReset);
   }
   preload(): void {
     // Load tilemap from Tiled
@@ -61,19 +73,26 @@ export class GameScene extends Phaser.Scene {
         title: 'Easy',
         RarityRate: 0.4,
         Timers: [30],
-        TotalPoints: 500
+        TotalFish: 5
       };
     }
     
-    // Reset game state
-    this.gameState = {
-      lives: 3,
-      fishCaught: 0,
-      score: 0
-    };
-    this.points = 0;
+    // Reset game state - always reset if coming from WinScene or if it's a new game
+    if (this.shouldReset || !this.gameState) {
+      console.log('Resetting game state completely');
+      this.gameState = {
+        lives: 3,
+        fishCaught: 0,
+        score: 0
+      };
+      this.points = 0;
+      this.fishCaught = 0;
+    }
+    
+    // Always reset these states regardless
     this.fishingState = 'idle';
     this.currentFish = null;
+    
     // Load the tilemap from the JSON file
     const map = this.make.tilemap({ key: 'map' });
     
@@ -468,7 +487,17 @@ export class GameScene extends Phaser.Scene {
             const pointsAwarded = pointRules[fishType];
             this.points += pointsAwarded;
             
-            // Show points awarded notification
+            // Check if there's a time bonus for answering quickly
+            if (data.timeBonus && data.timeBonus > 0) {
+              // Calculate bonus points - 10 points per second remaining
+              const bonusPoints = data.timeBonus * 10;
+              this.points += bonusPoints;
+              
+              // Show bonus points notification
+              this.showBonusPointsNotification(bonusPoints);
+            }
+            
+            // Show points awarded notification for the fish
             this.showPointsNotification(pointsAwarded, fishType);
             
             // Update game state
@@ -599,17 +628,31 @@ export class GameScene extends Phaser.Scene {
       }
     );
     
-    // Create points display
-    this.pointsText = this.add.text(
+    // Create progress display showing fish caught progress
+    this.progressText = this.add.text(
       20,
       this.fishCaughtText.y + this.fishCaughtText.height + 10,
-      `Points: ${this.points}/${this.completionData?.TotalPoints || 500}`,
+      `Progress: ${this.fishCaught}/${this.completionData?.TotalFish || 5} fish`,
       {
         fontSize: '20px', // Smaller font size
-        color: '#00ffff', // Cyan color for points
+        color: '#00ffff', // Cyan color for progress
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 4 // Reduced stroke thickness
+      }
+    );
+    
+    // Create points display
+    this.pointsText = this.add.text(
+      20,
+      this.progressText.y + this.progressText.height + 10,
+      `Points: ${this.points}`,
+      {
+        fontSize: '18px', // Smaller font size for points
+        color: '#ffff00', // Yellow color for points
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3 // Reduced stroke thickness
       }
     );
     
@@ -663,16 +706,21 @@ export class GameScene extends Phaser.Scene {
       this.fishCaughtText.setText(`Fish: ${this.fishCaught}`);
     }
     
-    // Update points text
-    if (this.pointsText) {
-      this.pointsText.setText(`Points: ${this.points}/${this.completionData?.TotalPoints || 300}`);
+    // Update progress text showing fish caught
+    if (this.progressText) {
+      this.progressText.setText(`Progress: ${this.fishCaught}/${this.completionData?.TotalFish || 5} fish`);
       
-      // Check if player has reached the required points to win
-      if (this.points >= (this.completionData?.TotalPoints || 300)) {
+      // Check if player has caught enough fish to win
+      if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
         // Player has won! Transition to the win scene
-        console.log('Player has reached the required points to win!');
+        console.log('Player has caught enough fish to win!');
         this.triggerWin();
       }
+    }
+    
+    // Update points text
+    if (this.pointsText) {
+      this.pointsText.setText(`Points: ${this.points}`);
     }
     
     // Update lives icons
@@ -764,47 +812,38 @@ export class GameScene extends Phaser.Scene {
    * @param fishType Type of fish caught (small, medium, rare)
    */
   private showPointsNotification(points: number, fishType: 'small' | 'medium' | 'rare'): void {
-    // Create a text notification that floats up and fades out
     let notificationText = `+${points} points`;
-    let textColor = '#ffffff'; // Default white
+    let textColor = '#ffffff';
     
-    // Add fish type label and set color based on fish type
+    // Set color based on fish type
     switch(fishType) {
-      case 'small':
-        notificationText += ' (Small Fish)';
+      case 'small': 
         textColor = '#ffffff'; // White for small fish
         break;
-      case 'medium':
-        notificationText += ' (Medium Fish)';
+      case 'medium': 
         textColor = '#00ffff'; // Cyan for medium fish
         break;
-      case 'rare':
-        notificationText += ' (Rare Fish!)';
+      case 'rare': 
         textColor = '#ffff00'; // Yellow for rare fish
+        notificationText = `+${points} points (RARE!)`;
         break;
     }
     
+    // Create floating text notification
     const notification = this.add.text(
-      this.player.x,
-      this.player.y - 50,
-      notificationText,
-      {
-        fontSize: '12px', // Smaller font size
-        color: textColor,
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3 // Reduced stroke thickness
+      this.player.x, 
+      this.player.y - 50, 
+      notificationText, 
+      { 
+        fontSize: '12px', 
+        color: textColor, 
+        fontStyle: 'bold', 
+        stroke: '#000000', 
+        strokeThickness: 3 
       }
     ).setOrigin(0.5);
     
-    // Make sure it's only visible to the main camera
-    if (this.cameras.cameras.length > 1) {
-      for (let i = 1; i < this.cameras.cameras.length; i++) {
-        this.cameras.cameras[i].ignore(notification);
-      }
-    }
-    
-    // Animate the notification floating up and fading out
+    // Animate the notification floating upward and fading out
     this.tweens.add({
       targets: notification,
       y: notification.y - 100,
@@ -817,8 +856,38 @@ export class GameScene extends Phaser.Scene {
     });
   }
   
+  /**
+   * Show a notification for bonus points from answering quickly
+   * @param bonusPoints Number of bonus points awarded
+   */
+  private showBonusPointsNotification(bonusPoints: number): void {
+    // Create floating text notification for bonus points
+    const notification = this.add.text(
+      this.player.x, 
+      this.player.y - 90, // Position it higher than the regular points notification
+      `SPEED BONUS: +${bonusPoints} points!`, 
+      { 
+        fontSize: '14px', 
+        color: '#ff00ff', // Magenta color for bonus points
+        fontStyle: 'bold', 
+        stroke: '#000000', 
+        strokeThickness: 3 
+      }
+    ).setOrigin(0.5);
+    
+    // Animate the notification with a special effect
+    this.tweens.add({
+      targets: notification,
+      y: notification.y - 80,
+      alpha: 0,
+      scaleX: 1.5,
+      scaleY: 1.5,
+      duration: 2500,
+      ease: 'Bounce.Out',
+      onComplete: () => notification.destroy()
+    });
+  }
 
-  
   /**
    * Clean up any existing game objects to prevent duplicates
    * This is called at the start of create() to ensure we don't have multiple instances

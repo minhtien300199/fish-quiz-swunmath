@@ -259,8 +259,12 @@ export class QuizScene extends Phaser.Scene {
     const selectedKey = this.currentQuestion.choices[selectedIndex].key;
     const isCorrect = selectedKey === this.currentQuestion.correctAnswer;
     
-    // Show result
-    this.showResult(isCorrect);
+    // Calculate time bonus - how much time is left
+    const timeBonus = this.timeRemaining;
+    console.log(`Answer selected with ${timeBonus} seconds remaining`);
+    
+    // Show result and pass time bonus
+    this.showResult(isCorrect, timeBonus);
   }
 
   private displayQuestionContent(): void {
@@ -366,7 +370,7 @@ export class QuizScene extends Phaser.Scene {
     }
   }
 
-  private showResult(isCorrect: boolean): void {
+  private showResult(isCorrect: boolean, timeBonus: number = 0): void {
     // Disable option buttons - safely check each button before disabling
     this.optionButtons.forEach(button => {
       if (button && button.input) {
@@ -399,7 +403,10 @@ export class QuizScene extends Phaser.Scene {
     
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
-      this.scene.resume('GameScene', { success: isCorrect });
+      this.scene.resume('GameScene', { 
+        success: isCorrect,
+        timeBonus: timeBonus
+      });
       this.scene.stop();
     });
   }

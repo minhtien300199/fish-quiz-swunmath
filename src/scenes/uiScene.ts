@@ -7,6 +7,8 @@ export class UIScene extends Phaser.Scene {
   private coordsText!: Phaser.GameObjects.Text;
   private gameScene!: Phaser.Scene;
   private playerRef!: Phaser.Physics.Arcade.Sprite;
+  private fullscreenButton!: Phaser.GameObjects.Rectangle;
+  private fullscreenText!: Phaser.GameObjects.Text;
   private gameState: GameState = {
     lives: 3,
     fishCaught: 0,
@@ -26,7 +28,7 @@ export class UIScene extends Phaser.Scene {
   create(): void {
     // Add a semi-transparent black background for the UI
     const bgWidth = 350;
-    const bgHeight = 180;
+    const bgHeight = 220; // Increased height to accommodate fullscreen button
     const bg = this.add.rectangle(10, 10, bgWidth, bgHeight, 0x000000, 0.8)
       .setOrigin(0, 0) // Position from top-left
       .setStrokeStyle(3, 0xffffff, 0.5); // Add white border for better visibility
@@ -76,6 +78,52 @@ export class UIScene extends Phaser.Scene {
         strokeThickness: 8
       }
     );
+    
+    // Create fullscreen button
+    this.fullscreenButton = this.add.rectangle(
+      bgWidth / 2 + 10, // Center of the UI panel
+      this.coordsText.y + this.coordsText.height + 25,
+      200,
+      40,
+      0x00aa00, // Green color
+      1
+    ).setOrigin(0.5, 0).setInteractive();
+    
+    // Add button text
+    this.fullscreenText = this.add.text(
+      this.fullscreenButton.x,
+      this.fullscreenButton.y + this.fullscreenButton.height / 2,
+      'FULLSCREEN',
+      {
+        fontSize: '22px',
+        color: '#ffffff',
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3
+      }
+    ).setOrigin(0.5);
+    
+    // Add hover effects
+    this.fullscreenButton.on('pointerover', () => {
+      this.fullscreenButton.setFillStyle(0x00cc00); // Lighter green on hover
+      this.fullscreenText.setColor('#ffff00'); // Yellow text on hover
+    });
+    
+    this.fullscreenButton.on('pointerout', () => {
+      this.fullscreenButton.setFillStyle(0x00aa00); // Back to original green
+      this.fullscreenText.setColor('#ffffff'); // Back to white text
+    });
+    
+    // Add click event to toggle fullscreen
+    this.fullscreenButton.on('pointerdown', () => {
+      if (this.scale.isFullscreen) {
+        this.fullscreenText.setText('FULLSCREEN');
+        this.scale.stopFullscreen();
+      } else {
+        this.fullscreenText.setText('EXIT FULLSCREEN');
+        this.scale.startFullscreen();
+      }
+    });
   }
 
   update(): void {
