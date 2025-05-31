@@ -86,7 +86,7 @@ export class QuizScene extends Phaser.Scene {
     
     // Calculate dimensions for the paper background
     const width = this.cameras.main.width * 0.8;
-    const height = this.cameras.main.height * 0.7;
+    const height = this.cameras.main.height * 0.85; // Increased height to cover more of the screen
     
     // Add the paper background
     this.paperBg = this.add.image(
@@ -140,10 +140,10 @@ export class QuizScene extends Phaser.Scene {
 
   private createQuizUI(): void {
     
-    // Add fish image above the paper
+    // Add fish image at the top of the paper
     this.fishImage = this.add.image(
       this.cameras.main.width / 2,
-      this.paperBg.y - (this.paperBg.displayHeight / 2) - 50, // Position above the paper
+      this.paperBg.y - (this.paperBg.displayHeight / 2) + 60, // Position at the top area of the paper
       `fish-${this.currentFish}`
     ).setScale(1.5).setDepth(2); // Make it smaller and ensure it's on top
     
@@ -165,8 +165,8 @@ export class QuizScene extends Phaser.Scene {
       }
     ).setOrigin(1, 0.5); // Right-align the text
     
-    // Add options - position them in the bottom half of the screen
-    const firstButtonY = this.cameras.main.height * 0.55; // Start in the middle-bottom area
+    // Add options - position them in the lower part of the paper
+    const firstButtonY = this.cameras.main.height * 0.6; // Move down to fit within the taller paper
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Create button background with more spacing for better layout
       const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
@@ -253,9 +253,9 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private displayQuestionContent(): void {
-    // Position question content on the paper background
-    // Use the center of the paper for positioning
-    const questionY = this.cameras.main.height * 0.35; // Position in the upper part of the paper
+    // Position question content on the paper background below the fish image
+    // Use the upper-middle area of the paper for positioning
+    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25); // Position in the upper-middle part of the paper
     
     // Parse HTML content to extract images and text
     const parser = new DOMParser();
