@@ -1,6 +1,13 @@
 import { BodyColor } from "../const/bodyType";
 import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets } from "../const/rodType";
 
+// Define a global variable to store the questions
+declare global {
+  interface Window {
+    QUIZ_QUESTIONS: any[];
+  }
+}
+
 export class PreloadScene extends Phaser.Scene {
   private loadingBar!: Phaser.GameObjects.Graphics;
   private progressBar!: Phaser.GameObjects.Graphics;
@@ -36,7 +43,28 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    this.scene.start('MenuScene');
+    // Mock API fetch for question bank
+    this.fetchQuestionBank().then(() => {
+      this.scene.start('MenuScene');
+    });
+  }
+
+  private async fetchQuestionBank(): Promise<void> {
+    // Simulate API delay
+    return new Promise((resolve) => {
+      console.log('Fetching question bank from API...');
+      
+      // Simulate network delay (1 second)
+      setTimeout(() => {
+        // Import question bank from local file
+        import('../datas/quesionBank').then(module => {
+          // Store questions in global variable for access across scenes
+          window.QUIZ_QUESTIONS = module.questionBank;
+          console.log('Question bank loaded:', window.QUIZ_QUESTIONS.length, 'questions');
+          resolve();
+        });
+      }, 1000);
+    });
   }
 
   private createLoadingBar(): void {
@@ -136,6 +164,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('button', 'assets/ui_fishing_minigame/button.png');
     this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
     this.load.image('heart-icon', 'assets/game_ui/icons/heart-icon.png'); // 16x16 heart icon for lives
+    this.load.image('paper-bg', 'assets/ui/paper-bg.png'); // Paper background for quiz
     
     // Load character animations for fishing actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)

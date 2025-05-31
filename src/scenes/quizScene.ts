@@ -2,8 +2,9 @@ import { GameState } from '../types/gameState';
 
 interface QuizQuestion {
   question: string;
-  options: string[];
-  correctAnswer: number;
+  choices: { key: string; text: string }[];
+  correctAnswer: string;
+  difficulty: number;
 }
 
 export class QuizScene extends Phaser.Scene {
@@ -17,6 +18,7 @@ export class QuizScene extends Phaser.Scene {
   private timerText!: Phaser.GameObjects.Text;
   private timerEvent!: Phaser.Time.TimerEvent;
   private timeRemaining: number = 15;
+  private paperBg!: Phaser.GameObjects.Image; // Paper background for quiz
   private panel!: Phaser.GameObjects.Image;
   private fishImage!: Phaser.GameObjects.Image;
 
@@ -34,14 +36,66 @@ export class QuizScene extends Phaser.Scene {
     // Create quiz questions
     this.createQuizQuestions();
     
+    console.log(`Loaded ${this.questions.length} questions from ${window.QUIZ_QUESTIONS ? 'API' : 'fallback'}`); 
+    
     // Select a random question
     this.currentQuestion = this.questions[Phaser.Math.Between(0, this.questions.length - 1)];
+    console.log('Selected question:', this.currentQuestion.question.substring(0, 50) + '...');
     
-    // Create UI
+    // Create UI with paper background
+    this.createPaperBackground();
     this.createQuizUI();
     
     // Start timer
     this.startTimer();
+  }
+  
+  private createPaperBackground(): void {
+    // Check if paper-bg asset exists, otherwise create a custom one
+    if (!this.textures.exists('paper-bg')) {
+      // Create a custom paper texture if the asset doesn't exist
+      const graphics = this.make.graphics();
+      
+      // Create the main paper background (light gray)
+      graphics.fillStyle(0xf0f0f0);
+      graphics.fillRect(0, 0, 400, 500);
+      
+      // Add notebook lines
+      graphics.lineStyle(1, 0xccccff, 0.5);
+      for (let y = 40; y < 500; y += 30) {
+        graphics.beginPath();
+        graphics.moveTo(20, y);
+        graphics.lineTo(380, y);
+        graphics.strokePath();
+      }
+      
+      // Add left margin with holes (notebook binding)
+      graphics.fillStyle(0xdddddd);
+      graphics.fillRect(0, 0, 20, 500);
+      
+      // Add notebook holes
+      graphics.fillStyle(0x333333);
+      for (let y = 50; y < 500; y += 80) {
+        graphics.fillCircle(10, y, 5);
+      }
+      
+      // Generate texture
+      graphics.generateTexture('paper-bg', 400, 500);
+      graphics.destroy();
+    }
+    
+    // Calculate dimensions for the paper background
+    const width = this.cameras.main.width * 0.8;
+    const height = this.cameras.main.height * 0.7;
+    
+    // Add the paper background
+    this.paperBg = this.add.image(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2,
+      'paper-bg'
+    )
+    .setDisplaySize(width, height)
+    .setDepth(0); // Set to back layer
   }
 
   update(): void {
@@ -50,59 +104,38 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private createQuizQuestions(): void {
-    // Create a set of math questions for the quiz
-    this.questions = [
-      {
-        question: 'What is 7 + 8?',
-        options: ['12', '15', '14', '16'],
-        correctAnswer: 1
-      },
-      {
-        question: 'What is 12 - 5?',
-        options: ['5', '6', '7', '8'],
-        correctAnswer: 2
-      },
-      {
-        question: 'What is 4 × 6?',
-        options: ['22', '24', '26', '28'],
-        correctAnswer: 1
-      },
-      {
-        question: 'What is 20 ÷ 4?',
-        options: ['4', '5', '6', '7'],
-        correctAnswer: 1
-      },
-      {
-        question: 'What is 3² (3 squared)?',
-        options: ['6', '9', '12', '15'],
-        correctAnswer: 1
-      },
-      {
-        question: 'If a fish swims 3 meters per second, how far will it swim in 5 seconds?',
-        options: ['8 meters', '12 meters', '15 meters', '18 meters'],
-        correctAnswer: 2
-      },
-      {
-        question: 'If you catch 4 fish and release 2, how many fish do you have?',
-        options: ['1', '2', '3', '4'],
-        correctAnswer: 1
-      },
-      {
-        question: 'What is the square root of 25?',
-        options: ['4', '5', '6', '7'],
-        correctAnswer: 1
-      },
-      {
-        question: 'If a boat travels at 8 km/h, how long will it take to travel 24 km?',
-        options: ['2 hours', '3 hours', '4 hours', '5 hours'],
-        correctAnswer: 1
-      },
-      {
-        question: 'What is 1/4 of 20?',
-        options: ['4', '5', '6', '7'],
-        correctAnswer: 0
-      }
-    ];
+    // Use questions from the mock API (global variable)
+    if (window.QUIZ_QUESTIONS && window.QUIZ_QUESTIONS.length > 0) {
+      console.log('Using questions from API:', window.QUIZ_QUESTIONS.length);
+      this.questions = window.QUIZ_QUESTIONS;
+    } else {
+      // Fallback to default questions if API data is not available
+      console.warn('API questions not available, using fallback questions');
+      this.questions = [
+        {
+          question: 'What is 7 + 8?',
+          choices: [
+            { key: 'A', text: '12' },
+            { key: 'B', text: '15' },
+            { key: 'C', text: '14' },
+            { key: 'D', text: '16' }
+          ],
+          correctAnswer: 'B',
+          difficulty: 0
+        },
+        {
+          question: 'What is 12 - 5?',
+          choices: [
+            { key: 'A', text: '5' },
+            { key: 'B', text: '6' },
+            { key: 'C', text: '7' },
+            { key: 'D', text: '8' }
+          ],
+          correctAnswer: 'C',
+          difficulty: 0
+        }
+      ];
+    }
   }
 
   private createQuizUI(): void {
@@ -130,37 +163,29 @@ export class QuizScene extends Phaser.Scene {
       `fish-${this.currentFish}`
     ).setScale(2);
     
-    // Add question text
-    this.questionText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 - 50,
-      this.currentQuestion.question,
-      {
-        fontSize: '28px',
-        color: '#ffffff',
-        align: 'center',
-        stroke: '#000000',
-        strokeThickness: 4
-      }
-    ).setOrigin(0.5);
+    // Extract and display question content
+    this.displayQuestionContent();
     
-    // Add timer text
+    
+    // Add timer text - position at the top of the screen
     this.timerText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 - 100,
+      this.cameras.main.width - 80, // Position in top-right corner
+      30, // Near the top
       `Time: ${this.timeRemaining}`,
       {
-        fontSize: '24px',
-        color: '#ffffff',
+        fontSize: '28px',
+        color: '#ffff00', // Yellow color for better visibility
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: 4,
+        fontStyle: 'bold' // Make it bold for emphasis
       }
-    ).setOrigin(0.5);
+    ).setOrigin(1, 0.5); // Right-align the text
     
-    // Add options
-    for (let i = 0; i < this.currentQuestion.options.length; i++) {
-      // Create button background
-      const buttonY = this.cameras.main.height / 2 + 20 + (i * 60);
+    // Add options - position them in the bottom half of the screen
+    const firstButtonY = this.cameras.main.height * 0.55; // Start in the middle-bottom area
+    for (let i = 0; i < this.currentQuestion.choices.length; i++) {
+      // Create button background with more spacing for better layout
+      const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
       const button = this.add.rectangle(
         this.cameras.main.width / 2,
         buttonY,
@@ -169,11 +194,17 @@ export class QuizScene extends Phaser.Scene {
         0x333333
       ).setInteractive();
       
+      // Get choice and parse HTML content if needed
+      const choice = this.currentQuestion.choices[i];
+      const choiceDiv = document.createElement('div');
+      choiceDiv.innerHTML = choice.text;
+      const plainChoiceText = choiceDiv.textContent || choiceDiv.innerText || choice.text;
+      
       // Create option text
       const optionText = this.add.text(
         this.cameras.main.width / 2,
         buttonY,
-        `${String.fromCharCode(65 + i)}. ${this.currentQuestion.options[i]}`,
+        `${choice.key}. ${plainChoiceText}`,
         {
           fontSize: '24px',
           color: '#ffffff'
@@ -221,20 +252,133 @@ export class QuizScene extends Phaser.Scene {
     this.timerEvent.remove();
     
     // Check if the answer is correct
-    const isCorrect = selectedIndex === this.currentQuestion.correctAnswer;
+    const selectedKey = this.currentQuestion.choices[selectedIndex].key;
+    const isCorrect = selectedKey === this.currentQuestion.correctAnswer;
     
     // Show result
     this.showResult(isCorrect);
   }
 
-  private showResult(isCorrect: boolean): void {
-    // Disable option buttons
-    this.optionButtons.forEach(button => {
-      button.disableInteractive();
+  private displayQuestionContent(): void {
+    // Position question content on the paper background
+    // Use the center of the paper for positioning
+    const questionY = this.cameras.main.height * 0.35; // Position in the upper part of the paper
+    
+    // Parse HTML content to extract images and text
+    const parser = new DOMParser();
+    const htmlDoc = parser.parseFromString(this.currentQuestion.question, 'text/html');
+    
+    // Check for images in the question
+    const images = htmlDoc.querySelectorAll('img');
+    let hasImage = false;
+    
+    if (images.length > 0) {
+      // Handle the first image (for simplicity)
+      const img = images[0];
+      const src = img.getAttribute('src');
+      
+      if (src && src.startsWith('data:image')) {
+        hasImage = true;
+        // Create a temporary image element to load the base64 image
+        const tempImg = new Image();
+        tempImg.onload = () => {
+          // Create a canvas to convert the image to a texture
+          const canvas = document.createElement('canvas');
+          canvas.width = tempImg.width;
+          canvas.height = tempImg.height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(tempImg, 0, 0);
+            // Create a texture from the canvas
+            const texture = this.textures.addCanvas('question-image', canvas);
+            // Add the image to the scene
+            const questionImage = this.add.image(
+              this.cameras.main.width / 2,
+              questionY,
+              'question-image'
+            );
+            // Set depth to appear above paper but below UI elements
+            questionImage.setDepth(1);
+            
+            // Scale the image to fit within the paper width
+            const paperWidth = this.paperBg.displayWidth * 0.7; // Leave some margin
+            if (questionImage.width > paperWidth) {
+              const scale = paperWidth / questionImage.width;
+              questionImage.setScale(scale);
+            }
+            
+            // Limit the height to avoid overflow
+            const maxHeight = this.paperBg.displayHeight * 0.3;
+            if (questionImage.height * questionImage.scaleY > maxHeight) {
+              const heightScale = maxHeight / questionImage.height;
+              questionImage.setScale(Math.min(questionImage.scaleX, heightScale));
+            }
+          }
+        };
+        tempImg.src = src;
+      }
+    }
+    
+    // Extract text content (excluding image tags)
+    let textContent = '';
+    Array.from(htmlDoc.body.childNodes).forEach(node => {
+      if (node.nodeType === Node.TEXT_NODE) {
+        textContent += node.textContent;
+      } else if (node.nodeType === Node.ELEMENT_NODE && 
+                (node as Element).tagName.toLowerCase() !== 'img') {
+        textContent += (node as Element).textContent;
+      }
     });
     
-    // Highlight correct answer
-    this.optionButtons[this.currentQuestion.correctAnswer].setFillStyle(0x00ff00);
+    // Clean up the text
+    textContent = textContent.trim();
+    
+    // Add text below the image if there is one, or at the default position
+    // Adjust the vertical spacing based on whether there's an image
+    const textY = hasImage ? questionY + 80 : questionY;
+    
+    this.questionText = this.add.text(
+      this.cameras.main.width / 2,
+      textY,
+      textContent,
+      {
+        fontSize: '22px', // Smaller font for better fit on paper
+        color: '#000000', // Black text like on notebook paper
+        align: 'center',
+        wordWrap: { width: this.paperBg.displayWidth * 0.7 },
+        lineSpacing: 8 // Add line spacing for better readability on the lined paper
+      }
+    ).setOrigin(0.5).setDepth(1); // Set depth to appear above paper
+    
+    // Limit text height to avoid overlap with answer options
+    const maxTextHeight = this.paperBg.displayHeight * 0.4;
+    if (this.questionText.height > maxTextHeight) {
+      // If text is too long, truncate and add ellipsis
+      let truncatedText = textContent;
+      while (this.questionText.height > maxTextHeight && truncatedText.length > 10) {
+        truncatedText = truncatedText.substring(0, truncatedText.length - 10) + '...'; 
+        this.questionText.setText(truncatedText);
+      }
+    }
+  }
+
+  private showResult(isCorrect: boolean): void {
+    // Disable option buttons - safely check each button before disabling
+    this.optionButtons.forEach(button => {
+      if (button && button.input) {
+        button.disableInteractive();
+      }
+    });
+    
+    // Find the index of the correct answer
+    const correctAnswerIndex = this.currentQuestion.choices.findIndex(
+      choice => choice.key === this.currentQuestion.correctAnswer
+    );
+    
+    // Highlight correct answer if found
+    if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
+      this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00);
+    }
     
     // Show result text
     const resultText = this.add.text(
