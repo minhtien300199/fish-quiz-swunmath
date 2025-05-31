@@ -327,15 +327,63 @@ export class QuizScene extends Phaser.Scene {
       }
     }
     
-    // Extract text content (excluding image tags)
+    // Extract text content (excluding image tags and elements with display:none)
     let textContent = '';
-    Array.from(htmlDoc.body.childNodes).forEach(node => {
-      if (node.nodeType === Node.TEXT_NODE) {
-        textContent += node.textContent;
-      } else if (node.nodeType === Node.ELEMENT_NODE && 
-                (node as Element).tagName.toLowerCase() !== 'img') {
-        textContent += (node as Element).textContent;
+  
+    // Function to check if an element or its parents have display:none
+    const hasDisplayNone = (element: Element): boolean => {
+      // Check inline style
+      if (element.getAttribute('style')?.includes('display:none') || 
+          element.getAttribute('style')?.includes('display: none')) {
+        return true;
       }
+      
+      // Check for spans with display:none
+      if (element.tagName.toLowerCase() === 'span' && 
+          element.getAttribute('style')?.includes("display:none")) {
+        return true;
+      }
+      
+      // Check parent recursively
+      return element.parentElement ? hasDisplayNone(element.parentElement) : false;
+    };
+    
+    // Process nodes and filter out display:none elements
+    const processNode = (node: Node): string => {
+      // Text node - just return the content
+      if (node.nodeType === Node.TEXT_NODE) {
+        return node.textContent || '';
+      }
+      
+      // Element node - check if it's visible
+      if (node.nodeType === Node.ELEMENT_NODE) {
+        const element = node as Element;
+        
+        // Skip image tags
+        if (element.tagName.toLowerCase() === 'img') {
+          return '';
+        }
+        
+        // Skip elements with display:none
+        if (hasDisplayNone(element)) {
+          return '';
+        }
+        
+        // Process children for visible elements
+        let content = '';
+        Array.from(element.childNodes).forEach(child => {
+          content += processNode(child);
+        });
+        
+        return content;
+      }
+      
+      return '';
+    };
+    
+    // Process the entire body
+    Array.from(htmlDoc.body.childNodes).forEach(node => {
+      textContent += processNode(node);
     });
     
     // Clean up the text

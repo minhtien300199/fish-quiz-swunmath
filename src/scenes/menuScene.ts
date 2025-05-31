@@ -28,7 +28,7 @@ export class MenuScene extends Phaser.Scene {
       this.cameras.main.width / 2,
       this.cameras.main.height / 2,
       'New Game',
-      () => this.scene.start('GameScene')
+      () => this.scene.start('GameScene', { reset: true })
     );
 
     this.createButton(
