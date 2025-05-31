@@ -337,15 +337,14 @@ export class GameScene extends Phaser.Scene {
     
     // Replace static floater with animated one using FloaterFactory
     if (this.floater) {
-      // Replace with fish biting floater
+      // Replace with fish biting floater (without bobbing)
       this.floater = FloaterFactory.replaceFloater(
         this,
         this.floater,
         FloaterType.FISH_BITING
       );
       
-      // Make the floater bob
-      FloaterFactory.bobFloater(this, this.floater);
+      // No bobbing effect - floater stays in place
     }
     
     // Select a random fish
