@@ -139,29 +139,13 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private createQuizUI(): void {
-    // Add semi-transparent background
-    this.add.rectangle(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      this.cameras.main.width,
-      this.cameras.main.height,
-      0x000000,
-      0.7
-    );
     
-    // Add panel
-    this.panel = this.add.image(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'panel'
-    ).setScale(5);
-    
-    // Add fish image
+    // Add fish image above the paper
     this.fishImage = this.add.image(
       this.cameras.main.width / 2,
-      this.cameras.main.height / 2 - 150,
+      this.paperBg.y - (this.paperBg.displayHeight / 2) - 50, // Position above the paper
       `fish-${this.currentFish}`
-    ).setScale(2);
+    ).setScale(1.5).setDepth(2); // Make it smaller and ensure it's on top
     
     // Extract and display question content
     this.displayQuestionContent();
@@ -186,13 +170,17 @@ export class QuizScene extends Phaser.Scene {
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Create button background with more spacing for better layout
       const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
+      
+      // Create a paper-style answer button
       const button = this.add.rectangle(
         this.cameras.main.width / 2,
         buttonY,
         300,
         50,
-        0x333333
-      ).setInteractive();
+        0xf5f5f5 // Light color for paper-like appearance
+      )
+      .setStrokeStyle(2, 0x90caf9) // Blue border like notebook paper
+      .setInteractive();
       
       // Get choice and parse HTML content if needed
       const choice = this.currentQuestion.choices[i];
@@ -206,18 +194,23 @@ export class QuizScene extends Phaser.Scene {
         buttonY,
         `${choice.key}. ${plainChoiceText}`,
         {
-          fontSize: '24px',
-          color: '#ffffff'
+          fontSize: '22px',
+          color: '#000000', // Black text for better readability on light background
+          fontStyle: 'bold'
         }
-      ).setOrigin(0.5);
+      ).setOrigin(0.5).setDepth(2);
       
       // Add hover effect
       button.on('pointerover', () => {
-        button.setFillStyle(0x666666);
+        button.setFillStyle(0xe3f2fd); // Light blue highlight
+        button.setStrokeStyle(3, 0x2196f3); // Thicker blue border
+        optionText.setStyle({ fontSize: '23px' }); // Slightly larger text
       });
       
       button.on('pointerout', () => {
-        button.setFillStyle(0x333333);
+        button.setFillStyle(0xf5f5f5); // Back to light color
+        button.setStrokeStyle(2, 0x90caf9); // Normal border
+        optionText.setStyle({ fontSize: '22px', color: '#000000', fontStyle: 'bold' }); // Normal text
       });
       
       // Add click event
