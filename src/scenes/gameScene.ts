@@ -278,45 +278,63 @@ export class GameScene extends Phaser.Scene {
         CharacterActionType.FISHING_THROW,
         this.currentCharacterType
       );
+      
+      // Store the character for later use
+      const character = this.character;
+      
+      // Create a delayed call to create the floater after the throw animation
+      // This creates a more realistic effect where the floater appears after the throw
+      this.time.delayedCall(800, () => {
+        // Only proceed if we're still in casting or waiting state
+        if (this.fishingState === 'casting' || this.fishingState === 'waiting') {
+          // Create floater using FloaterFactory with animated floating state and character direction
+          this.floater = FloaterFactory.createFloater(
+            this,
+            this.player.x,
+            this.player.y,
+            FloaterType.FLOATING,
+            character // Pass the character to determine direction
+          );
+          
+          // Configure floater for UI camera
+          FloaterFactory.configureFloaterForUI(this, this.floater);
+          
+          // No lure creation - removed as requested
+          this.lure = null; // Set to null to avoid errors in other methods
+          
+          // Start waiting for fish only after the floater appears
+          this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
+            this.fishBite();
+          });
+          
+          // Update fishing state
+          this.fishingState = 'waiting';
+        }
+      });
+    } else {
+      // Fallback if no character exists
+      // Create floater immediately
+      this.floater = FloaterFactory.createFloater(
+        this,
+        this.player.x,
+        this.player.y,
+        FloaterType.FLOATING
+      );
+      
+      // Configure floater for UI camera
+      FloaterFactory.configureFloaterForUI(this, this.floater);
+      
+      // No lure creation - removed as requested
+      this.lure = null;
+      
+      // Start waiting for fish
+      this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
+        this.fishBite();
+      });
+      
+      // Update fishing state
+      this.fishingState = 'waiting';
     }
-    
-    // Create floater using FloaterFactory with animated floating state
-    this.floater = FloaterFactory.createFloater(
-      this,
-      this.player.x,
-      this.player.y + 50,
-      FloaterType.FLOATING
-    );
-    
-    // Configure floater for UI camera
-    FloaterFactory.configureFloaterForUI(this, this.floater);
-    
-    // Create lure with improved rendering settings to prevent shadow artifacts
-    this.lure = this.add.image(
-      this.floater!.x,
-      this.floater!.y + 20,
-      'lure'
-    )
-    .setScale(0.2)
-    .setDepth(5) // Same depth as floater
-    .setOrigin(0.5, 0.5) // Center origin point
-    .setAlpha(1) // Full opacity
-    .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
-    
-    // Make sure lure is only visible to the main camera
-    // This prevents it from showing up in UI cameras
-    const uiCamera = this.cameras.getCamera('UICamera');
-    if (uiCamera) {
-      uiCamera.ignore(this.lure);
-    }
-    
-    // Start waiting for fish
-    this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
-      this.fishBite();
-    });
-    
-    // Update fishing state
-    this.fishingState = 'waiting';
   }
 
   private fishBite(): void {
@@ -338,10 +356,12 @@ export class GameScene extends Phaser.Scene {
     // Replace static floater with animated one using FloaterFactory
     if (this.floater) {
       // Replace with fish biting floater (without bobbing)
+      // Don't pass character to keep the floater in the same position
       this.floater = FloaterFactory.replaceFloater(
         this,
         this.floater,
         FloaterType.FISH_BITING
+        // Not passing character to keep the floater in the same position
       );
       
       // No bobbing effect - floater stays in place
@@ -380,9 +400,9 @@ export class GameScene extends Phaser.Scene {
   private catchFish(): void {
     this.fishingState = 'reeling';
     
-    // Show reeling animation
+    // Show reeling animation - only target the floater since lure is removed
     this.tweens.add({
-      targets: [this.floater, this.lure],
+      targets: this.floater,
       y: this.player.y,
       duration: 1000,
       onComplete: () => {

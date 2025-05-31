@@ -1,4 +1,5 @@
 import 'phaser';
+import { CharacterFactory } from './characterFactory';
 
 // Define floater types
 export enum FloaterType {
@@ -11,7 +12,13 @@ export enum FloaterType {
 interface FloaterProperties {
   scale: number;
   depth: number;
-  frameRate: number;
+  frameRate: number; // 0 for static image
+}
+
+// Floater offset interface for different directions
+interface FloaterOffset {
+  x: number;
+  y: number;
 }
 
 export class FloaterFactory {
@@ -34,39 +41,83 @@ export class FloaterFactory {
     }
   };
 
+  // Floater offsets by direction
+  private static readonly floaterOffsets: Record<string, FloaterOffset> = {
+    down: { x: 0, y: 50 },   // Down: floater appears below the character
+    left: { x: -50, y: 0 },  // Left: floater appears to the left of the character
+    up: { x: 0, y: -50 },    // Up: floater appears above the character
+    right: { x: 50, y: 0 }   // Right: floater appears to the right of the character
+  };
+
   /**
    * Create a floater sprite
    * @param scene The scene to add the floater to
    * @param x X position
    * @param y Y position
    * @param floaterType Type of floater to create
+   * @param character Optional character to determine direction
    * @returns The created floater sprite (either Image or Sprite)
    */
   public static createFloater(
     scene: Phaser.Scene,
     x: number,
     y: number,
-    floaterType: FloaterType = FloaterType.DEFAULT
+    floaterType: FloaterType = FloaterType.DEFAULT,
+    character?: Phaser.GameObjects.Sprite
   ): Phaser.GameObjects.Sprite | Phaser.GameObjects.Image {
     const properties = this.floaterProperties[floaterType];
-    
-    // Create the appropriate type of floater
-    let floater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
-    
+
+    // Determine position based on character direction if character is provided
+    let floaterX = x;
+    let floaterY = y;
+
+    if (character) {
+      // Get the character's current direction by examining the frame or animation
+      let direction = 'down'; // Default direction
+      
+      // Check if there's a current animation playing
+      const currentAnim = character.anims.currentAnim;
+      if (currentAnim) {
+        const animKey = currentAnim.key;
+        if (animKey.includes('down')) direction = 'down';
+        else if (animKey.includes('left')) direction = 'left';
+        else if (animKey.includes('up')) direction = 'up';
+        else if (animKey.includes('right')) direction = 'right';
+      } else {
+        // If no animation, try to determine from the frame
+        const frame = character.frame.name;
+        if (typeof frame === 'number' || !isNaN(Number(frame))) {
+          const frameNum = Number(frame);
+          // These frame numbers correspond to CharacterDirection enum in characterFactory.ts
+          if (frameNum === 4 || frameNum === 5) direction = 'down';
+          else if (frameNum === 2 || frameNum === 3) direction = 'left';
+          else if (frameNum === 6 || frameNum === 7) direction = 'up';
+          else if (frameNum === 0 || frameNum === 1) direction = 'right';
+        }
+      }
+      
+      const offset = this.floaterOffsets[direction] || this.floaterOffsets['down'];
+      
+      // Apply the offset based on direction
+      floaterX = x + offset.x;
+      floaterY = y + offset.y;
+    }
+
     // Initialize with a default value to avoid 'used before assigned' errors
-    floater = scene.add.image(x, y, 'floater')
+    let floater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image;
+    floater = scene.add.image(floaterX, floaterY, 'floater')
       .setVisible(false); // This will be overwritten immediately
-    
+
     if (floaterType === FloaterType.DEFAULT) {
       // Create static floater image
-      floater = scene.add.image(x, y, 'floater')
+      floater = scene.add.image(floaterX, floaterY, 'floater')
         .setScale(properties.scale)
         .setDepth(properties.depth)
         .setOrigin(0.5, 0.5)
         .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
     } else if (floaterType === FloaterType.FISH_BITING) {
       // Create animated fish biting floater sprite
-      floater = scene.add.sprite(x, y, 'floater-fish-biting')
+      floater = scene.add.sprite(floaterX, floaterY, 'floater-fish-biting')
         .setScale(properties.scale)
         .setDepth(properties.depth)
         .setOrigin(0.5, 0.5);
@@ -87,7 +138,7 @@ export class FloaterFactory {
       }
     } else if (floaterType === FloaterType.FLOATING) {
       // Create animated floating floater sprite using the first frame initially
-      floater = scene.add.sprite(x, y, 'floater-floating-1')
+      floater = scene.add.sprite(floaterX, floaterY, 'floater-floating-1')
         .setScale(properties.scale)
         .setDepth(properties.depth)
         .setOrigin(0.5, 0.5);
@@ -120,27 +171,38 @@ export class FloaterFactory {
   }
   
   /**
-   * Replace an existing floater with a different type
-   * @param scene The scene containing the floater
-   * @param currentFloater The current floater to replace
-   * @param newType The new floater type
-   * @returns The new floater object
+   * Replace an existing floater with a new one of the specified type
+   * @param scene The scene
+   * @param existingFloater The existing floater to replace
+   * @param newFloaterType The type of the new floater
+   * @param character Optional character to determine direction (if null, will use existing floater position)
+   * @returns The new floater
    */
   public static replaceFloater(
     scene: Phaser.Scene,
-    currentFloater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image,
-    newType: FloaterType
+    existingFloater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image,
+    newFloaterType: FloaterType,
+    character?: Phaser.GameObjects.Sprite
   ): Phaser.GameObjects.Sprite | Phaser.GameObjects.Image {
     // Store current position and properties
-    const position = { x: currentFloater.x, y: currentFloater.y };
-    const scale = currentFloater.scale;
-    const depth = currentFloater.depth;
+    const x = existingFloater.x;
+    const y = existingFloater.y;
     
-    // Remove the old floater
-    currentFloater.destroy();
+    // Destroy the existing floater
+    existingFloater.destroy();
     
-    // Create and return the new floater
-    return this.createFloater(scene, position.x, position.y, newType);
+    // Create a new floater of the specified type at the same position
+    // If character is provided, it will position based on character direction
+    // Otherwise it will use the exact position of the previous floater
+    if (character) {
+      return this.createFloater(scene, character.x, character.y, newFloaterType, character);
+    } else {
+      // Use the exact same position as the previous floater
+      const newFloater = this.createFloater(scene, x, y, newFloaterType);
+      // Ensure the new floater is at the exact same position
+      newFloater.setPosition(x, y);
+      return newFloater;
+    }
   }
   
   /**
