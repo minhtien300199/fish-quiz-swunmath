@@ -1,4 +1,5 @@
 import { GameState } from '../types/gameState';
+import { CompletionData, fetchCompletionData } from '../datas/completion';
 
 interface QuizQuestion {
   question: string;
@@ -21,15 +22,25 @@ export class QuizScene extends Phaser.Scene {
   private paperBg!: Phaser.GameObjects.Image; // Paper background for quiz
   private panel!: Phaser.GameObjects.Image;
   private fishImage!: Phaser.GameObjects.Image;
+  private completionData: CompletionData | null = null;
 
   constructor() {
     super({ key: 'QuizScene' });
   }
 
-  init(data: { gameState: GameState; currentFish: string }): void {
+  init(data: { gameState: GameState; currentFish: string; completionData?: CompletionData }): void {
     this.gameState = data.gameState;
     this.currentFish = data.currentFish;
-    this.timeRemaining = 15;
+    this.completionData = data.completionData || null;
+    
+    // Set timer based on completion data or default to 15 seconds
+    if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
+      this.timeRemaining = this.completionData.Timers[0];
+      console.log(`Setting quiz timer to ${this.timeRemaining} seconds from completion data`);
+    } else {
+      this.timeRemaining = 15; // Default timer
+      console.log('Using default quiz timer of 15 seconds');
+    }
   }
 
   create(): void {

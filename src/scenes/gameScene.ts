@@ -2,6 +2,8 @@ import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
+import { CompletionData, fetchCompletionData } from '../datas/completion';
+import { pointRules } from '../const/pointRules';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -26,6 +28,9 @@ export class GameScene extends Phaser.Scene {
     fishCaught: 0,
     score: 0
   };
+  private completionData: CompletionData | null = null;
+  private points: number = 0;
+  private pointsText!: Phaser.GameObjects.Text;
   private currentBoatType: BoatType = BoatType.BLUE;
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
 
@@ -41,9 +46,24 @@ export class GameScene extends Phaser.Scene {
     this.load.image('palm_tree', 'assets/tilesets/palm_tree.png');
     this.load.image('coconut', 'assets/tilesets/coconut.png');
   }
-  create(): void {
+  async create(): Promise<void> {
     // Clean up any existing objects first
     this.cleanup();
+    
+    // Fetch completion data from mock backend
+    try {
+      this.completionData = await fetchCompletionData();
+      console.log('Fetched completion data:', this.completionData);
+    } catch (error) {
+      console.error('Error fetching completion data:', error);
+      // Use default values if fetch fails
+      this.completionData = {
+        title: 'Easy',
+        RarityRate: 0.4,
+        Timers: [30],
+        TotalPoints: 500
+      };
+    }
     
     // Reset game state
     this.gameState = {
@@ -51,6 +71,7 @@ export class GameScene extends Phaser.Scene {
       fishCaught: 0,
       score: 0
     };
+    this.points = 0;
     this.fishingState = 'idle';
     this.currentFish = null;
     // Load the tilemap from the JSON file
@@ -420,15 +441,39 @@ export class GameScene extends Phaser.Scene {
         this.scene.pause();
         this.scene.launch('QuizScene', { 
           gameState: this.gameState,
-          currentFish: this.currentFish 
+          currentFish: this.currentFish,
+          completionData: this.completionData
         });
         
         // Listen for quiz completion
         this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
           if (data && data.success) {
+            // Increment fish caught counter
             this.fishCaught++;
+            
+            // Determine fish size/rarity type
+            let fishType: 'small' | 'medium' | 'rare';
+            
+            // Use RarityRate from completion data to determine fish type
+            const rarityRoll = Math.random();
+            if (rarityRoll < 0.6) {
+              fishType = 'small'; // 60% chance for small fish
+            } else if (rarityRoll < 0.9) {
+              fishType = 'medium'; // 30% chance for medium fish
+            } else {
+              fishType = 'rare'; // 10% chance for rare fish
+            }
+            
+            // Award points based on fish type using pointRules
+            const pointsAwarded = pointRules[fishType];
+            this.points += pointsAwarded;
+            
+            // Show points awarded notification
+            this.showPointsNotification(pointsAwarded, fishType);
+            
+            // Update game state
             this.gameState.fishCaught = this.fishCaught;
-            this.gameState.score += 100;
+            this.gameState.score = this.points;
           } else {
             this.lives--;
             this.gameState.lives = this.lives;
@@ -554,10 +599,24 @@ export class GameScene extends Phaser.Scene {
       }
     );
     
+    // Create points display
+    this.pointsText = this.add.text(
+      20,
+      this.fishCaughtText.y + this.fishCaughtText.height + 10,
+      `Points: ${this.points}/${this.completionData?.TotalPoints || 500}`,
+      {
+        fontSize: '20px', // Smaller font size
+        color: '#00ffff', // Cyan color for points
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 4 // Reduced stroke thickness
+      }
+    );
+    
     // Create coordinates display
     this.coordsText = this.add.text(
       20,
-      this.fishCaughtText.y + this.fishCaughtText.height + 10,
+      this.pointsText.y + this.pointsText.height + 10,
       `X: 0, Y: 0`,
       {
         fontSize: '24px',
@@ -569,7 +628,7 @@ export class GameScene extends Phaser.Scene {
     );
     
     // Add all UI elements to the container
-    uiContainer.add([bg, this.livesText, ...this.livesIcons, this.fishCaughtText, this.coordsText]);
+    uiContainer.add([bg, this.livesText, ...this.livesIcons, this.fishCaughtText, this.pointsText, this.coordsText]);
     
     // Set high depth for the UI container to ensure it's on top
     uiContainer.setDepth(1000);
@@ -604,6 +663,18 @@ export class GameScene extends Phaser.Scene {
       this.fishCaughtText.setText(`Fish: ${this.fishCaught}`);
     }
     
+    // Update points text
+    if (this.pointsText) {
+      this.pointsText.setText(`Points: ${this.points}/${this.completionData?.TotalPoints || 300}`);
+      
+      // Check if player has reached the required points to win
+      if (this.points >= (this.completionData?.TotalPoints || 300)) {
+        // Player has won! Transition to the win scene
+        console.log('Player has reached the required points to win!');
+        this.triggerWin();
+      }
+    }
+    
     // Update lives icons
     for (let i = 0; i < this.livesIcons.length; i++) {
       this.livesIcons[i].setVisible(i < this.lives);
@@ -619,6 +690,7 @@ export class GameScene extends Phaser.Scene {
     // Update game state
     this.gameState.lives = this.lives;
     this.gameState.fishCaught = this.fishCaught;
+    this.gameState.score = this.points; // Update score with points
   }
 
   /**
@@ -660,6 +732,89 @@ export class GameScene extends Phaser.Scene {
 
   private gameOver(): void {
     this.scene.start('GameOverScene', { gameState: this.gameState });
+  }
+  
+  /**
+   * Trigger the win scene when player reaches the required points
+   */
+  private triggerWin(): void {
+    // Prevent multiple win triggers
+    if (this.scene.isActive('WinScene')) return;
+    
+    // Clean up any existing objects and stop fishing
+    this.cleanup();
+    
+    // Reset fishing state
+    this.fishingState = 'idle';
+    this.currentFish = null;
+    
+    // Play a victory sound if available
+    // this.sound.play('victory');
+    
+    // Transition to the win scene
+    this.scene.start('WinScene', { 
+      gameState: this.gameState,
+      completionTitle: this.completionData?.title || 'Easy'
+    });
+  }
+  
+  /**
+   * Show a notification with points awarded
+   * @param points Number of points awarded
+   * @param fishType Type of fish caught (small, medium, rare)
+   */
+  private showPointsNotification(points: number, fishType: 'small' | 'medium' | 'rare'): void {
+    // Create a text notification that floats up and fades out
+    let notificationText = `+${points} points`;
+    let textColor = '#ffffff'; // Default white
+    
+    // Add fish type label and set color based on fish type
+    switch(fishType) {
+      case 'small':
+        notificationText += ' (Small Fish)';
+        textColor = '#ffffff'; // White for small fish
+        break;
+      case 'medium':
+        notificationText += ' (Medium Fish)';
+        textColor = '#00ffff'; // Cyan for medium fish
+        break;
+      case 'rare':
+        notificationText += ' (Rare Fish!)';
+        textColor = '#ffff00'; // Yellow for rare fish
+        break;
+    }
+    
+    const notification = this.add.text(
+      this.player.x,
+      this.player.y - 50,
+      notificationText,
+      {
+        fontSize: '12px', // Smaller font size
+        color: textColor,
+        fontStyle: 'bold',
+        stroke: '#000000',
+        strokeThickness: 3 // Reduced stroke thickness
+      }
+    ).setOrigin(0.5);
+    
+    // Make sure it's only visible to the main camera
+    if (this.cameras.cameras.length > 1) {
+      for (let i = 1; i < this.cameras.cameras.length; i++) {
+        this.cameras.cameras[i].ignore(notification);
+      }
+    }
+    
+    // Animate the notification floating up and fading out
+    this.tweens.add({
+      targets: notification,
+      y: notification.y - 100,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => {
+        notification.destroy();
+      }
+    });
   }
   
 

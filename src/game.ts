@@ -7,6 +7,7 @@ import { QuizScene } from './scenes/quizScene';
 import { GameOverScene } from './scenes/gameOverScene';
 import { UIScene } from './scenes/uiScene';
 import { HowToPlayScene } from './scenes/howToPlayScene';
+import { WinScene } from './scenes/winScene';
 
 export class Game extends Phaser.Game {
   constructor(config: Phaser.Types.Core.GameConfig) {
@@ -19,7 +20,8 @@ export class Game extends Phaser.Game {
       QuizScene,
       GameOverScene,
       UIScene,
-      HowToPlayScene
+      HowToPlayScene,
+      WinScene
     ];
     
     // Add scenes to the config

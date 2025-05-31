@@ -35,7 +35,7 @@ export class FloaterFactory {
       frameRate: 8 // Animation frame rate
     },
     [FloaterType.FLOATING]: {
-      scale: 0.6, // Increased scale from 0.3 to 0.6
+      scale: 1, // Increased scale from 0.3 to 0.6
       depth: 5,
       frameRate: 6 // Animation frame rate (slightly slower than biting)
     }
