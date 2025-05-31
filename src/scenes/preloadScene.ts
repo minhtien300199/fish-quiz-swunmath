@@ -87,6 +87,21 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('floater', 'assets/floaters/floater.png');
     this.load.image('lure', 'assets/lure/lure.png');
     
+    // Load floater animations
+    this.load.spritesheet('floater-fish-biting', 'assets/animations/bobber_fish_bitting/bobber_fish_bitting_animation.png', {
+      frameWidth: 48,
+      frameHeight: 48
+    });
+    
+    // Load floater floating animation frames individually
+    for (let i = 1; i <= 5; i++) {
+      const frameNumber = String(i).padStart(4, '0'); // Format as 0001, 0002, etc.
+      this.load.image(
+        `floater-floating-${i}`,
+        `assets/animations/bobber_floating_animation/boober_red_floating_animation_${frameNumber}.png`
+      );
+    }
+    
     // Load fishing rod assets for different rod types and actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
     Object.keys(RodType).forEach(rodKey => {

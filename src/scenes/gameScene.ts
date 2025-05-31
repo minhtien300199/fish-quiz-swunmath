@@ -1,6 +1,7 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
+import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -9,7 +10,7 @@ export class GameScene extends Phaser.Scene {
   private spaceKey!: Phaser.Input.Keyboard.Key;
   private map!: Phaser.Tilemaps.Tilemap;
   private mapLayers: { [key: string]: Phaser.Tilemaps.TilemapLayer } = {};
-  private floater: Phaser.GameObjects.Image | null = null;
+  private floater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | null = null;
   private lure: Phaser.GameObjects.Image | null = null;
   private fishingState: 'idle' | 'casting' | 'waiting' | 'catching' | 'reeling' = 'idle';
   private fishingTimer: Phaser.Time.TimerEvent | null = null;
@@ -279,17 +280,16 @@ export class GameScene extends Phaser.Scene {
       );
     }
     
-    // Create floater with improved rendering settings to prevent shadow artifacts
-    this.floater = this.add.image(
+    // Create floater using FloaterFactory with animated floating state
+    this.floater = FloaterFactory.createFloater(
+      this,
       this.player.x,
       this.player.y + 50,
-      'floater'
-    )
-    .setScale(0.3)
-    .setDepth(5) // Set depth to be above map but below character
-    .setOrigin(0.5, 0.5) // Center origin point
-    .setAlpha(1) // Full opacity
-    .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
+      FloaterType.FLOATING
+    );
+    
+    // Configure floater for UI camera
+    FloaterFactory.configureFloaterForUI(this, this.floater);
     
     // Create lure with improved rendering settings to prevent shadow artifacts
     this.lure = this.add.image(
@@ -303,11 +303,10 @@ export class GameScene extends Phaser.Scene {
     .setAlpha(1) // Full opacity
     .setPipeline('TextureTintPipeline'); // Use standard rendering pipeline
     
-    // Make sure these objects are only visible to the main camera
-    // This prevents them from showing up in UI cameras
+    // Make sure lure is only visible to the main camera
+    // This prevents it from showing up in UI cameras
     const uiCamera = this.cameras.getCamera('UICamera');
     if (uiCamera) {
-      uiCamera.ignore(this.floater);
       uiCamera.ignore(this.lure);
     }
     
@@ -336,14 +335,18 @@ export class GameScene extends Phaser.Scene {
       );
     }
     
-    // Make the floater bob
-    this.tweens.add({
-      targets: this.floater,
-      y: this.floater!.y - 10,
-      duration: 300,
-      yoyo: true,
-      repeat: 3
-    });
+    // Replace static floater with animated one using FloaterFactory
+    if (this.floater) {
+      // Replace with fish biting floater
+      this.floater = FloaterFactory.replaceFloater(
+        this,
+        this.floater,
+        FloaterType.FISH_BITING
+      );
+      
+      // Make the floater bob
+      FloaterFactory.bobFloater(this, this.floater);
+    }
     
     // Select a random fish
     const fishTypes = [
