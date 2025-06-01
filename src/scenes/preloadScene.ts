@@ -1,5 +1,6 @@
 import { BodyColor } from "../const/bodyType";
 import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets } from "../const/rodType";
+import { FishType, getFishPath } from '../const/fishType';
 
 // Define a global variable to store the questions
 declare global {
@@ -100,20 +101,22 @@ export class PreloadScene extends Phaser.Scene {
     // Load fish (we'll load a few for now, can add more as needed)
     this.load.image('all-fish', 'assets/fish/all_fish.png');
     
-    // Load common fish types
-    const fishTypes = [
-      'bass', 'clown_fish', 'cod', 'guppy', 'herring', 
-      'mackerel', 'pike', 'puffer_fish', 'rainbow_fish'
-    ];
-    
-    fishTypes.forEach(fishType => {
-      this.load.image(`fish-${fishType}`, `assets/fish/${fishType}/${fishType}.png`);
+    // Load all fish types from the FishType enum
+    Object.values(FishType).forEach(fishType => {
+      this.load.image(`fish-${fishType}`, getFishPath(fishType as FishType));
     });
+    
+    // Log the number of fish types loaded
+    console.log(`Loaded ${Object.keys(FishType).length} fish types`);
+
 
     // Load fishing equipment
     this.load.image('fishing-rod', 'assets/fishing_rods/fishing_rod.png');
     this.load.image('floater', 'assets/floaters/floater.png');
     this.load.image('lure', 'assets/lure/lure.png');
+    
+    // Load background
+    this.load.image('menu-background', 'assets/background/background_v1.png');
     
     // Load floater animations
     this.load.spritesheet('floater-fish-biting', 'assets/animations/bobber_fish_bitting/bobber_fish_bitting_animation.png', {

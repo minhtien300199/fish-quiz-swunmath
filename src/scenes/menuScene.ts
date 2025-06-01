@@ -5,9 +5,8 @@ export class MenuScene extends Phaser.Scene {
 
   create(): void {
     // Add background
-    this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map')
-      .setScale(0.5)
-      .setAlpha(0.5);
+    this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'menu-background')
+      .setDisplaySize(this.cameras.main.width, this.cameras.main.height);
 
     // Add title
     this.add.text(
@@ -15,11 +14,12 @@ export class MenuScene extends Phaser.Scene {
       this.cameras.main.height / 4,
       'Fish Quiz',
       {
-        fontSize: '64px',
+        fontSize: '72px',
         color: '#ffffff',
         fontStyle: 'bold',
         stroke: '#000000',
-        strokeThickness: 6
+        strokeThickness: 8,
+        shadow: { color: '#000000', fill: true, offsetX: 2, offsetY: 2, blur: 8 }
       }
     ).setOrigin(0.5);
 
@@ -52,11 +52,7 @@ export class MenuScene extends Phaser.Scene {
       () => this.exitGame()
     );
 
-    // Add decorative fish images
-    this.add.image(150, 150, 'fish-clown_fish').setScale(2);
-    this.add.image(this.cameras.main.width - 150, 150, 'fish-rainbow_fish').setScale(2);
-    this.add.image(150, this.cameras.main.height - 150, 'fish-bass').setScale(2);
-    this.add.image(this.cameras.main.width - 150, this.cameras.main.height - 150, 'fish-puffer_fish').setScale(2);
+    // Decorative fish removed as requested
   }
 
   private createButton(x: number, y: number, text: string, callback: () => void): void {
@@ -64,12 +60,12 @@ export class MenuScene extends Phaser.Scene {
     const container = this.add.container(x, y);
     
     // Create button background using a rounded rectangle
-    const buttonWidth = 250;
-    const buttonHeight = 60;
-    const buttonRadius = 15;
-    const buttonColor = 0x4a6fa5; // Blue color
-    const buttonColorHover = 0x5d8bc3; // Lighter blue for hover
-    const buttonColorDown = 0x395780; // Darker blue for click
+    const buttonWidth = 280;
+    const buttonHeight = 70;
+    const buttonRadius = 20;
+    const buttonColor = 0x0066cc; // Deeper blue color
+    const buttonColorHover = 0x0099ff; // Lighter blue for hover
+    const buttonColorDown = 0x004080; // Darker blue for click
     
     // Create the button background
     const buttonBackground = this.add.graphics();
@@ -82,11 +78,12 @@ export class MenuScene extends Phaser.Scene {
     
     // Add text to button
     const buttonText = this.add.text(0, 0, text, {
-      fontSize: '28px',
+      fontSize: '32px',
       color: '#ffffff',
       fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 2
+      stroke: '#004080',
+      strokeThickness: 2,
+      shadow: { color: '#000000', fill: true, offsetX: 1, offsetY: 1, blur: 3 }
     }).setOrigin(0.5);
     
     // Add elements to container

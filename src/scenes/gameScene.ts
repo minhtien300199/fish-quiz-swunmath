@@ -1,6 +1,7 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
+import { FishType } from '../const/fishType';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { pointRules } from '../const/pointRules';
@@ -16,7 +17,7 @@ export class GameScene extends Phaser.Scene {
   private lure: Phaser.GameObjects.Image | null = null;
   private fishingState: 'idle' | 'casting' | 'waiting' | 'catching' | 'reeling' = 'idle';
   private fishingTimer: Phaser.Time.TimerEvent | null = null;
-  private currentFish: string | null = null;
+  private currentFish: FishType | null = null;
   private lives: number = 3;
   private livesText!: Phaser.GameObjects.Text;
   private livesIcons: Phaser.GameObjects.Image[] = [];
@@ -407,12 +408,9 @@ export class GameScene extends Phaser.Scene {
       // No bobbing effect - floater stays in place
     }
     
-    // Select a random fish
-    const fishTypes = [
-      'bass', 'clown_fish', 'cod', 'guppy', 'herring', 
-      'mackerel', 'pike', 'puffer_fish', 'rainbow_fish'
-    ];
-    this.currentFish = fishTypes[Phaser.Math.Between(0, fishTypes.length - 1)];
+    // Select a random fish from all available fish types
+    const fishTypes = Object.values(FishType);
+    this.currentFish = fishTypes[Phaser.Math.Between(0, fishTypes.length - 1)] as FishType;
     
     // Player needs to press space to catch the fish
     const catchWindow = this.time.delayedCall(2000, () => {

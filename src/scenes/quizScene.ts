@@ -1,5 +1,6 @@
 import { GameState } from '../types/gameState';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
+import { FishType } from '../const/fishType';
 
 interface QuizQuestion {
   question: string;
@@ -10,7 +11,7 @@ interface QuizQuestion {
 
 export class QuizScene extends Phaser.Scene {
   private gameState!: GameState;
-  private currentFish!: string;
+  private currentFish!: FishType;
   private questions: QuizQuestion[] = [];
   private currentQuestion!: QuizQuestion;
   private questionText!: Phaser.GameObjects.Text;
@@ -28,7 +29,7 @@ export class QuizScene extends Phaser.Scene {
     super({ key: 'QuizScene' });
   }
 
-  init(data: { gameState: GameState; currentFish: string; completionData?: CompletionData }): void {
+  init(data: { gameState: GameState; currentFish: FishType; completionData?: CompletionData }): void {
     this.gameState = data.gameState;
     this.currentFish = data.currentFish;
     this.completionData = data.completionData || null;
