@@ -1,6 +1,6 @@
 import { GameState } from '../types/gameState';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
-import { FishType } from '../const/fishType';
+import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fishType';
 
 interface QuizQuestion {
   question: string;
@@ -151,13 +151,42 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private createQuizUI(): void {
+    // Check if the current fish has variants
+    const variants = fishVariants[this.currentFish];
+    let fishKey = `fish-${this.currentFish}`;
     
-    // Add fish image at the top of the paper
+    // If this fish has variants, randomly select one
+    if (variants && variants.length > 0) {
+      const randomVariant = variants[Math.floor(Math.random() * variants.length)];
+      // Use the variant-specific image key
+      fishKey = `fish-${this.currentFish}-${randomVariant}`;
+      console.log(`Selected random variant for ${this.currentFish}: ${randomVariant}`);
+    }
+    
+    // Add fish image at the top of the paper (using either base fish or a variant)
     this.fishImage = this.add.image(
       this.cameras.main.width / 2,
       this.paperBg.y - (this.paperBg.displayHeight / 2) + 60, // Position at the top area of the paper
-      `fish-${this.currentFish}`
-    ).setScale(1.5).setDepth(2); // Make it smaller and ensure it's on top
+      fishKey
+    ).setDepth(2); // Ensure it's on top
+    
+    // Show only the first frame by setting the frame explicitly
+    this.fishImage.setFrame(0);
+    
+    // Adjust scale based on fish size
+    const fishSize = fishSizes[this.currentFish];
+    
+    // For shark_whale which is 16x48, we need to adjust the scale differently
+    // to maintain proper proportions
+    if (this.currentFish === FishType.shark_whale) {
+      // For wider fish, use a smaller scale to fit properly but still larger than before
+      this.fishImage.setScale(2.0);
+      // Rotate the fish to display horizontally
+      this.fishImage.setAngle(90);
+    } else {
+      // Scale up all fish to 3.0 as requested
+      this.fishImage.setScale(3.0);
+    }
     
     // Extract and display question content
     this.displayQuestionContent();
