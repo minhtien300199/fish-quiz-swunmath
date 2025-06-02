@@ -23,6 +23,7 @@ export class QuizScene extends Phaser.Scene {
   private paperBg!: Phaser.GameObjects.Image; // Paper background for quiz
   private panel!: Phaser.GameObjects.Image;
   private fishImage!: Phaser.GameObjects.Image;
+  private fishNameText!: Phaser.GameObjects.Text;
   private completionData: CompletionData | null = null;
 
   constructor() {
@@ -33,7 +34,7 @@ export class QuizScene extends Phaser.Scene {
     this.gameState = data.gameState;
     this.currentFish = data.currentFish;
     this.completionData = data.completionData || null;
-    
+
     // Set timer based on completion data or default to 15 seconds
     if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
       this.timeRemaining = this.completionData.Timers[0];
@@ -47,31 +48,31 @@ export class QuizScene extends Phaser.Scene {
   create(): void {
     // Create quiz questions
     this.createQuizQuestions();
-    
-    console.log(`Loaded ${this.questions.length} questions from ${window.QUIZ_QUESTIONS ? 'API' : 'fallback'}`); 
-    
+
+    console.log(`Loaded ${this.questions.length} questions from ${window.QUIZ_QUESTIONS ? 'API' : 'fallback'}`);
+
     // Select a random question
     this.currentQuestion = this.questions[Phaser.Math.Between(0, this.questions.length - 1)];
     console.log('Selected question:', this.currentQuestion.question.substring(0, 50) + '...');
-    
+
     // Create UI with paper background
     this.createPaperBackground();
     this.createQuizUI();
-    
+
     // Start timer
     this.startTimer();
   }
-  
+
   private createPaperBackground(): void {
     // Check if paper-bg asset exists, otherwise create a custom one
     if (!this.textures.exists('paper-bg')) {
       // Create a custom paper texture if the asset doesn't exist
       const graphics = this.make.graphics();
-      
+
       // Create the main paper background (light gray)
       graphics.fillStyle(0xf0f0f0);
       graphics.fillRect(0, 0, 400, 500);
-      
+
       // Add notebook lines
       graphics.lineStyle(1, 0xccccff, 0.5);
       for (let y = 40; y < 500; y += 30) {
@@ -80,34 +81,34 @@ export class QuizScene extends Phaser.Scene {
         graphics.lineTo(380, y);
         graphics.strokePath();
       }
-      
+
       // Add left margin with holes (notebook binding)
       graphics.fillStyle(0xdddddd);
       graphics.fillRect(0, 0, 20, 500);
-      
+
       // Add notebook holes
       graphics.fillStyle(0x333333);
       for (let y = 50; y < 500; y += 80) {
         graphics.fillCircle(10, y, 5);
       }
-      
+
       // Generate texture
       graphics.generateTexture('paper-bg', 400, 500);
       graphics.destroy();
     }
-    
+
     // Calculate dimensions for the paper background
     const width = this.cameras.main.width * 0.8;
     const height = this.cameras.main.height * 0.85; // Increased height to cover more of the screen
-    
+
     // Add the paper background
     this.paperBg = this.add.image(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2,
       'paper-bg'
     )
-    .setDisplaySize(width, height)
-    .setDepth(0); // Set to back layer
+      .setDisplaySize(width, height)
+      .setDepth(0); // Set to back layer
   }
 
   update(): void {
@@ -154,7 +155,7 @@ export class QuizScene extends Phaser.Scene {
     // Check if the current fish has variants
     const variants = fishVariants[this.currentFish];
     let fishKey = `fish-${this.currentFish}`;
-    
+
     // If this fish has variants, randomly select one
     if (variants && variants.length > 0) {
       const randomVariant = variants[Math.floor(Math.random() * variants.length)];
@@ -162,21 +163,18 @@ export class QuizScene extends Phaser.Scene {
       fishKey = `fish-${this.currentFish}-${randomVariant}`;
       console.log(`Selected random variant for ${this.currentFish}: ${randomVariant}`);
     }
-    
+
     // Add fish image at the top of the paper (using either base fish or a variant)
     this.fishImage = this.add.image(
       this.cameras.main.width / 2,
       this.paperBg.y - (this.paperBg.displayHeight / 2) + 60, // Position at the top area of the paper
       fishKey
     ).setDepth(2); // Ensure it's on top
-    
-    // Show only the first frame by setting the frame explicitly
-    this.fishImage.setFrame(0);
-    
+
     // Adjust scale based on fish size
     const fishSize = fishSizes[this.currentFish];
-    
-    // For shark_whale which is 16x48, we need to adjust the scale differently
+
+    // For shark_whale which is 48x16, we need to adjust the scale differently
     // to maintain proper proportions
     if (this.currentFish === FishType.shark_whale) {
       // For wider fish, use a smaller scale to fit properly but still larger than before
@@ -187,11 +185,26 @@ export class QuizScene extends Phaser.Scene {
       // Scale up all fish to 3.0 as requested
       this.fishImage.setScale(3.0);
     }
-    
+
+    // Add fish name below the fish image
+    const fishName = this.formatFishName(this.currentFish);
+    this.fishNameText = this.add.text(
+      this.cameras.main.width / 2,
+      this.fishImage.y + (this.fishImage.displayHeight / 2) + 5, // Reduced spacing from 20px to 5px
+      fishName,
+      {
+        fontSize: '24px',
+        color: '#2c3e50', // Dark blue-gray color for good readability on paper
+        fontStyle: 'bold',
+        stroke: '#ffffff',
+        strokeThickness: 2
+      }
+    ).setOrigin(0.5).setDepth(2); // Center aligned and on top layer
+
     // Extract and display question content
     this.displayQuestionContent();
-    
-    
+
+
     // Add timer text - position at the top of the screen
     this.timerText = this.add.text(
       this.cameras.main.width - 80, // Position in top-right corner
@@ -205,13 +218,13 @@ export class QuizScene extends Phaser.Scene {
         fontStyle: 'bold' // Make it bold for emphasis
       }
     ).setOrigin(1, 0.5); // Right-align the text
-    
+
     // Add options - position them in the lower part of the paper
     const firstButtonY = this.cameras.main.height * 0.6; // Move down to fit within the taller paper
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Create button background with more spacing for better layout
       const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
-      
+
       // Create a paper-style answer button
       const button = this.add.rectangle(
         this.cameras.main.width / 2,
@@ -220,15 +233,15 @@ export class QuizScene extends Phaser.Scene {
         50,
         0xf5f5f5 // Light color for paper-like appearance
       )
-      .setStrokeStyle(2, 0x90caf9) // Blue border like notebook paper
-      .setInteractive();
-      
+        .setStrokeStyle(2, 0x90caf9) // Blue border like notebook paper
+        .setInteractive();
+
       // Get choice and parse HTML content if needed
       const choice = this.currentQuestion.choices[i];
       const choiceDiv = document.createElement('div');
       choiceDiv.innerHTML = choice.text;
       const plainChoiceText = choiceDiv.textContent || choiceDiv.innerText || choice.text;
-      
+
       // Create option text
       const optionText = this.add.text(
         this.cameras.main.width / 2,
@@ -240,25 +253,25 @@ export class QuizScene extends Phaser.Scene {
           fontStyle: 'bold'
         }
       ).setOrigin(0.5).setDepth(2);
-      
+
       // Add hover effect
       button.on('pointerover', () => {
         button.setFillStyle(0xe3f2fd); // Light blue highlight
         button.setStrokeStyle(3, 0x2196f3); // Thicker blue border
         optionText.setStyle({ fontSize: '23px' }); // Slightly larger text
       });
-      
+
       button.on('pointerout', () => {
         button.setFillStyle(0xf5f5f5); // Back to light color
         button.setStrokeStyle(2, 0x90caf9); // Normal border
         optionText.setStyle({ fontSize: '22px', color: '#000000', fontStyle: 'bold' }); // Normal text
       });
-      
+
       // Add click event
       button.on('pointerdown', () => {
         this.checkAnswer(i);
       });
-      
+
       this.optionButtons.push(button);
       this.optionTexts.push(optionText);
     }
@@ -269,7 +282,7 @@ export class QuizScene extends Phaser.Scene {
       delay: 1000,
       callback: () => {
         this.timeRemaining--;
-        
+
         if (this.timeRemaining <= 0) {
           // Time's up, player loses
           this.timerEvent.remove();
@@ -284,15 +297,15 @@ export class QuizScene extends Phaser.Scene {
   private checkAnswer(selectedIndex: number): void {
     // Stop the timer
     this.timerEvent.remove();
-    
+
     // Check if the answer is correct
     const selectedKey = this.currentQuestion.choices[selectedIndex].key;
     const isCorrect = selectedKey === this.currentQuestion.correctAnswer;
-    
+
     // Calculate time bonus - how much time is left
     const timeBonus = this.timeRemaining;
     console.log(`Answer selected with ${timeBonus} seconds remaining`);
-    
+
     // Show result and pass time bonus
     this.showResult(isCorrect, timeBonus);
   }
@@ -301,20 +314,20 @@ export class QuizScene extends Phaser.Scene {
     // Position question content on the paper background below the fish image
     // Use the upper-middle area of the paper for positioning
     const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25); // Position in the upper-middle part of the paper
-    
+
     // Parse HTML content to extract images and text
     const parser = new DOMParser();
     const htmlDoc = parser.parseFromString(this.currentQuestion.question, 'text/html');
-    
+
     // Check for images in the question
     const images = htmlDoc.querySelectorAll('img');
     let hasImage = false;
-    
+
     if (images.length > 0) {
       // Handle the first image (for simplicity)
       const img = images[0];
       const src = img.getAttribute('src');
-      
+
       if (src && src.startsWith('data:image')) {
         hasImage = true;
         // Create a temporary image element to load the base64 image
@@ -337,14 +350,14 @@ export class QuizScene extends Phaser.Scene {
             );
             // Set depth to appear above paper but below UI elements
             questionImage.setDepth(1);
-            
+
             // Scale the image to fit within the paper width
             const paperWidth = this.paperBg.displayWidth * 0.7; // Leave some margin
             if (questionImage.width > paperWidth) {
               const scale = paperWidth / questionImage.width;
               questionImage.setScale(scale);
             }
-            
+
             // Limit the height to avoid overflow
             const maxHeight = this.paperBg.displayHeight * 0.3;
             if (questionImage.height * questionImage.scaleY > maxHeight) {
@@ -356,73 +369,73 @@ export class QuizScene extends Phaser.Scene {
         tempImg.src = src;
       }
     }
-    
+
     // Extract text content (excluding image tags and elements with display:none)
     let textContent = '';
-  
+
     // Function to check if an element or its parents have display:none
     const hasDisplayNone = (element: Element): boolean => {
       // Check inline style
-      if (element.getAttribute('style')?.includes('display:none') || 
-          element.getAttribute('style')?.includes('display: none')) {
+      if (element.getAttribute('style')?.includes('display:none') ||
+        element.getAttribute('style')?.includes('display: none')) {
         return true;
       }
-      
+
       // Check for spans with display:none
-      if (element.tagName.toLowerCase() === 'span' && 
-          element.getAttribute('style')?.includes("display:none")) {
+      if (element.tagName.toLowerCase() === 'span' &&
+        element.getAttribute('style')?.includes("display:none")) {
         return true;
       }
-      
+
       // Check parent recursively
       return element.parentElement ? hasDisplayNone(element.parentElement) : false;
     };
-    
+
     // Process nodes and filter out display:none elements
     const processNode = (node: Node): string => {
       // Text node - just return the content
       if (node.nodeType === Node.TEXT_NODE) {
         return node.textContent || '';
       }
-      
+
       // Element node - check if it's visible
       if (node.nodeType === Node.ELEMENT_NODE) {
         const element = node as Element;
-        
+
         // Skip image tags
         if (element.tagName.toLowerCase() === 'img') {
           return '';
         }
-        
+
         // Skip elements with display:none
         if (hasDisplayNone(element)) {
           return '';
         }
-        
+
         // Process children for visible elements
         let content = '';
         Array.from(element.childNodes).forEach(child => {
           content += processNode(child);
         });
-        
+
         return content;
       }
-      
+
       return '';
     };
-    
+
     // Process the entire body
     Array.from(htmlDoc.body.childNodes).forEach(node => {
       textContent += processNode(node);
     });
-    
+
     // Clean up the text
     textContent = textContent.trim();
-    
+
     // Add text below the image if there is one, or at the default position
     // Adjust the vertical spacing based on whether there's an image
     const textY = hasImage ? questionY + 80 : questionY;
-    
+
     this.questionText = this.add.text(
       this.cameras.main.width / 2,
       textY,
@@ -435,14 +448,14 @@ export class QuizScene extends Phaser.Scene {
         lineSpacing: 8 // Add line spacing for better readability on the lined paper
       }
     ).setOrigin(0.5).setDepth(1); // Set depth to appear above paper
-    
+
     // Limit text height to avoid overlap with answer options
     const maxTextHeight = this.paperBg.displayHeight * 0.4;
     if (this.questionText.height > maxTextHeight) {
       // If text is too long, truncate and add ellipsis
       let truncatedText = textContent;
       while (this.questionText.height > maxTextHeight && truncatedText.length > 10) {
-        truncatedText = truncatedText.substring(0, truncatedText.length - 10) + '...'; 
+        truncatedText = truncatedText.substring(0, truncatedText.length - 10) + '...';
         this.questionText.setText(truncatedText);
       }
     }
@@ -455,17 +468,17 @@ export class QuizScene extends Phaser.Scene {
         button.disableInteractive();
       }
     });
-    
+
     // Find the index of the correct answer
     const correctAnswerIndex = this.currentQuestion.choices.findIndex(
       choice => choice.key === this.currentQuestion.correctAnswer
     );
-    
+
     // Highlight correct answer if found
     if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
       this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00);
     }
-    
+
     // Show result text
     const resultText = this.add.text(
       this.cameras.main.width / 2,
@@ -478,14 +491,24 @@ export class QuizScene extends Phaser.Scene {
         strokeThickness: 4
       }
     ).setOrigin(0.5);
-    
+
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
-      this.scene.resume('GameScene', { 
+      this.scene.resume('GameScene', {
         success: isCorrect,
         timeBonus: timeBonus
       });
       this.scene.stop();
     });
+  }
+
+  private formatFishName(fish: FishType): string {
+    // Convert fish enum to readable name
+    // Replace underscores with spaces and capitalize each word
+    return fish
+      .replace(/_/g, ' ') // Replace underscores with spaces
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize first letter of each word
+      .join(' ');
   }
 }

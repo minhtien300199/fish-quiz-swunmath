@@ -25,17 +25,17 @@ export class FloaterFactory {
   // Floater properties by type
   private static readonly floaterProperties: Record<FloaterType, FloaterProperties> = {
     [FloaterType.DEFAULT]: {
-      scale: 0.6, // Increased scale from 0.3 to 0.6
+      scale: 1.2, // Increased from 0.6 to 1.2 (doubled)
       depth: 5,
       frameRate: 0 // Static image, no animation
     },
     [FloaterType.FISH_BITING]: {
-      scale: 0.6, // Increased scale from 0.3 to 0.6
+      scale: 1.2, // Increased from 0.6 to 1.2 (doubled)
       depth: 5,
       frameRate: 8 // Animation frame rate
     },
     [FloaterType.FLOATING]: {
-      scale: 1, // Increased scale from 0.3 to 0.6
+      scale: 2.0, // Increased from 1.0 to 2.0 (doubled)
       depth: 5,
       frameRate: 6 // Animation frame rate (slightly slower than biting)
     }
@@ -74,7 +74,7 @@ export class FloaterFactory {
     if (character) {
       // Get the character's current direction by examining the frame or animation
       let direction = 'down'; // Default direction
-      
+
       // Check if there's a current animation playing
       const currentAnim = character.anims.currentAnim;
       if (currentAnim) {
@@ -95,9 +95,9 @@ export class FloaterFactory {
           else if (frameNum === 0 || frameNum === 1) direction = 'right';
         }
       }
-      
+
       const offset = this.floaterOffsets[direction] || this.floaterOffsets['down'];
-      
+
       // Apply the offset based on direction
       floaterX = x + offset.x;
       floaterY = y + offset.y;
@@ -121,7 +121,7 @@ export class FloaterFactory {
         .setScale(properties.scale)
         .setDepth(properties.depth)
         .setOrigin(0.5, 0.5);
-      
+
       // Create animation if it doesn't exist yet
       if (!scene.anims.exists('floater-bite')) {
         scene.anims.create({
@@ -131,7 +131,7 @@ export class FloaterFactory {
           repeat: -1
         });
       }
-      
+
       // Play the animation (with type guard)
       if (floater instanceof Phaser.GameObjects.Sprite) {
         floater.play('floater-bite');
@@ -142,7 +142,7 @@ export class FloaterFactory {
         .setScale(properties.scale)
         .setDepth(properties.depth)
         .setOrigin(0.5, 0.5);
-      
+
       // Create animation if it doesn't exist yet
       if (!scene.anims.exists('floater-float')) {
         // Create animation from individual frames
@@ -152,7 +152,7 @@ export class FloaterFactory {
             key: `floater-floating-${i}`
           });
         }
-        
+
         scene.anims.create({
           key: 'floater-float',
           frames: frames,
@@ -160,16 +160,16 @@ export class FloaterFactory {
           repeat: -1
         });
       }
-      
+
       // Play the animation (with type guard)
       if (floater instanceof Phaser.GameObjects.Sprite) {
         floater.play('floater-float');
       }
     }
-    
+
     return floater;
   }
-  
+
   /**
    * Replace an existing floater with a new one of the specified type
    * @param scene The scene
@@ -187,10 +187,10 @@ export class FloaterFactory {
     // Store current position and properties
     const x = existingFloater.x;
     const y = existingFloater.y;
-    
+
     // Destroy the existing floater
     existingFloater.destroy();
-    
+
     // Create a new floater of the specified type at the same position
     // If character is provided, it will position based on character direction
     // Otherwise it will use the exact position of the previous floater
@@ -204,7 +204,7 @@ export class FloaterFactory {
       return newFloater;
     }
   }
-  
+
   /**
    * Make the floater bob up and down
    * @param scene The scene containing the floater
@@ -228,7 +228,7 @@ export class FloaterFactory {
       repeat: repeats
     });
   }
-  
+
   /**
    * Add the floater to a scene and configure it for UI camera
    * @param scene The scene to add the floater to

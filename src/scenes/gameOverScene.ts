@@ -12,16 +12,19 @@ export class GameOverScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Add background
-    this.add.rectangle(
+    // Add background image - scale to fit the full screen
+    const bg = this.add.image(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2,
-      this.cameras.main.width,
-      this.cameras.main.height,
-      0x000000,
-      0.8
+      'game-over-bg'
     );
-    
+
+    // Scale the background to cover the full screen while maintaining aspect ratio
+    const scaleX = this.cameras.main.width / bg.width;
+    const scaleY = this.cameras.main.height / bg.height;
+    const scale = Math.max(scaleX, scaleY); // Use the larger scale to ensure full coverage
+    bg.setScale(scale);
+
     // Add game over text
     this.add.text(
       this.cameras.main.width / 2,
@@ -35,7 +38,7 @@ export class GameOverScene extends Phaser.Scene {
         strokeThickness: 6
       }
     ).setOrigin(0.5);
-    
+
     // Add score text
     this.add.text(
       this.cameras.main.width / 2,
@@ -48,7 +51,7 @@ export class GameOverScene extends Phaser.Scene {
         strokeThickness: 4
       }
     ).setOrigin(0.5);
-    
+
     // Add fish caught text
     this.add.text(
       this.cameras.main.width / 2,
@@ -61,7 +64,7 @@ export class GameOverScene extends Phaser.Scene {
         strokeThickness: 4
       }
     ).setOrigin(0.5);
-    
+
     // Add play again button
     const playAgainButton = this.add.rectangle(
       this.cameras.main.width / 2,
@@ -70,7 +73,7 @@ export class GameOverScene extends Phaser.Scene {
       60,
       0x333333
     ).setInteractive();
-    
+
     this.add.text(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2 + 180,
@@ -80,21 +83,21 @@ export class GameOverScene extends Phaser.Scene {
         color: '#ffffff'
       }
     ).setOrigin(0.5);
-    
+
     // Add hover effect
     playAgainButton.on('pointerover', () => {
       playAgainButton.setFillStyle(0x666666);
     });
-    
+
     playAgainButton.on('pointerout', () => {
       playAgainButton.setFillStyle(0x333333);
     });
-    
+
     // Add click event
     playAgainButton.on('pointerdown', () => {
       this.scene.start('GameScene');
     });
-    
+
     // Add main menu button
     const mainMenuButton = this.add.rectangle(
       this.cameras.main.width / 2,
@@ -103,7 +106,7 @@ export class GameOverScene extends Phaser.Scene {
       60,
       0x333333
     ).setInteractive();
-    
+
     this.add.text(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2 + 260,
@@ -113,16 +116,16 @@ export class GameOverScene extends Phaser.Scene {
         color: '#ffffff'
       }
     ).setOrigin(0.5);
-    
+
     // Add hover effect
     mainMenuButton.on('pointerover', () => {
       mainMenuButton.setFillStyle(0x666666);
     });
-    
+
     mainMenuButton.on('pointerout', () => {
       mainMenuButton.setFillStyle(0x333333);
     });
-    
+
     // Add click event
     mainMenuButton.on('pointerdown', () => {
       this.scene.start('MenuScene');

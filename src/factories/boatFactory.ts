@@ -29,16 +29,16 @@ export class BoatFactory {
   // Boat properties by type
   private static readonly boatProperties: Record<BoatType, BoatProperties> = {
     [BoatType.SMALL]: {
-      speed: 180,
-      scale: 0.4
+      speed: 300,
+      scale: 0.8
     },
     [BoatType.YELLOW]: {
-      speed: 150,
-      scale: 0.5
+      speed: 250,
+      scale: 1.0
     },
     [BoatType.BLUE]: {
-      speed: 120,
-      scale: 0.5
+      speed: 200,
+      scale: 1.0
     }
   };
 
@@ -58,21 +58,21 @@ export class BoatFactory {
   ): Phaser.Physics.Arcade.Sprite {
     // Create the boat sprite
     const boat = scene.physics.add.sprite(x, y, `boat-${boatType}`);
-    
+
     // Set initial frame (EAST direction - 3 o'clock)
     boat.setFrame(BoatDirection.EAST);
-    
+
     // Apply properties based on boat type
     const properties = this.boatProperties[boatType];
     boat.setScale(properties.scale);
-    
+
     // Enable physics
     scene.physics.world.enable(boat);
     boat.setCollideWorldBounds(true);
-    
+
     return boat;
   }
-  
+
   /**
    * Update boat direction based on velocity
    * @param boat The boat sprite to update
@@ -86,18 +86,18 @@ export class BoatFactory {
   ): void {
     // Only update direction if the boat is moving
     if (velocityX === 0 && velocityY === 0) return;
-    
+
     // Calculate angle in radians from velocity
     const angle = Math.atan2(velocityY, velocityX);
-    
+
     // Convert to degrees (0-360)
     let degrees = (angle * 180 / Math.PI) % 360;
     if (degrees < 0) degrees += 360;
-    
+
     // Map degrees to one of 8 directions (each covering 45 degrees)
     // Starting from EAST (0 degrees) and going clockwise
     let direction: BoatDirection;
-    
+
     // Map movement angle to the correct frame based on the specified order
     if (degrees >= 337.5 || degrees < 22.5) {
       direction = BoatDirection.EAST;       // 3:00 PM - Right
@@ -116,7 +116,7 @@ export class BoatFactory {
     } else { // degrees >= 292.5 && degrees < 337.5
       direction = BoatDirection.NORTHEAST;  // 1:30 PM - Up-Right
     }
-    
+
     // Set the frame based on direction
     boat.setFrame(direction);
   }

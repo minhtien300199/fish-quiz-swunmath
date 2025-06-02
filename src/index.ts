@@ -4,8 +4,8 @@ import { Game } from './game';
 window.onload = () => {
   const gameConfig: Phaser.Types.Core.GameConfig = {
     type: Phaser.AUTO,
-    width: 1600,
-    height: 900,
+    width: '100%',
+    height: '100%',
     parent: 'game-container',
     physics: {
       default: 'arcade',
@@ -17,7 +17,7 @@ window.onload = () => {
     scene: [],
     backgroundColor: '#4488aa',
     scale: {
-      mode: Phaser.Scale.FIT,
+      mode: Phaser.Scale.RESIZE,
       autoCenter: Phaser.Scale.CENTER_BOTH,
       fullscreenTarget: 'game-container'
     },

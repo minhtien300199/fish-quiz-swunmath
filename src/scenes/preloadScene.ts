@@ -54,7 +54,7 @@ export class PreloadScene extends Phaser.Scene {
     // Simulate API delay
     return new Promise((resolve) => {
       console.log('Fetching question bank from API...');
-      
+
       // Simulate network delay (1 second)
       setTimeout(() => {
         // Import question bank from local file
@@ -100,25 +100,25 @@ export class PreloadScene extends Phaser.Scene {
 
     // Load fish (we'll load a few for now, can add more as needed)
     this.load.image('all-fish', 'assets/fish/all_fish.png');
-    
+
     // Load all fish types from the FishType enum with their correct sizes
     Object.values(FishType).forEach(fishType => {
       const typedFishType = fishType as FishType;
       const fishSize = fishSizes[typedFishType];
-      
+
       // Check if this fish has variants
       const variants = fishVariants[typedFishType];
       const hasVariants = hasFishVariants(typedFishType);
-      
+
       if (hasVariants) {
         // For fish with variants, we only load the variant images
         // since the parent folder doesn't have a static_fish.png
         variants.forEach(variant => {
           const variantPath = getFishPath(typedFishType, variant);
-          // Load variant image with key format: fish-{fishType}-{variant}
+          // Load variant as regular image with key format: fish-{fishType}-{variant}
           this.load.image(`fish-${fishType}-${variant}`, variantPath);
-          console.log(`Loaded fish variant: ${fishType}-${variant}`);
-          
+          console.log(`Loaded fish variant: ${fishType}-${variant} (${fishSize.width}x${fishSize.height})`);
+
           // For the first variant, also create a reference with the base fish name
           // This ensures backward compatibility with code that expects fish-{fishType}
           if (variant === variants[0]) {
@@ -127,17 +127,17 @@ export class PreloadScene extends Phaser.Scene {
           }
         });
       } else {
-        // For fish without variants, load the base image directly
+        // For fish without variants, load the base image
         const fishPath = getFishPath(typedFishType);
         this.load.image(`fish-${fishType}`, fishPath);
-        
+
         // Log special size fish for debugging
         if (fishSize.width !== 16 || fishSize.height !== 16) {
           console.log(`Loaded special sized fish: ${fishType} (${fishSize.width}x${fishSize.height})`);
         }
       }
     });
-    
+
     // Log the number of fish types and variants loaded
     let variantCount = 0;
     Object.values(FishType).forEach(fishType => {
@@ -150,16 +150,16 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('fishing-rod', 'assets/fishing_rods/fishing_rod.png');
     this.load.image('floater', 'assets/floaters/floater.png');
     this.load.image('lure', 'assets/lure/lure.png');
-    
+
     // Load background
     this.load.image('menu-background', 'assets/background/background_v1.png');
-    
+
     // Load floater animations
     this.load.spritesheet('floater-fish-biting', 'assets/animations/bobber_fish_bitting/bobber_fish_bitting_animation.png', {
       frameWidth: 48,
       frameHeight: 48
     });
-    
+
     // Load floater floating animation frames individually
     for (let i = 1; i <= 5; i++) {
       const frameNumber = String(i).padStart(4, '0'); // Format as 0001, 0002, etc.
@@ -168,82 +168,83 @@ export class PreloadScene extends Phaser.Scene {
         `assets/animations/bobber_floating_animation/boober_red_floating_animation_${frameNumber}.png`
       );
     }
-    
+
     // Load fishing rod assets for different rod types and actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
     Object.keys(RodType).forEach(rodKey => {
       const rodType = rodKey as keyof typeof RodType;
-      
+
       // Throw action
       this.load.spritesheet(`rod-throw-${rodType}`, RodThrowAssets[rodType], {
         frameWidth: 64,
         frameHeight: 64
       });
-      
+
       // Pull action
       this.load.spritesheet(`rod-pull-${rodType}`, RodPullAssets[rodType], {
         frameWidth: 64,
         frameHeight: 64
       });
-      
+
       // Reel action
       this.load.spritesheet(`rod-reel-${rodType}`, RodReelAssets[rodType], {
         frameWidth: 64,
         frameHeight: 64
       });
-      
+
       // Catch action
       this.load.spritesheet(`rod-catch-${rodType}`, RodCatchAssets[rodType], {
         frameWidth: 64,
         frameHeight: 64
       });
     });
-    
+
     // Load UI elements
     this.load.image('button', 'assets/ui_fishing_minigame/button.png');
     this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
     this.load.image('heart-icon', 'assets/game_ui/icons/heart-icon.png'); // 16x16 heart icon for lives
     this.load.image('paper-bg', 'assets/ui/paper-bg.png'); // Paper background for quiz
-    
+    this.load.image('game-over-bg', 'assets/background/game_over.png'); // Game over background image
+
     // Load character animations for fishing actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
-    
+
     // character_tools_fishing_rod_catch_body_light
-    this.load.spritesheet('character-fishing-throw', 
+    this.load.spritesheet('character-fishing-throw',
       `assets/character/tool_fishing_rod_throw/character_body/character_tools_fishing_rod_throw_body_${this.defaultCharacterColor}.png`,
       {
         frameWidth: 64,  // Adjust based on your actual sprite dimensions
         frameHeight: 64
       }
     );
-    
+
     // Fishing rod pull
-    this.load.spritesheet('character-fishing-pull', 
+    this.load.spritesheet('character-fishing-pull',
       `assets/character/tool_fishing_rod_pull/character_body/character_tools_fishing_rod_pull_body_${this.defaultCharacterColor}.png`,
       {
         frameWidth: 64,
         frameHeight: 64
       }
     );
-    
+
     // Fishing rod reel
-    this.load.spritesheet('character-fishing-reel', 
+    this.load.spritesheet('character-fishing-reel',
       `assets/character/tool_fishing_rod_reel/character_body/character_tools_fishing_rod_reel_body_${this.defaultCharacterColor}.png`,
       {
         frameWidth: 64,
         frameHeight: 64
       }
     );
-    
+
     // Fishing rod catch (keeping for backward compatibility)
-    this.load.spritesheet('character-catch', 
+    this.load.spritesheet('character-catch',
       `assets/character/tool_fishing_rod_catch/character_body/character_tools_fishing_rod_catch_body_${this.defaultCharacterColor}.png`,
       {
         frameWidth: 64,
         frameHeight: 64
       }
     );
-    
+
     // Load character idle sprites (8 frames for 4 directions - 2 frames per direction)
     this.load.spritesheet('character-idle-light', 'assets/character/idle/character_idle_body_light.png', {
       frameWidth: 64,  // Adjust based on your actual sprite dimensions
