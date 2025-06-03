@@ -1,6 +1,7 @@
 import { BodyColor } from "../const/bodyType";
 import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets } from "../const/rodType";
 import { FishType, getFishPath, fishSizes, FishVariantType, fishVariants, hasFishVariants } from '../const/fishType';
+import { FishFactory } from '../factories/fishFactory';
 
 // Define a global variable to store the questions
 declare global {
@@ -101,42 +102,9 @@ export class PreloadScene extends Phaser.Scene {
     // Load fish (we'll load a few for now, can add more as needed)
     this.load.image('all-fish', 'assets/fish/all_fish.png');
 
-    // Load all fish types from the FishType enum with their correct sizes
-    Object.values(FishType).forEach(fishType => {
-      const typedFishType = fishType as FishType;
-      const fishSize = fishSizes[typedFishType];
-
-      // Check if this fish has variants
-      const variants = fishVariants[typedFishType];
-      const hasVariants = hasFishVariants(typedFishType);
-
-      if (hasVariants) {
-        // For fish with variants, we only load the variant images
-        // since the parent folder doesn't have a static_fish.png
-        variants.forEach(variant => {
-          const variantPath = getFishPath(typedFishType, variant);
-          // Load variant as regular image with key format: fish-{fishType}-{variant}
-          this.load.image(`fish-${fishType}-${variant}`, variantPath);
-          console.log(`Loaded fish variant: ${fishType}-${variant} (${fishSize.width}x${fishSize.height})`);
-
-          // For the first variant, also create a reference with the base fish name
-          // This ensures backward compatibility with code that expects fish-{fishType}
-          if (variant === variants[0]) {
-            this.load.image(`fish-${fishType}`, variantPath);
-            console.log(`Set default variant for ${fishType}: ${variant}`);
-          }
-        });
-      } else {
-        // For fish without variants, load the base image
-        const fishPath = getFishPath(typedFishType);
-        this.load.image(`fish-${fishType}`, fishPath);
-
-        // Log special size fish for debugging
-        if (fishSize.width !== 16 || fishSize.height !== 16) {
-          console.log(`Loaded special sized fish: ${fishType} (${fishSize.width}x${fishSize.height})`);
-        }
-      }
-    });
+    // Use FishFactory to load all fish spritesheets
+    // Each fish has a 32x32 spritesheet with 2 rows and 2 frames per row
+    FishFactory.loadAllFishAssets(this);
 
     // Log the number of fish types and variants loaded
     let variantCount = 0;

@@ -66,7 +66,7 @@ export interface FishSize {
 export const fishSizes: Record<FishType, FishSize> = {
     // Special case: shark_whale is 16x48
     [FishType.shark_whale]: { width: 48, height: 16 },
-    
+
     // All other fish are standard 16x16
     [FishType.bass]: { width: 16, height: 16 },
     [FishType.blobfish]: { width: 16, height: 16 },
@@ -124,34 +124,34 @@ export enum FishVariantType {
     butterfly_fish_yellow_blue_no_fin = "yellow_blue_no_fin",
     butterfly_fish_yellow_white_blue_fin = "yellow_white_blue_fin",
     butterfly_fish_yellow_white_fin = "yellow_white_fin",
-    
+
     // Clown fish variants
     clown_fish_red = "red",
     clown_fish_yellow = "yellow",
-    
+
     // Guppy variants
     guppy_blue = "blue",
     guppy_red = "red",
-    
+
     // Loach variants
     loach_silver = "silver",
     loach_yellow = "yellow",
-    
+
     // Mackerel variants
     mackerel_green = "green",
     mackerel_silver = "silver",
-    
+
     // Neon tetras variants
     neon_tetras_dark_blue = "dark_blue",
     neon_tetras_light_blue = "light_blue",
-    
+
     // Parrot fish variants
     parrot_fish_small = "small",
-    
+
     // Pirana variants
     pirana_blue = "blue",
     pirana_gold = "gold",
-    
+
     // Swordfish variants
     swordfish_blue = "blue",
     swordfish_white = "white",
@@ -248,24 +248,26 @@ export const hasFishVariants = (fishType: FishType): boolean => {
 };
 
 /**
- * Get path for static fish with 1 frames and 2 rows
+ * Get path for fish image using new naming convention
+ * - Default fish: assets/fish/{fishType}/{fishType}.png (e.g., assets/fish/char/char.png)
+ * - Variant fish: assets/fish/{fishType}/{variant}/{variant}.png (e.g., assets/fish/clown_fish/red/red.png)
  * @param fishType The type of fish
  * @param variant Optional variant of the fish
  * @returns Path to the fish image
  */
 export const getFishPath = (fishType: FishType, variant?: string): string => {
-    // If a specific variant is provided, use that path
+    // If a specific variant is provided, use that path with variant name
     if (variant) {
-        return `${fishPath}${fishType}/${variant}/${FishFileType.static}.png`;
+        return `${fishPath}${fishType}/${variant}/${variant}.png`;
     }
-    
+
     // If this fish type has variants but no specific variant was requested,
-    // we need to use the first variant as the default since parent folder has no image
+    // use the first variant as the default
     if (hasFishVariants(fishType)) {
         const defaultVariant = fishVariants[fishType][0];
-        return `${fishPath}${fishType}/${defaultVariant}/${FishFileType.static}.png`;
+        return `${fishPath}${fishType}/${defaultVariant}/${defaultVariant}.png`;
     }
-    
-    // For fish without variants, use the standard path
-    return `${fishPath}${fishType}/${FishFileType.static}.png`;
+
+    // For fish without variants, use the fish type name as the image name
+    return `${fishPath}${fishType}/${fishType}.png`;
 };

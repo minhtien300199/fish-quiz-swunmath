@@ -1,0 +1,11 @@
+---
+description: 
+globs: 
+alwaysApply: false
+---
+The Solution:
+UI Camera Only: Menu elements now appear only in UI camera (no zoom)
+Main Camera Ignore: Main camera ignores all menu elements
+Single Menu: Only one properly sized menu appears
+
+Correct Scaling: Menu appears at normal 1:1 scale

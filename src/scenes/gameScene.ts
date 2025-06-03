@@ -36,6 +36,7 @@ export class GameScene extends Phaser.Scene {
   private currentBoatType: BoatType = BoatType.BLUE;
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
   private shouldReset: boolean = false;
+  private isMenuOpen: boolean = false; // Flag to prevent multiple menus
 
   constructor() {
     super({ key: 'GameScene' });
@@ -654,8 +655,59 @@ export class GameScene extends Phaser.Scene {
       }
     );
 
+    // Create menu button in the top right corner
+    const menuButtonSize = 50;
+    const menuButtonX = this.cameras.main.width - menuButtonSize - 20; // 20px from right edge
+    const menuButtonY = 20; // 20px from top edge
+
+    // Create menu button background
+    const menuButton = this.add.rectangle(
+      menuButtonX, menuButtonY, menuButtonSize, menuButtonSize,
+      0x333333, 0.8
+    )
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.8)
+      .setInteractive({ useHandCursor: true });
+
+    // Create menu button icon (three horizontal lines)
+    const lineSpacing = 8;
+    const lineWidth = 30;
+    const lineHeight = 3;
+    const startX = menuButtonX + (menuButtonSize - lineWidth) / 2;
+    const startY = menuButtonY + (menuButtonSize - (lineHeight * 3 + lineSpacing * 2)) / 2;
+
+    const menuLine1 = this.add.rectangle(startX, startY, lineWidth, lineHeight, 0xffffff)
+      .setOrigin(0, 0);
+    const menuLine2 = this.add.rectangle(startX, startY + lineHeight + lineSpacing, lineWidth, lineHeight, 0xffffff)
+      .setOrigin(0, 0);
+    const menuLine3 = this.add.rectangle(startX, startY + (lineHeight + lineSpacing) * 2, lineWidth, lineHeight, 0xffffff)
+      .setOrigin(0, 0);
+
+    // Add hover effects for the menu button
+    menuButton.on('pointerover', () => {
+      menuButton.setFillStyle(0x555555, 0.9);
+      menuLine1.setFillStyle(0xffff00);
+      menuLine2.setFillStyle(0xffff00);
+      menuLine3.setFillStyle(0xffff00);
+    });
+
+    menuButton.on('pointerout', () => {
+      menuButton.setFillStyle(0x333333, 0.8);
+      menuLine1.setFillStyle(0xffffff);
+      menuLine2.setFillStyle(0xffffff);
+      menuLine3.setFillStyle(0xffffff);
+    });
+
+    // Add click handler for menu button
+    menuButton.on('pointerdown', () => {
+      this.showGameMenu();
+    });
+
     // Add all UI elements to the container
-    uiContainer.add([bg, this.livesText, ...this.livesIcons, this.fishCaughtText, this.pointsText, this.coordsText]);
+    uiContainer.add([
+      bg, this.livesText, ...this.livesIcons, this.fishCaughtText,
+      this.pointsText, this.coordsText, menuButton, menuLine1, menuLine2, menuLine3
+    ]);
 
     // Set high depth for the UI container to ensure it's on top
     uiContainer.setDepth(1000);
@@ -677,6 +729,167 @@ export class GameScene extends Phaser.Scene {
     // If there's a floater or lure, ignore them in the UI camera
     if (this.floater) uiCamera.ignore(this.floater);
     if (this.lure) uiCamera.ignore(this.lure);
+  }
+
+  /**
+   * Show the in-game menu with options to resume, restart, or go to main menu
+   */
+  private showGameMenu(): void {
+    // Prevent multiple menus from opening
+    if (this.isMenuOpen) {
+      console.log('Menu already open, ignoring request');
+      return;
+    }
+
+    console.log('Opening game menu...');
+    this.isMenuOpen = true;
+
+    // Pause the game physics but keep the scene running
+    this.physics.pause();
+
+    // Get the UI camera - this is where we should create the menu to avoid zoom issues
+    const uiCamera = this.cameras.getCamera('UICamera');
+    if (!uiCamera) {
+      console.error('UI Camera not found!');
+      this.isMenuOpen = false;
+      this.physics.resume();
+      return;
+    }
+
+    // Create a simple overlay that blocks input to the game
+    const overlay = this.add.graphics();
+    overlay.fillStyle(0x000000, 0.8);
+    overlay.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+    overlay.setScrollFactor(0);
+    overlay.setDepth(9000);
+
+    // Create menu container at the center of the screen (UI camera coordinates)
+    const menuContainer = this.add.container(this.cameras.main.width / 2, this.cameras.main.height / 2);
+    menuContainer.setScrollFactor(0);
+    menuContainer.setDepth(9001);
+
+    // Create menu background
+    const menuBg = this.add.rectangle(0, 0, 400, 350, 0x2c3e50);
+    menuBg.setStrokeStyle(4, 0x3498db);
+
+    // Create title
+    const title = this.add.text(0, -120, 'GAME MENU', {
+      fontSize: '32px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Create buttons using simple graphics and text
+    const createButton = (y: number, color: number, text: string, callback: () => void) => {
+      const button = this.add.graphics();
+      button.fillStyle(color);
+      button.fillRoundedRect(-125, y - 25, 250, 50, 10);
+      button.setInteractive(new Phaser.Geom.Rectangle(-125, y - 25, 250, 50), Phaser.Geom.Rectangle.Contains);
+
+      const buttonText = this.add.text(0, y, text, {
+        fontSize: '24px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }).setOrigin(0.5);
+
+      // Add hover effect
+      button.on('pointerover', () => {
+        button.clear();
+        // Use predefined lighter colors for hover effect
+        let hoverColor = color;
+        if (color === 0x27ae60) hoverColor = 0x2ecc71; // Green hover
+        else if (color === 0xe67e22) hoverColor = 0xf39c12; // Orange hover
+        else if (color === 0xe74c3c) hoverColor = 0xc0392b; // Red hover
+
+        button.fillStyle(hoverColor);
+        button.fillRoundedRect(-125, y - 25, 250, 50, 10);
+        console.log(`Hovering over ${text} button`);
+      });
+
+      button.on('pointerout', () => {
+        button.clear();
+        button.fillStyle(color);
+        button.fillRoundedRect(-125, y - 25, 250, 50, 10);
+      });
+
+      button.on('pointerdown', () => {
+        console.log(`${text} button clicked!`);
+        callback();
+      });
+
+      return { button, buttonText };
+    };
+
+    // Cleanup function
+    const cleanup = () => {
+      console.log('Cleaning up menu...');
+      this.isMenuOpen = false;
+      this.physics.resume();
+
+      // Destroy all menu elements
+      if (overlay) overlay.destroy();
+      if (menuContainer) menuContainer.destroy();
+    };
+
+    // Create the three buttons
+    const resumeBtn = createButton(-30, 0x27ae60, 'RESUME', () => {
+      cleanup();
+      console.log('Game resumed');
+    });
+
+    const restartBtn = createButton(40, 0xe67e22, 'RESTART', () => {
+      cleanup();
+      console.log('Restarting game...');
+      // Reset game state
+      this.fishingState = 'idle';
+      this.currentFish = null;
+      this.lives = 3;
+      this.fishCaught = 0;
+      this.points = 0;
+      this.scene.restart({ reset: true });
+    });
+
+    const mainMenuBtn = createButton(110, 0xe74c3c, 'MAIN MENU', () => {
+      cleanup();
+      console.log('Going to main menu...');
+      this.cleanup();
+      this.scene.start('MenuScene');
+    });
+
+    // Add all elements to container
+    menuContainer.add([
+      menuBg,
+      title,
+      resumeBtn.button,
+      resumeBtn.buttonText,
+      restartBtn.button,
+      restartBtn.buttonText,
+      mainMenuBtn.button,
+      mainMenuBtn.buttonText
+    ]);
+
+    // IMPORTANT: Make menu elements visible ONLY to UI camera (ignore main camera)
+    // This prevents the zoomed duplicate from appearing
+    this.cameras.main.ignore([overlay, menuContainer]);
+    this.cameras.main.ignore([
+      menuBg, title,
+      resumeBtn.button, resumeBtn.buttonText,
+      restartBtn.button, restartBtn.buttonText,
+      mainMenuBtn.button, mainMenuBtn.buttonText
+    ]);
+
+    // Add ESC key listener
+    const escKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
+    if (escKey) {
+      const escHandler = () => {
+        console.log('ESC pressed - closing menu');
+        cleanup();
+        escKey.off('down', escHandler);
+      };
+      escKey.on('down', escHandler);
+    }
+
+    console.log('Menu created successfully for UI camera only');
   }
 
   private updateUI(): void {

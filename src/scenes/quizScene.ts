@@ -1,6 +1,7 @@
 import { GameState } from '../types/gameState';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fishType';
+import { FishFactory, FishState, FishSizeCategory } from '../factories/fishFactory';
 
 interface QuizQuestion {
   question: string;
@@ -22,7 +23,7 @@ export class QuizScene extends Phaser.Scene {
   private timeRemaining: number = 15;
   private paperBg!: Phaser.GameObjects.Image; // Paper background for quiz
   private panel!: Phaser.GameObjects.Image;
-  private fishImage!: Phaser.GameObjects.Image;
+  private fishSprite!: Phaser.GameObjects.Image;
   private fishNameText!: Phaser.GameObjects.Text;
   private completionData: CompletionData | null = null;
 
@@ -34,6 +35,12 @@ export class QuizScene extends Phaser.Scene {
     this.gameState = data.gameState;
     this.currentFish = data.currentFish;
     this.completionData = data.completionData || null;
+
+    // Validate currentFish - provide fallback if missing
+    if (!this.currentFish) {
+      console.error('QuizScene: currentFish is missing from init data, using default bass');
+      this.currentFish = FishType.bass;
+    }
 
     // Set timer based on completion data or default to 15 seconds
     if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
@@ -152,45 +159,46 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private createQuizUI(): void {
-    // Check if the current fish has variants
-    const variants = fishVariants[this.currentFish];
-    let fishKey = `fish-${this.currentFish}`;
-
-    // If this fish has variants, randomly select one
-    if (variants && variants.length > 0) {
-      const randomVariant = variants[Math.floor(Math.random() * variants.length)];
-      // Use the variant-specific image key
-      fishKey = `fish-${this.currentFish}-${randomVariant}`;
-      console.log(`Selected random variant for ${this.currentFish}: ${randomVariant}`);
+    // Additional safety check for currentFish
+    if (!this.currentFish) {
+      console.error('QuizScene.createQuizUI: currentFish is undefined, using default bass');
+      this.currentFish = FishType.bass;
     }
 
-    // Add fish image at the top of the paper (using either base fish or a variant)
-    this.fishImage = this.add.image(
+    // Create fish image at the top of the paper using FishFactory
+    this.fishSprite = FishFactory.createFish(
+      this,
       this.cameras.main.width / 2,
       this.paperBg.y - (this.paperBg.displayHeight / 2) + 60, // Position at the top area of the paper
-      fishKey
-    ).setDepth(2); // Ensure it's on top
+      this.currentFish,
+      FishState.NORMAL // Use normal state for the quiz display
+    );
 
-    // Adjust scale based on fish size
-    const fishSize = fishSizes[this.currentFish];
+    // Set depth to ensure it's on top
+    this.fishSprite.setDepth(2);
 
-    // For shark_whale which is 48x16, we need to adjust the scale differently
-    // to maintain proper proportions
-    if (this.currentFish === FishType.shark_whale) {
-      // For wider fish, use a smaller scale to fit properly but still larger than before
-      this.fishImage.setScale(2.0);
-      // Rotate the fish to display horizontally
-      this.fishImage.setAngle(90);
-    } else {
-      // Scale up all fish to 3.0 as requested
-      this.fishImage.setScale(3.0);
+    // Get fish size category and adjust scale accordingly
+    const sizeCategory = FishFactory.getFishSizeCategory(this.currentFish);
+
+    // Scale the fish based on its size category
+    switch (sizeCategory) {
+      case FishSizeCategory.LARGE:
+        this.fishSprite.setScale(6.0);
+        break;
+      case FishSizeCategory.MEDIUM:
+        this.fishSprite.setScale(5.0);
+        break;
+      case FishSizeCategory.SMALL:
+      default:
+        this.fishSprite.setScale(4.0);
+        break;
     }
 
     // Add fish name below the fish image
     const fishName = this.formatFishName(this.currentFish);
     this.fishNameText = this.add.text(
       this.cameras.main.width / 2,
-      this.fishImage.y + (this.fishImage.displayHeight / 2) + 5, // Reduced spacing from 20px to 5px
+      this.fishSprite.y + (this.fishSprite.displayHeight / 2) + 5, // Reduced spacing from 20px to 5px
       fishName,
       {
         fontSize: '24px',
@@ -468,6 +476,14 @@ export class QuizScene extends Phaser.Scene {
         button.disableInteractive();
       }
     });
+
+    // Update fish state based on result
+    if (this.fishSprite) {
+      FishFactory.updateFishAnimation(
+        this.fishSprite,
+        isCorrect ? FishState.CAUGHT : FishState.ESCAPED
+      );
+    }
 
     // Find the index of the correct answer
     const correctAnswerIndex = this.currentQuestion.choices.findIndex(
