@@ -13,7 +13,8 @@ export class UIScene extends Phaser.Scene {
   private gameState: GameState = {
     lives: 3,
     fishCaught: 0,
-    score: 0
+    score: 0,
+    caughtFishTypes: []
   };
   private completionData: any = null;
 

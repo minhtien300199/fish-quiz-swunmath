@@ -5,6 +5,7 @@ import { FishType } from '../const/fishType';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { pointRules } from '../const/pointRules';
+import { FishCollectionManager } from '../managers/fishCollectionManager';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -28,7 +29,8 @@ export class GameScene extends Phaser.Scene {
   private gameState: GameState = {
     lives: 3,
     fishCaught: 0,
-    score: 0
+    score: 0,
+    caughtFishTypes: []
   };
   private completionData: CompletionData | null = null;
   private points: number = 0;
@@ -85,10 +87,14 @@ export class GameScene extends Phaser.Scene {
       this.gameState = {
         lives: 3,
         fishCaught: 0,
-        score: 0
+        score: 0,
+        caughtFishTypes: FishCollectionManager.getCaughtFishTypes() // Load from persistent storage
       };
       this.points = 0;
       this.fishCaught = 0;
+    } else {
+      // Even if not resetting completely, sync the caught fish types from storage
+      this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
     }
 
     // Always reset these states regardless
@@ -469,6 +475,20 @@ export class GameScene extends Phaser.Scene {
             // Increment fish caught counter
             this.fishCaught++;
 
+            // Add the caught fish to the collection if we have a current fish
+            let isNewFish = false;
+            if (this.currentFish) {
+              isNewFish = FishCollectionManager.addCaughtFish(this.currentFish);
+
+              // Update game state with current caught fish types
+              this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
+
+              // Show new fish discovery notification if it's a new catch
+              if (isNewFish) {
+                this.showNewFishNotification(this.currentFish);
+              }
+            }
+
             // Determine fish size/rarity type
             let fishType: 'small' | 'medium' | 'rare';
 
@@ -768,12 +788,12 @@ export class GameScene extends Phaser.Scene {
     menuContainer.setScrollFactor(0);
     menuContainer.setDepth(9001);
 
-    // Create menu background
-    const menuBg = this.add.rectangle(0, 0, 400, 350, 0x2c3e50);
+    // Create menu background (larger to accommodate increased spacing)
+    const menuBg = this.add.rectangle(0, 0, 400, 500, 0x2c3e50);
     menuBg.setStrokeStyle(4, 0x3498db);
 
     // Create title
-    const title = this.add.text(0, -120, 'GAME MENU', {
+    const title = this.add.text(0, -200, 'GAME MENU', {
       fontSize: '32px',
       color: '#ffffff',
       fontStyle: 'bold'
@@ -800,6 +820,7 @@ export class GameScene extends Phaser.Scene {
         if (color === 0x27ae60) hoverColor = 0x2ecc71; // Green hover
         else if (color === 0xe67e22) hoverColor = 0xf39c12; // Orange hover
         else if (color === 0xe74c3c) hoverColor = 0xc0392b; // Red hover
+        else if (color === 0x9b59b6) hoverColor = 0x8e44ad; // Purple hover
 
         button.fillStyle(hoverColor);
         button.fillRoundedRect(-125, y - 25, 250, 50, 10);
@@ -831,10 +852,23 @@ export class GameScene extends Phaser.Scene {
       if (menuContainer) menuContainer.destroy();
     };
 
-    // Create the three buttons
-    const resumeBtn = createButton(-30, 0x27ae60, 'RESUME', () => {
+    // Create the four buttons with increased spacing (80px between each button)
+    const resumeBtn = createButton(-120, 0x27ae60, 'RESUME', () => {
       cleanup();
       console.log('Game resumed');
+    });
+
+    const fishCollectionBtn = createButton(-40, 0x9b59b6, 'FISH COLLECTION', () => {
+      cleanup();
+      console.log('Opening fish collection...');
+      // Launch the fish collection scene as an overlay
+      this.scene.launch('FishCollectionScene', { returnTo: 'GameScene' });
+
+      // Listen for when the fish collection scene is closed
+      this.scene.get('FishCollectionScene').events.once('shutdown', () => {
+        // Resume this scene when fish collection is closed
+        this.scene.resume();
+      });
     });
 
     const restartBtn = createButton(40, 0xe67e22, 'RESTART', () => {
@@ -849,7 +883,7 @@ export class GameScene extends Phaser.Scene {
       this.scene.restart({ reset: true });
     });
 
-    const mainMenuBtn = createButton(110, 0xe74c3c, 'MAIN MENU', () => {
+    const mainMenuBtn = createButton(120, 0xe74c3c, 'MAIN MENU', () => {
       cleanup();
       console.log('Going to main menu...');
       this.cleanup();
@@ -862,6 +896,8 @@ export class GameScene extends Phaser.Scene {
       title,
       resumeBtn.button,
       resumeBtn.buttonText,
+      fishCollectionBtn.button,
+      fishCollectionBtn.buttonText,
       restartBtn.button,
       restartBtn.buttonText,
       mainMenuBtn.button,
@@ -874,6 +910,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.ignore([
       menuBg, title,
       resumeBtn.button, resumeBtn.buttonText,
+      fishCollectionBtn.button, fishCollectionBtn.buttonText,
       restartBtn.button, restartBtn.buttonText,
       mainMenuBtn.button, mainMenuBtn.buttonText
     ]);
@@ -1056,29 +1093,102 @@ export class GameScene extends Phaser.Scene {
   private showBonusPointsNotification(bonusPoints: number): void {
     // Create floating text notification for bonus points
     const notification = this.add.text(
-      this.player.x,
-      this.player.y - 90, // Position it higher than the regular points notification
-      `SPEED BONUS: +${bonusPoints} points!`,
+      this.player.x + 30, // Offset to the right so it doesn't overlap with main notification
+      this.player.y - 80, // Higher than the main notification
+      `+${bonusPoints} TIME BONUS!`,
       {
-        fontSize: '14px',
-        color: '#ff00ff', // Magenta color for bonus points
+        fontSize: '10px',
+        color: '#f1c40f', // Gold color for bonus
         fontStyle: 'bold',
         stroke: '#000000',
         strokeThickness: 3
       }
     ).setOrigin(0.5);
 
-    // Animate the notification with a special effect
+    // Animate the notification floating upward and fading out
     this.tweens.add({
       targets: notification,
-      y: notification.y - 80,
+      y: notification.y - 100,
       alpha: 0,
-      scaleX: 1.5,
-      scaleY: 1.5,
       duration: 2500,
-      ease: 'Bounce.Out',
-      onComplete: () => notification.destroy()
+      ease: 'Power2',
+      onComplete: () => {
+        notification.destroy();
+      }
     });
+  }
+
+  /**
+   * Show a notification when a new fish type is discovered
+   * @param fishType The new fish type that was discovered
+   */
+  private showNewFishNotification(fishType: FishType): void {
+    // Format fish name for display
+    const fishName = fishType
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+
+    // Create floating text notification for new fish discovery
+    const notification = this.add.text(
+      this.player.x,
+      this.player.y - 120, // Above other notifications
+      `NEW FISH DISCOVERED!\n${fishName}`,
+      {
+        fontSize: '14px',
+        color: '#e74c3c', // Bright red for discovery
+        fontStyle: 'bold',
+        stroke: '#ffffff',
+        strokeThickness: 4,
+        align: 'center'
+      }
+    ).setOrigin(0.5);
+
+    // Create a sparkle effect around the notification
+    const sparkles = [];
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      const sparkle = this.add.text(
+        notification.x + Math.cos(angle) * 60,
+        notification.y + Math.sin(angle) * 40,
+        '✨',
+        {
+          fontSize: '16px',
+          color: '#f1c40f'
+        }
+      ).setOrigin(0.5);
+      sparkles.push(sparkle);
+    }
+
+    // Animate the notification and sparkles
+    this.tweens.add({
+      targets: notification,
+      y: notification.y - 100,
+      alpha: 0,
+      duration: 3000,
+      ease: 'Power2',
+      onComplete: () => {
+        notification.destroy();
+      }
+    });
+
+    // Animate sparkles
+    sparkles.forEach((sparkle, index) => {
+      this.tweens.add({
+        targets: sparkle,
+        rotation: Math.PI * 2,
+        alpha: 0,
+        duration: 3000,
+        delay: index * 100,
+        ease: 'Power2',
+        onComplete: () => {
+          sparkle.destroy();
+        }
+      });
+    });
+
+    console.log(`🎉 New fish discovered: ${fishName}!`);
   }
 
   /**

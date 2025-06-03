@@ -1,0 +1,398 @@
+{
+    "bass": {
+        "name": "Bass",
+        "description": "A popular freshwater game fish known for its fighting spirit when caught.",
+        "habitat": "Lakes, ponds, and slow-moving rivers",
+        "size": "Medium to large, typically 12-20 inches",
+        "diet": "Smaller fish, insects, and aquatic creatures",
+        "funFact": "Bass can live up to 15 years and are very protective of their nests during spawning season.",
+        "category": "Freshwater Sport Fish"
+    },
+    "blobfish": {
+        "name": "Blobfish",
+        "description": "A deep-sea fish that looks very different when brought to the surface due to pressure changes.",
+        "habitat": "Deep ocean waters, 2,000-4,000 feet deep",
+        "size": "About 12 inches long",
+        "diet": "Small crustaceans and organic matter floating in the water",
+        "funFact": "The blobfish was voted the 'world's ugliest animal' but only looks blob-like out of water!",
+        "category": "Deep Sea Fish"
+    },
+    "butterfly_fish": {
+        "name": "Butterfly Fish",
+        "description": "Colorful tropical fish with beautiful patterns, popular in aquariums.",
+        "habitat": "Coral reefs in warm tropical waters",
+        "size": "3-8 inches depending on species",
+        "diet": "Coral polyps, algae, and small invertebrates",
+        "funFact": "Butterfly fish often mate for life and swim in pairs around coral reefs.",
+        "category": "Tropical Marine Fish"
+    },
+    "catfish": {
+        "name": "Catfish",
+        "description": "Freshwater fish with whisker-like barbels that help them find food in murky water.",
+        "habitat": "Rivers, lakes, and ponds worldwide",
+        "size": "Varies greatly, from 4 inches to over 8 feet",
+        "diet": "Bottom feeders eating plants, insects, and small fish",
+        "funFact": "Catfish have over 100,000 taste buds all over their body, not just in their mouth!",
+        "category": "Freshwater Bottom Feeder"
+    },
+    "char": {
+        "name": "Char",
+        "description": "A cold-water fish related to salmon and trout, prized for its delicate flavor.",
+        "habitat": "Cold lakes and streams in northern regions",
+        "size": "12-24 inches typically",
+        "diet": "Insects, small fish, and aquatic invertebrates",
+        "funFact": "Arctic char can survive in water so cold it's almost freezing and can change color based on their environment.",
+        "category": "Cold Water Fish"
+    },
+    "cherry_salmon": {
+        "name": "Cherry Salmon",
+        "description": "A Pacific salmon species known for its beautiful pink coloration during spawning.",
+        "habitat": "Pacific Ocean and rivers in Japan, Korea, and Russia",
+        "size": "20-28 inches long",
+        "diet": "Small fish, squid, and crustaceans in the ocean",
+        "funFact": "Cherry salmon get their name from their cherry-blossom pink color during mating season.",
+        "category": "Anadromous Fish"
+    },
+    "clown_fish": {
+        "name": "Clownfish",
+        "description": "Bright orange fish with white stripes, famous for living in sea anemones.",
+        "habitat": "Coral reefs in the Indo-Pacific region",
+        "size": "3-4 inches long",
+        "diet": "Algae, plankton, and anemone leftovers",
+        "funFact": "Clownfish are immune to sea anemone stings and help clean the anemone in exchange for protection!",
+        "category": "Tropical Marine Fish"
+    },
+    "cod": {
+        "name": "Cod",
+        "description": "An important commercial fish with flaky white meat, found in cold northern waters.",
+        "habitat": "North Atlantic and Pacific cold waters",
+        "size": "2-6 feet long, can weigh up to 200 pounds",
+        "diet": "Small fish, crabs, worms, and mollusks",
+        "funFact": "Cod can live up to 25 years and were so important to early American economy that a wooden cod hangs in the Massachusetts State House!",
+        "category": "Commercial Marine Fish"
+    },
+    "coho_salmon": {
+        "name": "Coho Salmon",
+        "description": "Also known as silver salmon, these fish are born in freshwater but live most of their adult life in the ocean.",
+        "habitat": "Pacific Ocean and connected rivers",
+        "size": "24-36 inches long",
+        "diet": "Small fish, squid, and crustaceans",
+        "funFact": "Coho salmon can jump up to 10 feet high to clear obstacles when swimming upstream to spawn!",
+        "category": "Anadromous Fish"
+    },
+    "cow_fish": {
+        "name": "Cowfish",
+        "description": "A box-shaped fish with horn-like projections that look like a cow's horns.",
+        "habitat": "Tropical coral reefs",
+        "size": "8-18 inches long",
+        "diet": "Algae, small crustaceans, and organic matter",
+        "funFact": "Cowfish can release toxins when stressed, which is why they're challenging to keep in aquariums with other fish.",
+        "category": "Tropical Marine Fish"
+    },
+    "giant_tevally": {
+        "name": "Giant Trevally",
+        "description": "A large, powerful predator fish known for its incredible hunting abilities.",
+        "habitat": "Indo-Pacific tropical waters",
+        "size": "Can grow up to 5 feet and weigh 150 pounds",
+        "diet": "Fish, crustaceans, and even seabirds",
+        "funFact": "Giant trevally have been filmed jumping out of the water to catch birds flying overhead!",
+        "category": "Large Marine Predator"
+    },
+    "golden_trout": {
+        "name": "Golden Trout",
+        "description": "California's state fish, known for its beautiful golden color and red markings.",
+        "habitat": "High mountain streams and lakes in the Sierra Nevada",
+        "size": "6-12 inches typically",
+        "diet": "Insects, small crustaceans, and aquatic larvae",
+        "funFact": "Golden trout live at elevations above 10,000 feet and can survive in very cold, oxygen-poor water.",
+        "category": "Mountain Freshwater Fish"
+    },
+    "guppy": {
+        "name": "Guppy",
+        "description": "Small, colorful tropical fish popular in home aquariums.",
+        "habitat": "Freshwater streams in South America, now worldwide in aquariums",
+        "size": "1-2 inches long",
+        "diet": "Small insects, plant matter, and fish flakes in aquariums",
+        "funFact": "Female guppies can store sperm for up to 8 months and give birth to live babies instead of laying eggs!",
+        "category": "Small Tropical Freshwater Fish"
+    },
+    "halibut": {
+        "name": "Halibut",
+        "description": "One of the largest flatfish, with both eyes on one side of their head.",
+        "habitat": "Ocean floors in the North Pacific and Atlantic",
+        "size": "Can grow up to 8 feet and weigh over 400 pounds",
+        "diet": "Fish, crabs, squid, and other bottom-dwelling creatures",
+        "funFact": "Halibut start life swimming upright like normal fish, but one eye migrates to the other side as they grow!",
+        "category": "Large Marine Flatfish"
+    },
+    "herring": {
+        "name": "Herring",
+        "description": "Small, silver fish that swim in huge schools and are important food for many marine animals.",
+        "habitat": "Coastal waters of the North Atlantic and Pacific",
+        "size": "8-15 inches long",
+        "diet": "Plankton, small crustaceans, and fish larvae",
+        "funFact": "Herring schools can contain millions of fish and create underwater 'bait balls' that attract whales, dolphins, and seabirds.",
+        "category": "Small Schooling Marine Fish"
+    },
+    "lion_fish": {
+        "name": "Lionfish",
+        "description": "Beautiful but venomous fish with flowing fins that look like a lion's mane.",
+        "habitat": "Indo-Pacific coral reefs, invasive in Atlantic waters",
+        "size": "6-15 inches long",
+        "diet": "Small fish and crustaceans",
+        "funFact": "Lionfish have venomous spines that can cause painful stings to humans, but they're not naturally aggressive.",
+        "category": "Venomous Marine Fish"
+    },
+    "loach": {
+        "name": "Loach",
+        "description": "Bottom-dwelling freshwater fish with barbels around their mouth for finding food.",
+        "habitat": "Rivers, streams, and lakes worldwide",
+        "size": "2-12 inches depending on species",
+        "diet": "Insects, worms, and organic matter on the bottom",
+        "funFact": "Some loaches can predict weather changes and become more active before storms!",
+        "category": "Freshwater Bottom Feeder"
+    },
+    "mackerel": {
+        "name": "Mackerel",
+        "description": "Fast-swimming fish with distinctive tiger-like stripes on their back.",
+        "habitat": "Open ocean waters worldwide",
+        "size": "12-22 inches long",
+        "diet": "Small fish, squid, and crustaceans",
+        "funFact": "Mackerel can swim up to 35 mph and must keep moving constantly to breathe properly.",
+        "category": "Fast-Swimming Marine Fish"
+    },
+    "mahi_mahi": {
+        "name": "Mahi Mahi",
+        "description": "Also called dolphinfish, these colorful fish are prized for sport fishing and eating.",
+        "habitat": "Warm ocean waters worldwide",
+        "size": "3-6 feet long, can weigh up to 90 pounds",
+        "diet": "Flying fish, squid, crabs, and other fish",
+        "funFact": "Mahi mahi can change colors rapidly when excited or stressed, flashing bright blues, greens, and yellows!",
+        "category": "Large Tropical Marine Fish"
+    },
+    "manta_ray": {
+        "name": "Manta Ray",
+        "description": "Giant, graceful rays that glide through the ocean like underwater birds.",
+        "habitat": "Tropical and subtropical ocean waters",
+        "size": "Can have a wingspan up to 29 feet!",
+        "diet": "Plankton, small fish, and tiny crustaceans",
+        "funFact": "Manta rays have the largest brain of any fish and are known to recognize themselves in mirrors!",
+        "category": "Large Marine Ray"
+    },
+    "napolean_fish": {
+        "name": "Napoleon Fish",
+        "description": "Also called humphead wrasse, these are massive reef fish with a distinctive forehead bump.",
+        "habitat": "Coral reefs in the Indo-Pacific",
+        "size": "Can grow up to 7 feet and weigh 400 pounds",
+        "diet": "Fish, mollusks, crustaceans, and sea urchins",
+        "funFact": "Napoleon fish can live over 30 years and all start life as females before some change to males!",
+        "category": "Large Coral Reef Fish"
+    },
+    "neon_tetras": {
+        "name": "Neon Tetras",
+        "description": "Tiny, brilliantly colored fish with electric blue and red stripes.",
+        "habitat": "Amazon Basin rivers in South America",
+        "size": "About 1 inch long",
+        "diet": "Small insects, worms, and plant matter",
+        "funFact": "Neon tetras' bright colors fade at night when they sleep to help them hide from predators.",
+        "category": "Small Tropical Freshwater Fish"
+    },
+    "oarfish": {
+        "name": "Oarfish",
+        "description": "The world's longest bony fish, sometimes called the 'sea serpent' due to its ribbon-like body.",
+        "habitat": "Deep ocean waters worldwide",
+        "size": "Can grow up to 36 feet long!",
+        "diet": "Small fish, squid, and krill",
+        "funFact": "Oarfish usually live so deep they're rarely seen alive, leading to sea monster legends when they wash ashore.",
+        "category": "Deep Sea Giant Fish"
+    },
+    "ocean_sunfish": {
+        "name": "Ocean Sunfish",
+        "description": "The world's heaviest bony fish, with a unique flat, round shape.",
+        "habitat": "Open ocean waters worldwide",
+        "size": "Can weigh up to 5,000 pounds and be 14 feet long",
+        "diet": "Jellyfish, small fish, and algae",
+        "funFact": "Ocean sunfish can lay up to 300 million eggs at once - more than any other vertebrate!",
+        "category": "Giant Marine Fish"
+    },
+    "parrot_fish": {
+        "name": "Parrotfish",
+        "description": "Colorful reef fish with beak-like mouths that crunch coral to eat algae.",
+        "habitat": "Tropical coral reefs",
+        "size": "1-4 feet depending on species",
+        "diet": "Algae growing on coral and rocks",
+        "funFact": "Parrotfish poop creates tropical beaches! They eat coral and excrete sand - up to 840 pounds per fish per year.",
+        "category": "Tropical Reef Fish"
+    },
+    "pike": {
+        "name": "Pike",
+        "description": "Aggressive freshwater predator with a long body and sharp teeth.",
+        "habitat": "Lakes and slow rivers in northern regions",
+        "size": "2-5 feet long, can weigh up to 60 pounds",
+        "diet": "Fish, frogs, ducklings, and other aquatic animals",
+        "funFact": "Pike can live up to 75 years and are ambush predators that can accelerate from 0 to 25 mph instantly!",
+        "category": "Freshwater Predator"
+    },
+    "pink_salmon": {
+        "name": "Pink Salmon",
+        "description": "The smallest Pacific salmon, also called humpback salmon due to males' spawning hump.",
+        "habitat": "North Pacific Ocean and connected rivers",
+        "size": "16-24 inches long",
+        "diet": "Small fish, squid, and crustaceans",
+        "funFact": "Pink salmon have a strict 2-year life cycle and all return to spawn in odd or even years depending on their population.",
+        "category": "Anadromous Fish"
+    },
+    "pirana": {
+        "name": "Piranha",
+        "description": "Sharp-toothed fish from South America, famous for their powerful bite.",
+        "habitat": "Rivers and lakes in the Amazon Basin",
+        "size": "6-12 inches long",
+        "diet": "Fish, insects, plants, and occasionally larger animals",
+        "funFact": "Most piranhas are actually vegetarians! Only a few species are the aggressive carnivores shown in movies.",
+        "category": "Freshwater Predator"
+    },
+    "plaice": {
+        "name": "Plaice",
+        "description": "A flatfish with orange spots that lives on sandy ocean floors.",
+        "habitat": "Sandy bottoms of the North Sea and Atlantic",
+        "size": "12-20 inches long",
+        "diet": "Worms, mollusks, and small crustaceans",
+        "funFact": "Plaice can change their color and pattern to match the sea floor where they're hiding!",
+        "category": "Marine Flatfish"
+    },
+    "pompano": {
+        "name": "Pompano",
+        "description": "Silver, disc-shaped fish prized for their delicious taste and fighting ability.",
+        "habitat": "Warm coastal waters, especially around reefs",
+        "size": "12-20 inches long",
+        "diet": "Small fish, crabs, and shrimp",
+        "funFact": "Pompano are considered one of the best-tasting fish in the ocean and can live up to 8 years.",
+        "category": "Coastal Marine Fish"
+    },
+    "puffer_fish": {
+        "name": "Pufferfish",
+        "description": "Round fish that can inflate their body like a balloon when threatened.",
+        "habitat": "Tropical and subtropical waters worldwide",
+        "size": "1 inch to 2 feet depending on species",
+        "diet": "Algae, small invertebrates, and sometimes coral",
+        "funFact": "Pufferfish contain a powerful toxin called tetrodotoxin that's 1,200 times more poisonous than cyanide!",
+        "category": "Defensive Marine Fish"
+    },
+    "rainbow_fish": {
+        "name": "Rainbow Fish",
+        "description": "Brightly colored freshwater fish popular in aquariums for their shimmering scales.",
+        "habitat": "Rivers and lakes in Australia and New Guinea",
+        "size": "2-6 inches long",
+        "diet": "Small insects, worms, and plant matter",
+        "funFact": "Rainbow fish get their name from their iridescent scales that reflect light like a rainbow!",
+        "category": "Colorful Freshwater Fish"
+    },
+    "sea_horse": {
+        "name": "Seahorse",
+        "description": "Unique fish with a horse-like head that swims upright and has a prehensile tail.",
+        "habitat": "Shallow tropical and temperate coastal waters",
+        "size": "0.6-14 inches depending on species",
+        "diet": "Tiny crustaceans and plankton",
+        "funFact": "Male seahorses are the only male animals that get pregnant and give birth to babies!",
+        "category": "Unique Marine Fish"
+    },
+    "shark_greatwhite": {
+        "name": "Great White Shark",
+        "description": "The ocean's apex predator, famous for its size and powerful bite.",
+        "habitat": "Coastal waters worldwide, especially cooler regions",
+        "size": "15-26 feet long, can weigh over 5,000 pounds",
+        "diet": "Seals, sea lions, fish, and occasionally sea turtles",
+        "funFact": "Great whites can detect a single drop of blood in 25 gallons of water and live up to 70 years!",
+        "category": "Apex Marine Predator"
+    },
+    "shark_hammerhead": {
+        "name": "Hammerhead Shark",
+        "description": "Distinctive shark with a flattened head shaped like a hammer.",
+        "habitat": "Warm tropical waters worldwide",
+        "size": "3-20 feet depending on species",
+        "diet": "Fish, rays, squid, and crustaceans",
+        "funFact": "The hammer-shaped head gives them 360-degree vision and helps them detect electrical signals from prey!",
+        "category": "Unique Marine Predator"
+    },
+    "shark_saw": {
+        "name": "Sawshark",
+        "description": "Shark with a long, flat snout lined with sharp teeth like a saw blade.",
+        "habitat": "Deep waters of the Indo-Pacific and Atlantic",
+        "size": "3-6 feet long",
+        "diet": "Small fish, squid, and crustaceans",
+        "funFact": "Sawsharks use their saw-like snout to slash through schools of fish and detect buried prey with electrical sensors!",
+        "category": "Specialized Marine Predator"
+    },
+    "shark_whale": {
+        "name": "Whale Shark",
+        "description": "The world's largest fish, but gentle giants that eat only tiny plankton.",
+        "habitat": "Warm ocean waters worldwide",
+        "size": "Can grow up to 40 feet long and weigh 20 tons",
+        "diet": "Plankton, small fish, and fish eggs",
+        "funFact": "Despite being the biggest fish, whale sharks are completely harmless to humans and often let divers swim alongside them!",
+        "category": "Giant Filter Feeder"
+    },
+    "silver_eel": {
+        "name": "Silver Eel",
+        "description": "Long, snake-like fish that can live in both fresh and salt water.",
+        "habitat": "Rivers and lakes, migrating to ocean to spawn",
+        "size": "2-4 feet long",
+        "diet": "Fish, frogs, insects, and crustaceans",
+        "funFact": "Silver eels can live up to 85 years and migrate thousands of miles to the Sargasso Sea to spawn!",
+        "category": "Migratory Fish"
+    },
+    "sockeye_salmon": {
+        "name": "Sockeye Salmon",
+        "description": "Pacific salmon known for turning bright red with green heads during spawning season.",
+        "habitat": "North Pacific Ocean and connected rivers",
+        "size": "24-33 inches long",
+        "diet": "Plankton, small fish, and squid",
+        "funFact": "Sockeye salmon can navigate back to the exact stream where they were born using their sense of smell!",
+        "category": "Anadromous Fish"
+    },
+    "squid": {
+        "name": "Squid",
+        "description": "Intelligent marine animal with ten arms, two tentacles, and the ability to change color.",
+        "habitat": "Oceans worldwide, from surface to deep water",
+        "size": "1 inch to 43 feet depending on species",
+        "diet": "Fish, crustaceans, and other squid",
+        "funFact": "Squid have three hearts, blue blood, and can shoot ink clouds to escape predators!",
+        "category": "Marine Cephalopod"
+    },
+    "sucker_fish": {
+        "name": "Suckerfish",
+        "description": "Fish with a disc-shaped mouth that attaches to larger animals for transportation.",
+        "habitat": "Tropical and subtropical waters worldwide",
+        "size": "6 inches to 3 feet depending on species",
+        "diet": "Parasites and dead skin from host animals",
+        "funFact": "Suckerfish help clean sharks and other large fish, creating a win-win relationship called symbiosis!",
+        "category": "Symbiotic Marine Fish"
+    },
+    "surgeon_fish": {
+        "name": "Surgeonfish",
+        "description": "Colorful reef fish with sharp, scalpel-like spines on their tails.",
+        "habitat": "Tropical coral reefs worldwide",
+        "size": "4-16 inches long",
+        "diet": "Algae growing on rocks and coral",
+        "funFact": "Surgeonfish got their name from the razor-sharp spines that can cut like a surgeon's scalpel!",
+        "category": "Tropical Reef Fish"
+    },
+    "swordfish": {
+        "name": "Swordfish",
+        "description": "Large, fast fish with a long, flat bill resembling a sword.",
+        "habitat": "Open ocean waters worldwide",
+        "size": "6-14 feet long, can weigh up to 1,400 pounds",
+        "diet": "Fish, squid, and crustaceans",
+        "funFact": "Swordfish can swim up to 60 mph and use their sword to stun prey by slashing through schools of fish!",
+        "category": "Large Ocean Predator"
+    },
+    "whiting_fish": {
+        "name": "Whiting",
+        "description": "Small to medium-sized fish related to cod, popular for eating.",
+        "habitat": "Coastal waters of the Atlantic and Pacific",
+        "size": "8-16 inches long",
+        "diet": "Small fish, crustaceans, and worms",
+        "funFact": "Whiting are an important commercial fish and are often used in fish and chips because of their mild, flaky meat.",
+        "category": "Commercial Marine Fish"
+    }
+}

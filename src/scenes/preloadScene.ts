@@ -174,6 +174,9 @@ export class PreloadScene extends Phaser.Scene {
     this.load.image('paper-bg', 'assets/ui/paper-bg.png'); // Paper background for quiz
     this.load.image('game-over-bg', 'assets/background/game_over.png'); // Game over background image
 
+    // Load fish information JSON
+    this.load.json('fishInfo', 'assets/data/fishInfo.json');
+
     // Load character animations for fishing actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
 
@@ -231,5 +234,8 @@ export class PreloadScene extends Phaser.Scene {
       frameWidth: 64,
       frameHeight: 64
     });
+
+    // Load completion data (mock backend)
+    this.load.json('completion', 'src/datas/completion.json');
   }
 }
