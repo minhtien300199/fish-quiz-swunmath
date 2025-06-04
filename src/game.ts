@@ -12,6 +12,7 @@ import { FishCollectionScene } from './scenes/fishCollectionScene';
 
 // Import test utilities for development
 import './test/fishCollectionTest';
+import './test/leaderboardTest';
 
 export class Game extends Phaser.Game {
   constructor(config: Phaser.Types.Core.GameConfig) {

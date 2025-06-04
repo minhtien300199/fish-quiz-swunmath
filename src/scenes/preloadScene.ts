@@ -177,6 +177,14 @@ export class PreloadScene extends Phaser.Scene {
     // Load fish information JSON
     this.load.json('fishInfo', 'assets/data/fishInfo.json');
 
+    // Load sound effects
+    this.load.audio('bait-hit-water', 'assets/sounds/bait-hit-water.mp3');
+    this.load.audio('rod-reels', 'assets/sounds/rod-reels.mp3');
+    this.load.audio('star-blinking', 'assets/sounds/star-blinking.mp3');
+
+    // Load background music
+    this.load.audio('game-background-music', 'assets/sounds/game-background-music.mp3');
+
     // Load character animations for fishing actions as spritesheets
     // Each spritesheet has 4 rows (for directions) and 5 columns (for animation frames)
 

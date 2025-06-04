@@ -6,6 +6,8 @@ import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { pointRules } from '../const/pointRules';
 import { FishCollectionManager } from '../managers/fishCollectionManager';
+import { MusicManager } from '../managers/musicManager';
+import { LeaderboardManager } from '../managers/leaderboardManager';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -66,6 +68,9 @@ export class GameScene extends Phaser.Scene {
     // Clean up any existing objects first
     this.cleanup();
 
+    // Initialize music manager
+    MusicManager.init(this);
+
     // Fetch completion data from mock backend
     try {
       this.completionData = await fetchCompletionData();
@@ -92,6 +97,7 @@ export class GameScene extends Phaser.Scene {
       };
       this.points = 0;
       this.fishCaught = 0;
+      this.lives = 3; // Reset lives to 3
     } else {
       // Even if not resetting completely, sync the caught fish types from storage
       this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
@@ -318,6 +324,11 @@ export class GameScene extends Phaser.Scene {
   private startFishing(): void {
     this.fishingState = 'casting';
 
+    // Play bait hit water sound effect with delay to match when bait hits water
+    this.time.delayedCall(500, () => {
+      MusicManager.playSound(this, 'bait-hit-water', { volume: 0.5 });
+    });
+
     // Set character to fishing throw action
     if (this.character) {
       CharacterFactory.setCharacterAction(
@@ -453,6 +464,9 @@ export class GameScene extends Phaser.Scene {
   }
 
   private catchFish(): void {
+    // Play rod reeling sound effect
+    MusicManager.playSound(this, 'rod-reels', { volume: 0.6 });
+
     this.fishingState = 'reeling';
 
     // Show reeling animation - only target the floater since lure is removed
@@ -687,7 +701,7 @@ export class GameScene extends Phaser.Scene {
     )
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffffff, 0.8)
-      .setInteractive({ useHandCursor: true });
+      .setInteractive();
 
     // Create menu button icon (three horizontal lines)
     const lineSpacing = 8;
@@ -723,10 +737,91 @@ export class GameScene extends Phaser.Scene {
       this.showGameMenu();
     });
 
+    // Create sound toggle buttons
+    const buttonSize = 40;
+    const buttonSpacing = 10;
+
+    // Music toggle button
+    const musicButtonX = this.cameras.main.width - buttonSize - 20;
+    const musicButtonY = menuButtonY + menuButtonSize + buttonSpacing;
+
+    const musicButton = this.add.rectangle(
+      musicButtonX, musicButtonY, buttonSize, buttonSize,
+      MusicManager.isMusicOn() ? 0x27ae60 : 0xe74c3c, 0.8
+    )
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.8)
+      .setInteractive();
+
+    const musicIcon = this.add.text(
+      musicButtonX + buttonSize / 2,
+      musicButtonY + buttonSize / 2,
+      '♪',
+      {
+        fontSize: '24px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+
+    // Sound toggle button
+    const soundButtonX = musicButtonX;
+    const soundButtonY = musicButtonY + buttonSize + buttonSpacing;
+
+    const soundButton = this.add.rectangle(
+      soundButtonX, soundButtonY, buttonSize, buttonSize,
+      MusicManager.isSoundOn() ? 0x27ae60 : 0xe74c3c, 0.8
+    )
+      .setOrigin(0, 0)
+      .setStrokeStyle(2, 0xffffff, 0.8)
+      .setInteractive();
+
+    const soundIcon = this.add.text(
+      soundButtonX + buttonSize / 2,
+      soundButtonY + buttonSize / 2,
+      '🔊',
+      {
+        fontSize: '20px',
+        color: '#ffffff',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5);
+
+    // Music button handlers
+    musicButton.on('pointerover', () => {
+      musicButton.setFillStyle(MusicManager.isMusicOn() ? 0x2ecc71 : 0xc0392b, 0.9);
+    });
+
+    musicButton.on('pointerout', () => {
+      musicButton.setFillStyle(MusicManager.isMusicOn() ? 0x27ae60 : 0xe74c3c, 0.8);
+    });
+
+    musicButton.on('pointerdown', () => {
+      const isMusicOn = MusicManager.toggleMusic();
+      musicButton.setFillStyle(isMusicOn ? 0x27ae60 : 0xe74c3c, 0.8);
+      console.log('Music toggled:', isMusicOn ? 'ON' : 'OFF');
+    });
+
+    // Sound button handlers
+    soundButton.on('pointerover', () => {
+      soundButton.setFillStyle(MusicManager.isSoundOn() ? 0x2ecc71 : 0xc0392b, 0.9);
+    });
+
+    soundButton.on('pointerout', () => {
+      soundButton.setFillStyle(MusicManager.isSoundOn() ? 0x27ae60 : 0xe74c3c, 0.8);
+    });
+
+    soundButton.on('pointerdown', () => {
+      const isSoundOn = MusicManager.toggleSound();
+      soundButton.setFillStyle(isSoundOn ? 0x27ae60 : 0xe74c3c, 0.8);
+      console.log('Sound toggled:', isSoundOn ? 'ON' : 'OFF');
+    });
+
     // Add all UI elements to the container
     uiContainer.add([
       bg, this.livesText, ...this.livesIcons, this.fishCaughtText,
-      this.pointsText, this.coordsText, menuButton, menuLine1, menuLine2, menuLine3
+      this.pointsText, this.coordsText, menuButton, menuLine1, menuLine2, menuLine3,
+      musicButton, musicIcon, soundButton, soundIcon
     ]);
 
     // Set high depth for the UI container to ensure it's on top
@@ -788,25 +883,25 @@ export class GameScene extends Phaser.Scene {
     menuContainer.setScrollFactor(0);
     menuContainer.setDepth(9001);
 
-    // Create menu background (larger to accommodate increased spacing)
-    const menuBg = this.add.rectangle(0, 0, 400, 500, 0x2c3e50);
+    // Create menu background (adjusted size for 4 buttons)
+    const menuBg = this.add.rectangle(0, 0, 400, 450, 0x2c3e50);
     menuBg.setStrokeStyle(4, 0x3498db);
 
-    // Create title
-    const title = this.add.text(0, -200, 'GAME MENU', {
+    // Create title (positioned lower for better balance)
+    const title = this.add.text(0, -180, 'GAME MENU', {
       fontSize: '32px',
       color: '#ffffff',
       fontStyle: 'bold'
     }).setOrigin(0.5);
 
     // Create buttons using simple graphics and text
-    const createButton = (y: number, color: number, text: string, callback: () => void) => {
-      const button = this.add.graphics();
-      button.fillStyle(color);
-      button.fillRoundedRect(-125, y - 25, 250, 50, 10);
-      button.setInteractive(new Phaser.Geom.Rectangle(-125, y - 25, 250, 50), Phaser.Geom.Rectangle.Contains);
+    const createButton = (x: number, y: number, color: number, text: string, callback: () => void) => {
+      // Use Rectangle instead of Graphics for more reliable hit detection
+      const button = this.add.rectangle(x, y, 250, 50, color);
+      button.setStrokeStyle(2, 0xffffff, 0.3);
+      button.setInteractive({ useHandCursor: true });
 
-      const buttonText = this.add.text(0, y, text, {
+      const buttonText = this.add.text(x, y, text, {
         fontSize: '24px',
         color: '#ffffff',
         fontStyle: 'bold'
@@ -814,23 +909,21 @@ export class GameScene extends Phaser.Scene {
 
       // Add hover effect
       button.on('pointerover', () => {
-        button.clear();
         // Use predefined lighter colors for hover effect
         let hoverColor = color;
         if (color === 0x27ae60) hoverColor = 0x2ecc71; // Green hover
         else if (color === 0xe67e22) hoverColor = 0xf39c12; // Orange hover
         else if (color === 0xe74c3c) hoverColor = 0xc0392b; // Red hover
         else if (color === 0x9b59b6) hoverColor = 0x8e44ad; // Purple hover
+        else if (color === 0x95a5a6) hoverColor = 0xbdc3c7; // Light gray hover (Resume button)
+        else if (color === 0x34495e) hoverColor = 0x5d6d7e; // Lighter dark gray hover (Exit to Menu button)
 
-        button.fillStyle(hoverColor);
-        button.fillRoundedRect(-125, y - 25, 250, 50, 10);
+        button.setFillStyle(hoverColor);
         console.log(`Hovering over ${text} button`);
       });
 
       button.on('pointerout', () => {
-        button.clear();
-        button.fillStyle(color);
-        button.fillRoundedRect(-125, y - 25, 250, 50, 10);
+        button.setFillStyle(color);
       });
 
       button.on('pointerdown', () => {
@@ -852,41 +945,27 @@ export class GameScene extends Phaser.Scene {
       if (menuContainer) menuContainer.destroy();
     };
 
-    // Create the four buttons with increased spacing (80px between each button)
-    const resumeBtn = createButton(-120, 0x27ae60, 'RESUME', () => {
+    // Create the buttons with proper vertical alignment and consistent spacing
+    const buttonSpacing = 70; // Space between each button
+    const startY = -120; // Starting Y position (higher up)
+
+    const resumeBtn = createButton(0, startY, 0x95a5a6, 'Resume', () => {
       cleanup();
-      console.log('Game resumed');
     });
 
-    const fishCollectionBtn = createButton(-40, 0x9b59b6, 'FISH COLLECTION', () => {
+    const fishCollectionBtn = createButton(0, startY + buttonSpacing, 0x27ae60, 'Fish Collection', () => {
       cleanup();
-      console.log('Opening fish collection...');
-      // Launch the fish collection scene as an overlay
+      this.scene.pause();
       this.scene.launch('FishCollectionScene', { returnTo: 'GameScene' });
-
-      // Listen for when the fish collection scene is closed
-      this.scene.get('FishCollectionScene').events.once('shutdown', () => {
-        // Resume this scene when fish collection is closed
-        this.scene.resume();
-      });
     });
 
-    const restartBtn = createButton(40, 0xe67e22, 'RESTART', () => {
+    const restartBtn = createButton(0, startY + buttonSpacing * 2, 0xe74c3c, 'Restart', () => {
       cleanup();
-      console.log('Restarting game...');
-      // Reset game state
-      this.fishingState = 'idle';
-      this.currentFish = null;
-      this.lives = 3;
-      this.fishCaught = 0;
-      this.points = 0;
-      this.scene.restart({ reset: true });
+      this.scene.start('GameScene', { reset: true });
     });
 
-    const mainMenuBtn = createButton(120, 0xe74c3c, 'MAIN MENU', () => {
+    const mainMenuBtn = createButton(0, startY + buttonSpacing * 3, 0x34495e, 'Exit to Menu', () => {
       cleanup();
-      console.log('Going to main menu...');
-      this.cleanup();
       this.scene.start('MenuScene');
     });
 
@@ -1009,6 +1088,11 @@ export class GameScene extends Phaser.Scene {
   }
 
   private gameOver(): void {
+    // Save score to leaderboard if it's significant (more than 0 points)
+    if (this.gameState.score > 0) {
+      this.saveScoreToLeaderboard();
+    }
+
     this.scene.start('GameOverScene', { gameState: this.gameState });
   }
 
@@ -1123,6 +1207,9 @@ export class GameScene extends Phaser.Scene {
    * @param fishType The new fish type that was discovered
    */
   private showNewFishNotification(fishType: FishType): void {
+    // Play star blinking sound effect for new fish discovery
+    MusicManager.playSound(this, 'star-blinking', { volume: 0.7 });
+
     // Format fish name for display
     const fishName = fishType
       .replace(/_/g, ' ')
@@ -1224,5 +1311,85 @@ export class GameScene extends Phaser.Scene {
       this.fishingTimer.remove();
       this.fishingTimer = null;
     }
+  }
+
+  /**
+   * Save the current game score to leaderboard
+   */
+  private saveScoreToLeaderboard(): void {
+    // Get player name from a simple prompt (can be enhanced with a proper UI later)
+    const playerName = prompt('Enter your name for the leaderboard:') || 'Anonymous';
+
+    // Calculate total fish caught
+    const totalFishCaught = this.gameState.caughtFishTypes.length;
+
+    // Get completion title based on current completion data
+    const completionTitle = this.completionData?.title || 'Beginner';
+
+    // Save the score
+    const isHighScore = LeaderboardManager.saveScore(
+      playerName,
+      this.gameState.score,
+      totalFishCaught,
+      completionTitle
+    );
+
+    // Show feedback to player
+    if (isHighScore) {
+      console.log(`🎉 New high score saved! Score: ${this.gameState.score}, Rank: ${LeaderboardManager.getPlayerRank(this.gameState.score)}`);
+
+      // Create high score notification
+      this.showHighScoreNotification(this.gameState.score, LeaderboardManager.getPlayerRank(this.gameState.score));
+    } else {
+      console.log(`Score saved: ${this.gameState.score} (${totalFishCaught} fish caught)`);
+    }
+  }
+
+  /**
+   * Show high score achievement notification
+   */
+  private showHighScoreNotification(score: number, rank: number): void {
+    // Create notification container
+    const notificationContainer = this.add.container(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2 - 100
+    );
+    notificationContainer.setDepth(2000);
+
+    // Background
+    const notificationBg = this.add.rectangle(0, 0, 400, 120, 0xf39c12, 0.95);
+    notificationBg.setStrokeStyle(4, 0xe67e22);
+
+    // Title
+    const title = this.add.text(0, -30, '🏆 HIGH SCORE! 🏆', {
+      fontSize: '24px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Details
+    const details = this.add.text(0, 10, `Score: ${score} | Rank: #${rank}`, {
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    notificationContainer.add([notificationBg, title, details]);
+
+    // Auto-hide after 3 seconds
+    this.time.delayedCall(3000, () => {
+      notificationContainer.destroy();
+    });
+
+    // Scale animation
+    notificationContainer.setScale(0);
+    this.tweens.add({
+      targets: notificationContainer,
+      scale: 1,
+      duration: 500,
+      ease: 'Back.easeOut'
+    });
   }
 }

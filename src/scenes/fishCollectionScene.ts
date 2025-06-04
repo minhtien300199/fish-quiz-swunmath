@@ -50,7 +50,7 @@ export class FishCollectionScene extends Phaser.Scene {
             console.warn('FishInfo data is empty! This will cause fish details to show fallback data.');
         }
 
-        // Create background
+        // Create background that covers full screen
         this.add.rectangle(
             this.cameras.main.width / 2,
             this.cameras.main.height / 2,
@@ -62,7 +62,7 @@ export class FishCollectionScene extends Phaser.Scene {
         // Create title
         this.add.text(
             this.cameras.main.width / 2,
-            50,
+            30,
             'Fish Collection',
             {
                 fontSize: '48px',
@@ -81,7 +81,7 @@ export class FishCollectionScene extends Phaser.Scene {
         // Create stats display
         this.add.text(
             this.cameras.main.width / 2,
-            100,
+            75,
             `Discovered: ${caughtCount}/${totalCount} fish (${percentage}%)`,
             {
                 fontSize: '24px',
@@ -92,19 +92,22 @@ export class FishCollectionScene extends Phaser.Scene {
             }
         ).setOrigin(0.5);
 
-        // Create scroll area background
+        // Create scroll area background that covers full width and most of the height
+        const scrollAreaY = 150; // Increased spacing from top for better visual separation
+        const scrollAreaHeight = this.cameras.main.height - scrollAreaY - 20; // Leave small margin at bottom
+
         this.scrollArea = this.add.rectangle(
             this.cameras.main.width / 2,
-            this.cameras.main.height / 2 + 30,
-            this.cameras.main.width - 40,
-            this.cameras.main.height - 220,
+            scrollAreaY + scrollAreaHeight / 2,
+            this.cameras.main.width, // Full width
+            scrollAreaHeight, // Almost full height
             0x34495e,
             0.8
         );
         this.scrollArea.setStrokeStyle(2, 0x3498db);
 
-        // Create scrollable container
-        this.scrollContainer = this.add.container(0, 140);
+        // Create scrollable container that starts right below the stats
+        this.scrollContainer = this.add.container(0, scrollAreaY);
 
         // Create fish grid
         this.createFishGrid();
@@ -120,11 +123,24 @@ export class FishCollectionScene extends Phaser.Scene {
         const caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
         const allFishTypes = Object.values(FishType);
 
-        const itemsPerRow = 6;
+        // Calculate optimal items per row based on screen width
         const itemWidth = 120;
         const itemHeight = 180;
-        const startX = 60;
-        const startY = 20;
+        const minSpacing = 10; // Minimum spacing between cards
+        const sideMargin = 20; // Small margin on each side
+
+        // Calculate how many items can fit per row
+        const availableWidth = this.cameras.main.width - (sideMargin * 2);
+        const itemsPerRow = Math.floor(availableWidth / (itemWidth + minSpacing));
+
+        // Calculate actual spacing to distribute cards evenly across full width
+        const totalItemWidth = itemsPerRow * itemWidth;
+        const totalSpacingWidth = availableWidth - totalItemWidth;
+        const actualSpacing = totalSpacingWidth / Math.max(1, itemsPerRow - 1);
+
+        // Calculate starting X position to center the grid
+        const startX = sideMargin + itemWidth / 2;
+        const startY = 150;
 
         let row = 0;
         let col = 0;
@@ -132,9 +148,9 @@ export class FishCollectionScene extends Phaser.Scene {
         allFishTypes.forEach((fishType, index) => {
             const isCaught = caughtFishTypes.includes(fishType.toString());
 
-            // Calculate position
-            const x = startX + (col * itemWidth);
-            const y = startY + (row * itemHeight);
+            // Calculate position with proper full-width distribution
+            const x = startX + (col * (itemWidth + actualSpacing));
+            const y = startY + (row * (itemHeight + 20)); // 20px vertical spacing
 
             // Create fish card
             this.createFishCard(x, y, fishType, isCaught);
@@ -149,7 +165,7 @@ export class FishCollectionScene extends Phaser.Scene {
 
         // Calculate max scroll based on content height
         const totalRows = Math.ceil(allFishTypes.length / itemsPerRow);
-        const contentHeight = totalRows * itemHeight + 40;
+        const contentHeight = totalRows * (itemHeight + 20) + 40; // Add padding
         const viewportHeight = this.scrollArea.height;
         this.maxScrollY = Math.max(0, contentHeight - viewportHeight);
     }
@@ -438,7 +454,8 @@ export class FishCollectionScene extends Phaser.Scene {
 
     private scroll(deltaY: number): void {
         this.scrollY = Phaser.Math.Clamp(this.scrollY + deltaY, 0, this.maxScrollY);
-        this.scrollContainer.setY(140 - this.scrollY);
+        const scrollAreaY = 150; // Same value used in create()
+        this.scrollContainer.setY(scrollAreaY - this.scrollY);
     }
 
     private formatFishName(fishType: FishType): string {
