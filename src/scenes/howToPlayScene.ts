@@ -44,6 +44,7 @@ export class HowToPlayScene extends Phaser.Scene {
       "",
       "CONTROLS:",
       "• Arrow Keys or WASD - Move your boat",
+      "• Mouse Click & Hold - Move your boat towards mouse pointer",
       "• SPACE - Cast your fishing line",
       "• SPACE (when fish bites) - Reel in the fish",
       "",
@@ -57,14 +58,14 @@ export class HowToPlayScene extends Phaser.Scene {
 
     let y = panel.y - panel.height / 2 + 120;
     instructions.forEach(line => {
-      const fontSize = line.startsWith("•") ? "24px" : 
-                      line === "" ? "16px" : 
-                      line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") || line.includes("GOOD LUCK") ? "32px" : "24px";
-      
-      const fontColor = line.startsWith("•") ? "#ccccff" : 
-                        line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") ? "#ffcc00" : 
-                        line.includes("GOOD LUCK") ? "#00ff00" : "#ffffff";
-      
+      const fontSize = line.startsWith("•") ? "24px" :
+        line === "" ? "16px" :
+          line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") || line.includes("GOOD LUCK") ? "32px" : "24px";
+
+      const fontColor = line.startsWith("•") ? "#ccccff" :
+        line.includes("OBJECTIVE:") || line.includes("CONTROLS:") || line.includes("FISHING TIPS:") ? "#ffcc00" :
+          line.includes("GOOD LUCK") ? "#00ff00" : "#ffffff";
+
       this.add.text(
         this.cameras.main.width / 2,
         y,
@@ -77,7 +78,7 @@ export class HowToPlayScene extends Phaser.Scene {
           strokeThickness: line === "" ? 0 : 2
         }
       ).setOrigin(0.5);
-      
+
       y += line === "" ? 15 : (fontSize === "32px" ? 45 : 30);
     });
 
@@ -99,7 +100,7 @@ export class HowToPlayScene extends Phaser.Scene {
   private createButton(x: number, y: number, text: string, callback: () => void): void {
     // Create container for the button
     const container = this.add.container(x, y);
-    
+
     // Create button background using a rounded rectangle
     const buttonWidth = 250;
     const buttonHeight = 60;
@@ -107,16 +108,16 @@ export class HowToPlayScene extends Phaser.Scene {
     const buttonColor = 0x4a6fa5; // Blue color
     const buttonColorHover = 0x5d8bc3; // Lighter blue for hover
     const buttonColorDown = 0x395780; // Darker blue for click
-    
+
     // Create the button background
     const buttonBackground = this.add.graphics();
     buttonBackground.fillStyle(buttonColor, 1);
-    buttonBackground.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
-    
+    buttonBackground.fillRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
+
     // Add a stroke around the button
     buttonBackground.lineStyle(2, 0xffffff, 0.8);
-    buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
-    
+    buttonBackground.strokeRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
+
     // Add text to button
     const buttonText = this.add.text(0, 0, text, {
       fontSize: '28px',
@@ -125,49 +126,49 @@ export class HowToPlayScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 2
     }).setOrigin(0.5);
-    
+
     // Add elements to container
     container.add([buttonBackground, buttonText]);
-    
+
     // Make the container interactive
     container.setSize(buttonWidth, buttonHeight);
-    container.setInteractive(new Phaser.Geom.Rectangle(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight), Phaser.Geom.Rectangle.Contains);
-    
+    container.setInteractive(new Phaser.Geom.Rectangle(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight), Phaser.Geom.Rectangle.Contains);
+
     // Store original button color for reference
     const originalButtonColor = buttonColor;
-    
+
     // Add hover effect
     container.on('pointerover', () => {
       buttonBackground.clear();
       buttonBackground.fillStyle(buttonColorHover, 1);
-      buttonBackground.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.fillRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
       buttonBackground.lineStyle(2, 0xffffff, 0.8);
-      buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.strokeRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
     });
-    
+
     container.on('pointerout', () => {
       buttonBackground.clear();
       buttonBackground.fillStyle(originalButtonColor, 1);
-      buttonBackground.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.fillRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
       buttonBackground.lineStyle(2, 0xffffff, 0.8);
-      buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.strokeRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
     });
-    
+
     // Add click effect
     container.on('pointerdown', () => {
       buttonBackground.clear();
       buttonBackground.fillStyle(buttonColorDown, 1);
-      buttonBackground.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.fillRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
       buttonBackground.lineStyle(2, 0xffffff, 0.8);
-      buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.strokeRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
     });
-    
+
     container.on('pointerup', () => {
       buttonBackground.clear();
       buttonBackground.fillStyle(originalButtonColor, 1);
-      buttonBackground.fillRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.fillRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
       buttonBackground.lineStyle(2, 0xffffff, 0.8);
-      buttonBackground.strokeRoundedRect(-buttonWidth/2, -buttonHeight/2, buttonWidth, buttonHeight, buttonRadius);
+      buttonBackground.strokeRoundedRect(-buttonWidth / 2, -buttonHeight / 2, buttonWidth, buttonHeight, buttonRadius);
       callback();
     });
   }

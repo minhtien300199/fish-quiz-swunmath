@@ -266,18 +266,30 @@ export class GameScene extends Phaser.Scene {
       const keyW = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.W) : null;
       const keyS = this.input.keyboard ? this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.S) : null;
 
+      // Check for keyboard movement first
+      let keyboardMovement = false;
+
       // Handle horizontal movement
       if (this.cursors.left.isDown || (keyA && keyA.isDown)) {
         this.player.setVelocityX(-boatSpeed);
+        keyboardMovement = true;
       } else if (this.cursors.right.isDown || (keyD && keyD.isDown)) {
         this.player.setVelocityX(boatSpeed);
+        keyboardMovement = true;
       }
 
       // Handle vertical movement
       if (this.cursors.up.isDown || (keyW && keyW.isDown)) {
         this.player.setVelocityY(-boatSpeed);
+        keyboardMovement = true;
       } else if (this.cursors.down.isDown || (keyS && keyS.isDown)) {
         this.player.setVelocityY(boatSpeed);
+        keyboardMovement = true;
+      }
+
+      // Handle mouse movement (only if no keyboard movement is active)
+      if (!keyboardMovement && this.input.activePointer.isDown) {
+        this.handleMouseMovement(boatSpeed);
       }
 
       // Safe access to body.velocity with null checks
@@ -312,6 +324,37 @@ export class GameScene extends Phaser.Scene {
     } else {
       // Stop movement when fishing
       this.player.setVelocity(0);
+    }
+  }
+
+  private handleMouseMovement(boatSpeed: number): void {
+    if (!this.player || !this.input.activePointer) {
+      return;
+    }
+
+    // Get the world position of the mouse pointer (accounting for camera zoom and position)
+    const worldPointer = this.cameras.main.getWorldPoint(
+      this.input.activePointer.x,
+      this.input.activePointer.y
+    );
+
+    // Calculate the distance from player to mouse pointer
+    const distanceX = worldPointer.x - this.player.x;
+    const distanceY = worldPointer.y - this.player.y;
+
+    // Calculate the total distance
+    const totalDistance = Math.sqrt(distanceX * distanceX + distanceY * distanceY);
+
+    // Only move if the mouse is far enough away (minimum distance threshold)
+    const minDistance = 20; // Minimum distance to start moving
+    if (totalDistance > minDistance) {
+      // Normalize the direction vector
+      const directionX = distanceX / totalDistance;
+      const directionY = distanceY / totalDistance;
+
+      // Set velocity towards the mouse pointer
+      this.player.setVelocityX(directionX * boatSpeed);
+      this.player.setVelocityY(directionY * boatSpeed);
     }
   }
 
