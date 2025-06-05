@@ -19,6 +19,8 @@ export class FishCollectionScene extends Phaser.Scene {
     private scrollY: number = 0;
     private maxScrollY: number = 0;
     private returnToScene: string = 'MenuScene'; // Default return scene
+    private interactiveCardBackgrounds: Phaser.GameObjects.Rectangle[] = []; // Track interactive cards
+    private modalOpen: boolean = false; // Track if modal is currently open
 
     constructor() {
         super({ key: 'FishCollectionScene' });
@@ -231,7 +233,10 @@ export class FishCollectionScene extends Phaser.Scene {
             // Make card interactive to show details
             cardBg.setInteractive();
             cardBg.on('pointerdown', () => {
-                this.showFishDetails(fishType, fishInfo);
+                // Prevent opening modal if one is already open
+                if (!this.modalOpen) {
+                    this.showFishDetails(fishType, fishInfo);
+                }
             });
 
             // Hover effect
@@ -244,6 +249,9 @@ export class FishCollectionScene extends Phaser.Scene {
                 cardBg.setFillStyle(0x3498db, 0.9);
                 nameText.setColor('#ffffff');
             });
+
+            // Track this interactive card background
+            this.interactiveCardBackgrounds.push(cardBg);
         } else {
             // Locked/unknown fish
             const lockedIcon = this.add.text(0, -10, '?', {
@@ -265,6 +273,13 @@ export class FishCollectionScene extends Phaser.Scene {
     }
 
     private showFishDetails(fishType: FishType, fishInfo?: FishInfo): void {
+        // Prevent multiple modals from opening
+        if (this.modalOpen) {
+            return;
+        }
+
+        this.modalOpen = true;
+
         // If fishInfo wasn't passed, try to look it up again
         if (!fishInfo) {
             const fishTypeKey = fishType.toString();
@@ -370,6 +385,14 @@ export class FishCollectionScene extends Phaser.Scene {
             detailsText.destroy();
             closeButton.destroy();
             closeText.destroy();
+
+            // Reset modal state
+            this.modalOpen = false;
+
+            // Re-enable interactive cards
+            this.interactiveCardBackgrounds.forEach(bg => {
+                bg.setInteractive();
+            });
         };
 
         closeButton.on('pointerdown', closeModal);

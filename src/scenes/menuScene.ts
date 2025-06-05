@@ -116,11 +116,13 @@ export class MenuScene extends Phaser.Scene {
   }
 
   private showLeaderboard(): void {
-    // Create overlay
+    // Create overlay that blocks all interaction with background elements
     const overlay = this.add.graphics();
     overlay.fillStyle(0x000000, 0.8);
     overlay.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
     overlay.setDepth(1000);
+    // Make overlay interactive to block all clicks behind modal
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, this.cameras.main.width, this.cameras.main.height), Phaser.Geom.Rectangle.Contains);
 
     // Create leaderboard container
     const leaderboardContainer = this.add.container(

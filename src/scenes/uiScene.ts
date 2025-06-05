@@ -14,7 +14,8 @@ export class UIScene extends Phaser.Scene {
     lives: 3,
     fishCaught: 0,
     score: 0,
-    caughtFishTypes: []
+    caughtFishTypes: [],
+    currentRunFish: []
   };
   private completionData: any = null;
 

@@ -32,7 +32,8 @@ export class GameScene extends Phaser.Scene {
     lives: 3,
     fishCaught: 0,
     score: 0,
-    caughtFishTypes: []
+    caughtFishTypes: [],
+    currentRunFish: []
   };
   private completionData: CompletionData | null = null;
   private points: number = 0;
@@ -93,7 +94,8 @@ export class GameScene extends Phaser.Scene {
         lives: 3,
         fishCaught: 0,
         score: 0,
-        caughtFishTypes: FishCollectionManager.getCaughtFishTypes() // Load from persistent storage
+        caughtFishTypes: FishCollectionManager.getCaughtFishTypes(), // Load from persistent storage
+        currentRunFish: [] // Initialize empty array for current run
       };
       this.points = 0;
       this.fishCaught = 0;
@@ -101,6 +103,10 @@ export class GameScene extends Phaser.Scene {
     } else {
       // Even if not resetting completely, sync the caught fish types from storage
       this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
+      // Initialize current run fish if it doesn't exist
+      if (!this.gameState.currentRunFish) {
+        this.gameState.currentRunFish = [];
+      }
     }
 
     // Always reset these states regardless
@@ -494,6 +500,9 @@ export class GameScene extends Phaser.Scene {
             if (this.currentFish) {
               isNewFish = FishCollectionManager.addCaughtFish(this.currentFish);
 
+              // Add fish to current run tracking
+              this.gameState.currentRunFish.push(this.currentFish.toString());
+
               // Update game state with current caught fish types
               this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
 
@@ -877,6 +886,8 @@ export class GameScene extends Phaser.Scene {
     overlay.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
     overlay.setScrollFactor(0);
     overlay.setDepth(9000);
+    // Make overlay interactive to block all clicks behind modal
+    overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, this.cameras.main.width, this.cameras.main.height), Phaser.Geom.Rectangle.Contains);
 
     // Create menu container at the center of the screen (UI camera coordinates)
     const menuContainer = this.add.container(this.cameras.main.width / 2, this.cameras.main.height / 2);
@@ -1088,10 +1099,8 @@ export class GameScene extends Phaser.Scene {
   }
 
   private gameOver(): void {
-    // Save score to leaderboard if it's significant (more than 0 points)
-    if (this.gameState.score > 0) {
-      this.saveScoreToLeaderboard();
-    }
+    // Always save score to leaderboard when game ends (win or lose)
+    this.saveScoreToLeaderboard();
 
     this.scene.start('GameOverScene', { gameState: this.gameState });
   }
@@ -1102,6 +1111,9 @@ export class GameScene extends Phaser.Scene {
   private triggerWin(): void {
     // Prevent multiple win triggers
     if (this.scene.isActive('WinScene')) return;
+
+    // Always save score to leaderboard when game ends (win or lose)
+    this.saveScoreToLeaderboard();
 
     // Clean up any existing objects and stop fishing
     this.cleanup();
@@ -1317,8 +1329,10 @@ export class GameScene extends Phaser.Scene {
    * Save the current game score to leaderboard
    */
   private saveScoreToLeaderboard(): void {
-    // Get player name from a simple prompt (can be enhanced with a proper UI later)
-    const playerName = prompt('Enter your name for the leaderboard:') || 'Anonymous';
+    // Generate automatic player name based on total entries + 1
+    const stats = LeaderboardManager.getStats();
+    const playerNumber = stats.totalEntries + 1;
+    const playerName = `Player ${playerNumber}`;
 
     // Calculate total fish caught
     const totalFishCaught = this.gameState.caughtFishTypes.length;
@@ -1341,7 +1355,7 @@ export class GameScene extends Phaser.Scene {
       // Create high score notification
       this.showHighScoreNotification(this.gameState.score, LeaderboardManager.getPlayerRank(this.gameState.score));
     } else {
-      console.log(`Score saved: ${this.gameState.score} (${totalFishCaught} fish caught)`);
+      console.log(`Score saved: ${this.gameState.score} (${totalFishCaught} fish caught) for ${playerName}`);
     }
   }
 
