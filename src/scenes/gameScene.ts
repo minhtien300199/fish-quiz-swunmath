@@ -8,6 +8,7 @@ import { pointRules } from '../const/pointRules';
 import { FishCollectionManager } from '../managers/fishCollectionManager';
 import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager } from '../managers/leaderboardManager';
+import { FishShadowFactory, FishShadowSize, FishShadowAction, FishShadowDirection } from '../factories/fishShadowFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -42,6 +43,8 @@ export class GameScene extends Phaser.Scene {
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
   private shouldReset: boolean = false;
   private isMenuOpen: boolean = false; // Flag to prevent multiple menus
+  private fishShadows: Phaser.GameObjects.Sprite[] = []; // Array to store fish shadows
+  private fishShadowSpawnTimer: Phaser.Time.TimerEvent | null = null;
 
   constructor() {
     super({ key: 'GameScene' });
@@ -64,6 +67,9 @@ export class GameScene extends Phaser.Scene {
     this.load.image('beach-objects', 'assets/tilesets/beach-objects.png');
     this.load.image('palm_tree', 'assets/tilesets/palm_tree.png');
     this.load.image('coconut', 'assets/tilesets/coconut.png');
+
+    // Load fish shadow assets
+    FishShadowFactory.loadAllShadowAssets(this);
   }
   async create(): Promise<void> {
     // Clean up any existing objects first
@@ -225,6 +231,9 @@ export class GameScene extends Phaser.Scene {
 
     // Update UI elements
     this.updateUI();
+
+    // Start spawning fish shadows in water areas
+    this.startFishShadowSpawning();
   }
 
   update(): void {
@@ -1366,6 +1375,347 @@ export class GameScene extends Phaser.Scene {
       this.fishingTimer.remove();
       this.fishingTimer = null;
     }
+
+    // Clean up fish shadows
+    this.cleanupFishShadows();
+  }
+
+  /**
+   * Start spawning fish shadows randomly in water areas
+   */
+  private startFishShadowSpawning(): void {
+    // Initial spawn of some fish shadows
+    this.spawnInitialFishShadows();
+
+    // Set up timer to spawn new fish shadows periodically
+    this.fishShadowSpawnTimer = this.time.addEvent({
+      delay: 3000, // Spawn every 3 seconds
+      callback: this.spawnRandomFishShadow,
+      callbackScope: this,
+      loop: true
+    });
+
+    console.log('Fish shadow spawning started');
+  }
+
+  /**
+   * Spawn initial fish shadows across the map
+   */
+  private spawnInitialFishShadows(): void {
+    const maxInitialShadows = 8; // Start with 8 fish shadows
+
+    for (let i = 0; i < maxInitialShadows; i++) {
+      this.spawnRandomFishShadow();
+    }
+  }
+
+  /**
+   * Spawn a random fish shadow in a valid water location
+   */
+  private spawnRandomFishShadow(): void {
+    // Don't spawn too many shadows
+    if (this.fishShadows.length >= 12) {
+      return;
+    }
+
+    const validPosition = this.getRandomWaterPosition();
+    if (!validPosition) {
+      console.warn('Could not find valid water position for fish shadow');
+      return;
+    }
+
+    // Random size and direction
+    const size = FishShadowFactory.getRandomSize();
+    const direction = FishShadowFactory.getRandomDirection();
+
+    // Temporarily use only appearing action to avoid swimming animation issues
+    // TODO: Re-enable swimming when animation assets are confirmed working
+    const action = FishShadowAction.APPEARING;
+
+    // Create the fish shadow
+    const fishShadow = FishShadowFactory.createFishShadow(
+      this,
+      validPosition.x,
+      validPosition.y,
+      size,
+      action,
+      direction
+    );
+
+    // Start the fish shadow lifecycle: appear → move → disappear
+    if (action === FishShadowAction.APPEARING) {
+      try {
+        FishShadowFactory.playAppearingAnimation(this, fishShadow, size, () => {
+          // After appearing, start the movement phase
+          this.startFishMovementPhase(fishShadow, size, validPosition.x, validPosition.y);
+        });
+      } catch (error) {
+        console.warn('Failed to play appearing animation:', error);
+        // If appearing fails, still start movement
+        this.startFishMovementPhase(fishShadow, size, validPosition.x, validPosition.y);
+      }
+    }
+
+    // Add to our tracking array
+    this.fishShadows.push(fishShadow);
+
+    console.log(`Spawned fish shadow: ${size} at (${validPosition.x}, ${validPosition.y})`);
+  }
+
+  /**
+ * Start the movement phase for a fish shadow
+ * @param fishShadow The fish shadow sprite
+ * @param size Size of the fish shadow
+ * @param startX Starting X position
+ * @param startY Starting Y position
+ */
+  private startFishMovementPhase(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize, startX: number, startY: number): void {
+    if (!fishShadow || !fishShadow.active) return;
+
+    // Random number of direction changes (1 to 3)
+    const totalMoves = Phaser.Math.Between(1, 3);
+    let currentMove = 0;
+
+    console.log(`Starting movement phase for fish: ${totalMoves} moves planned`);
+
+    // Start the movement sequence
+    this.executeNextMove(fishShadow, size, currentMove, totalMoves);
+  }
+
+  /**
+   * Execute the next movement for a fish shadow
+   * @param fishShadow The fish shadow sprite
+   * @param size Size of the fish shadow
+   * @param currentMove Current move index
+   * @param totalMoves Total number of moves to execute
+   */
+  private executeNextMove(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize, currentMove: number, totalMoves: number): void {
+    if (!fishShadow || !fishShadow.active || currentMove >= totalMoves) {
+      // All moves completed, start disappearing phase
+      this.startFishDisappearingPhase(fishShadow, size);
+      return;
+    }
+
+    // Generate random movement direction and distance
+    const directions = [
+      { x: 1, y: 0, swim: FishShadowDirection.RIGHT },      // right
+      { x: -1, y: 0, swim: FishShadowDirection.LEFT },     // left
+      { x: 0, y: 1, swim: FishShadowDirection.BOTTOM },    // down
+      { x: 0, y: -1, swim: FishShadowDirection.TOP },      // up
+      { x: 1, y: 1, swim: FishShadowDirection.BOTTOM_RIGHT },   // down-right
+      { x: -1, y: 1, swim: FishShadowDirection.BOTTOM_LEFT },   // down-left
+      { x: 1, y: -1, swim: FishShadowDirection.TOP_RIGHT },     // up-right
+      { x: -1, y: -1, swim: FishShadowDirection.TOP_LEFT }      // up-left
+    ];
+
+    const direction = Phaser.Utils.Array.GetRandom(directions);
+    const distance = Phaser.Math.Between(30, 80); // Reduced distance for slower movement
+    const duration = Phaser.Math.Between(2000, 4000); // Increased duration for slower movement
+
+    // Calculate target position
+    let targetX = fishShadow.x + (direction.x * distance);
+    let targetY = fishShadow.y + (direction.y * distance);
+
+    // Ensure target position is within water bounds
+    const validTarget = this.getValidMoveTarget(fishShadow.x, fishShadow.y, targetX, targetY);
+    targetX = validTarget.x;
+    targetY = validTarget.y;
+
+    console.log(`Fish swimming ${currentMove + 1}/${totalMoves}: (${fishShadow.x}, ${fishShadow.y}) → (${targetX}, ${targetY}) direction: ${direction.swim}`);
+
+    // Start swimming animation in the movement direction
+    try {
+      FishShadowFactory.playSwimmingAnimation(this, fishShadow, size, direction.swim);
+    } catch (error) {
+      console.warn('Failed to start swimming animation:', error);
+    }
+
+    // Create tween to move the fish while swimming
+    this.tweens.add({
+      targets: fishShadow,
+      x: targetX,
+      y: targetY,
+      duration: duration,
+      ease: 'Power1', // Gentler easing for more natural swimming
+      onComplete: () => {
+        // Stop swimming animation and pause before next move
+        try {
+          FishShadowFactory.stopSwimmingAnimation(fishShadow, size, direction.swim, 1);
+        } catch (error) {
+          console.warn('Failed to stop swimming animation:', error);
+        }
+
+        // Execute next move after a longer pause for more natural behavior
+        this.time.delayedCall(Phaser.Math.Between(1000, 2000), () => {
+          this.executeNextMove(fishShadow, size, currentMove + 1, totalMoves);
+        });
+      }
+    });
+  }
+
+  /**
+   * Get a valid movement target that stays in water
+   * @param startX Starting X position
+   * @param startY Starting Y position
+   * @param targetX Desired target X position
+   * @param targetY Desired target Y position
+   * @returns Valid target position
+   */
+  private getValidMoveTarget(startX: number, startY: number, targetX: number, targetY: number): { x: number, y: number } {
+    // Check if target is in water
+    if (this.isPositionInWater(targetX, targetY)) {
+      return { x: targetX, y: targetY };
+    }
+
+    // If target is not valid, try to find a closer valid position
+    const steps = 10;
+    for (let i = steps; i > 0; i--) {
+      const factor = i / steps;
+      const adjustedX = startX + (targetX - startX) * factor;
+      const adjustedY = startY + (targetY - startY) * factor;
+
+      if (this.isPositionInWater(adjustedX, adjustedY)) {
+        return { x: adjustedX, y: adjustedY };
+      }
+    }
+
+    // If no valid position found, stay at current position
+    return { x: startX, y: startY };
+  }
+
+  /**
+   * Start the disappearing phase for a fish shadow
+   * @param fishShadow The fish shadow sprite
+   * @param size Size of the fish shadow
+   */
+  private startFishDisappearingPhase(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
+    if (!fishShadow || !fishShadow.active) return;
+
+    console.log('Starting disappearing phase for fish');
+
+    try {
+      FishShadowFactory.playDisappearingAnimation(this, fishShadow, size, () => {
+        // Remove fish after disappearing animation completes
+        this.removeFishShadow(fishShadow);
+      });
+    } catch (error) {
+      console.warn('Failed to play disappearing animation:', error);
+      // If disappearing animation fails, just remove the fish
+      this.removeFishShadow(fishShadow);
+    }
+  }
+
+  /**
+   * Convert an appearing fish to a swimming fish (legacy method - no longer used)
+   */
+  private convertToSwimmingFish(appearingFish: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
+    // This method is no longer used since we now use the movement phase system
+    console.warn('convertToSwimmingFish called but is deprecated');
+  }
+
+  /**
+   * Get a random position in water that's not colliding with land
+   */
+  private getRandomWaterPosition(): { x: number, y: number } | null {
+    const maxAttempts = 20;
+    let attempts = 0;
+
+    while (attempts < maxAttempts) {
+      // Get random position within map bounds
+      const x = Phaser.Math.Between(50, this.map.widthInPixels - 50);
+      const y = Phaser.Math.Between(50, this.map.heightInPixels - 50);
+
+      // Check if position is in water (not on land/collision tiles)
+      if (this.isPositionInWater(x, y)) {
+        return { x, y };
+      }
+
+      attempts++;
+    }
+
+    return null; // Couldn't find valid position
+  }
+
+  /**
+   * Check if a position is in water (not on collision tiles)
+   */
+  private isPositionInWater(x: number, y: number): boolean {
+    // Convert world coordinates to tile coordinates
+    const tileX = Math.floor(x / this.map.tileWidth);
+    const tileY = Math.floor(y / this.map.tileHeight);
+
+    // Check if position is within map bounds
+    if (tileX < 0 || tileX >= this.map.width || tileY < 0 || tileY >= this.map.height) {
+      return false;
+    }
+
+    // Check sand layer for collision tiles
+    const sandLayer = this.mapLayers.sand;
+    if (sandLayer) {
+      const sandTile = sandLayer.getTileAt(tileX, tileY);
+      if (sandTile && sandTile.index !== -1) {
+        return false; // Position is on sand/land
+      }
+    }
+
+    // Check objects layer for collision tiles
+    const objectsLayer = this.mapLayers.objects;
+    if (objectsLayer) {
+      const objectTile = objectsLayer.getTileAt(tileX, tileY);
+      if (objectTile && objectTile.index !== -1) {
+        return false; // Position has objects
+      }
+    }
+
+    // Check if there's a sea tile at this position
+    const seaLayer = this.mapLayers.sea;
+    if (seaLayer) {
+      const seaTile = seaLayer.getTileAt(tileX, tileY);
+      if (seaTile && seaTile.index !== -1) {
+        return true; // Position is in water
+      }
+    }
+
+    return false; // No sea tile found
+  }
+
+  /**
+   * Remove a fish shadow with disappearing animation
+   */
+  private removeFishShadow(fishShadow: Phaser.GameObjects.Sprite): void {
+    if (!fishShadow || !fishShadow.active) return;
+
+    // Remove from tracking array
+    const index = this.fishShadows.indexOf(fishShadow);
+    if (index > -1) {
+      this.fishShadows.splice(index, 1);
+    }
+
+    // Use factory's destroy method with fade out
+    FishShadowFactory.destroyFishShadow(this, fishShadow, true);
+
+    console.log('Removed fish shadow');
+  }
+
+  /**
+   * Clean up all fish shadows
+   */
+  private cleanupFishShadows(): void {
+    // Clean up spawn timer
+    if (this.fishShadowSpawnTimer) {
+      this.fishShadowSpawnTimer.destroy();
+      this.fishShadowSpawnTimer = null;
+    }
+
+    // Clean up all fish shadows
+    this.fishShadows.forEach(shadow => {
+      if (shadow && shadow.active) {
+        shadow.destroy();
+      }
+    });
+    this.fishShadows = [];
+
+    console.log('Fish shadows cleaned up');
   }
 
   /**
