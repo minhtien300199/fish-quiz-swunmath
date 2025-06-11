@@ -45,6 +45,7 @@ export class GameScene extends Phaser.Scene {
   private isMenuOpen: boolean = false; // Flag to prevent multiple menus
   private fishShadows: Phaser.GameObjects.Sprite[] = []; // Array to store fish shadows
   private fishShadowSpawnTimer: Phaser.Time.TimerEvent | null = null;
+  private fishingLine: Phaser.GameObjects.Graphics | null = null; // Visual fishing line
 
   constructor() {
     super({ key: 'GameScene' });
@@ -243,6 +244,11 @@ export class GameScene extends Phaser.Scene {
     // Handle fishing action
     this.handleFishing();
 
+    // Update fishing line if active
+    if (this.fishingLine && this.fishingState !== 'idle') {
+      this.updateFishingLine();
+    }
+
     // Update UI elements
     this.updateUI();
 
@@ -416,6 +422,9 @@ export class GameScene extends Phaser.Scene {
           // Configure floater for UI camera
           FloaterFactory.configureFloaterForUI(this, this.floater);
 
+          // Create fishing line from character to floater
+          this.createFishingLine();
+
           // No lure creation - removed as requested
           this.lure = null; // Set to null to avoid errors in other methods
 
@@ -440,6 +449,9 @@ export class GameScene extends Phaser.Scene {
 
       // Configure floater for UI camera
       FloaterFactory.configureFloaterForUI(this, this.floater);
+
+      // Create fishing line from character to floater
+      this.createFishingLine();
 
       // No lure creation - removed as requested
       this.lure = null;
@@ -639,6 +651,12 @@ export class GameScene extends Phaser.Scene {
       this.lure = null;
     }
 
+    // Remove fishing line
+    if (this.fishingLine) {
+      this.fishingLine.destroy();
+      this.fishingLine = null;
+    }
+
     // Reset fishing state
     this.fishingState = 'idle';
     this.currentFish = null;
@@ -664,6 +682,246 @@ export class GameScene extends Phaser.Scene {
         this.currentCharacterType
       );
     }
+  }
+
+  /**
+   * Create a visual fishing line from the character to the floater
+   */
+  private createFishingLine(): void {
+    if (!this.character || !this.floater) return;
+
+    // Create graphics object for the fishing line
+    this.fishingLine = this.add.graphics();
+    this.fishingLine.setDepth(10); // Above water but below UI
+
+    // Make sure fishing line is only visible to main camera
+    const cameras = this.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.fishingLine);
+      }
+    }
+
+    // Draw the initial line
+    this.updateFishingLine();
+  }
+
+  /**
+   * Get character's facing direction based on floater position
+   */
+  private getCharacterDirection(): string {
+    if (!this.character || !this.floater) return 'RIGHT';
+
+    const deltaX = this.floater.x - this.character.x;
+    const deltaY = this.floater.y - this.character.y;
+
+    // Calculate angle in degrees
+    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+
+    // Convert to 0-360 range
+    const normalizedAngle = (angle + 360) % 360;
+
+    // Determine direction based on angle ranges
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) {
+      return 'RIGHT';
+    } else if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) {
+      return 'BOTTOM_RIGHT';
+    } else if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) {
+      return 'BOTTOM';
+    } else if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) {
+      return 'BOTTOM_LEFT';
+    } else if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) {
+      return 'LEFT';
+    } else if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) {
+      return 'TOP_LEFT';
+    } else if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) {
+      return 'TOP';
+    } else if (normalizedAngle >= 292.5 && normalizedAngle < 337.5) {
+      return 'TOP_RIGHT';
+    }
+
+    return 'RIGHT'; // Default fallback
+  }
+
+  /**
+   * Get character line attachment point based on direction
+   */
+  /**
+   * Get character line attachment point based on direction and fishing action
+   */
+  private getCharacterLinePoint(direction: string, action: string = 'idle'): { x: number; y: number } {
+    if (!this.character) return { x: 0, y: 0 };
+
+    const baseX = this.character.x;
+    const baseY = this.character.y;
+
+    // Get base offsets for direction
+    let baseOffset = this.getDirectionOffset(direction);
+
+    // Modify offsets based on fishing action
+    const actionOffset = this.getActionOffset(action, direction);
+
+    return {
+      x: baseX + baseOffset.x + actionOffset.x,
+      y: baseY + baseOffset.y + actionOffset.y
+    };
+  }
+
+  /**
+   * Get base direction offsets for rod positioning
+   */
+  private getDirectionOffset(direction: string): { x: number; y: number } {
+    switch (direction) {
+      case 'TOP':
+        return { x: 0, y: -10 }; // Rod pointing up
+
+      case 'BOTTOM':
+        return { x: 0, y: 5 }; // Rod pointing down
+
+      case 'LEFT':
+        return { x: -15, y: -3 }; // Rod pointing left
+
+      case 'RIGHT':
+        return { x: 10, y: -5 }; // Rod pointing right
+
+      case 'TOP_LEFT':
+        return { x: -12, y: -12 }; // Rod pointing top-left
+
+      case 'TOP_RIGHT':
+        return { x: 12, y: -12 }; // Rod pointing top-right
+
+      case 'BOTTOM_LEFT':
+        return { x: -12, y: 2 }; // Rod pointing bottom-left
+
+      case 'BOTTOM_RIGHT':
+        return { x: 12, y: 2 }; // Rod pointing bottom-right
+
+      default:
+        return { x: 10, y: -5 }; // Default to right
+    }
+  }
+
+  /**
+   * Get action-specific offsets for different fishing states
+   */
+  private getActionOffset(action: string, direction: string): { x: number; y: number } {
+    switch (action) {
+      case 'casting':
+        // Rod extended forward during cast
+        switch (direction) {
+          case 'TOP': return { x: 0, y: -3 };
+          case 'BOTTOM': return { x: 0, y: 3 };
+          case 'LEFT': return { x: -3, y: 0 };
+          case 'RIGHT': return { x: 3, y: 0 };
+          case 'TOP_LEFT': return { x: -2, y: -2 };
+          case 'TOP_RIGHT': return { x: 2, y: -2 };
+          case 'BOTTOM_LEFT': return { x: -2, y: 2 };
+          case 'BOTTOM_RIGHT': return { x: 2, y: 2 };
+          default: return { x: 3, y: 0 };
+        }
+
+      case 'catching':
+        // Rod positioned for catching (slightly forward)
+        switch (direction) {
+          case 'TOP': return { x: 0, y: -2 };
+          case 'BOTTOM': return { x: 0, y: -1 };
+          case 'LEFT': return { x: 0, y: 2 };
+          case 'RIGHT': return { x: 2, y: 5 };
+          case 'TOP_LEFT': return { x: -1, y: -1 };
+          case 'TOP_RIGHT': return { x: 1, y: -1 };
+          case 'BOTTOM_LEFT': return { x: -1, y: 1 };
+          case 'BOTTOM_RIGHT': return { x: 1, y: 1 };
+          default: return { x: 2, y: 0 };
+        }
+
+      case 'reeling':
+        // Rod pulled back during reeling 
+        switch (direction) {
+          case 'TOP': return { x: 0, y: 5 }; // Pull rod down
+          case 'BOTTOM': return { x: 0, y: -3 }; // Pull rod up
+          case 'LEFT': return { x: 11, y: -2 }; // Pull rod back (right)
+          case 'RIGHT': return { x: -15, y: -2 }; // Pull rod back (left)
+          case 'TOP_LEFT': return { x: 3, y: 3 }; // Pull back diagonally
+          case 'TOP_RIGHT': return { x: -3, y: 3 }; // Pull back diagonally
+          case 'BOTTOM_LEFT': return { x: 3, y: -3 }; // Pull back diagonally
+          case 'BOTTOM_RIGHT': return { x: -3, y: -3 }; // Pull back diagonally
+          default: return { x: -5, y: -2 };
+        }
+
+      case 'waiting':
+        // Rod in relaxed waiting position
+        return { x: 0, y: 1 }; // Slightly lower
+
+      case 'idle':
+      default:
+        // No additional offset for idle state
+        return { x: 0, y: 0 };
+    }
+  }
+
+  /**
+   * Update the fishing line position and appearance
+   */
+  private updateFishingLine(): void {
+    if (!this.fishingLine || !this.character || !this.floater) return;
+
+    // Clear previous line
+    this.fishingLine.clear();
+
+    // Get character direction and line attachment point
+    const direction = this.getCharacterDirection();
+    const linePoint = this.getCharacterLinePoint(direction, this.fishingState);
+
+    // Calculate line positions
+    const characterX = linePoint.x;
+    const characterY = linePoint.y;
+    const floaterX = this.floater.x;
+    const floaterY = this.floater.y;
+
+    // Calculate distance for line thickness variation
+    const distance = Phaser.Math.Distance.Between(characterX, characterY, floaterX, floaterY);
+    const baseThickness = 1;
+    const thickness = Math.max(1, baseThickness - (distance / 200)); // Thinner for longer distances
+
+    // Set line style - white color for fishing line
+    this.fishingLine.lineStyle(thickness, 0xFFFFFF, 0.8); // White color with slight transparency
+
+    // Draw the main line
+    this.fishingLine.beginPath();
+    this.fishingLine.moveTo(characterX, characterY);
+
+    // For a realistic fishing line, use a straight line with slight variations
+    // Instead of curves, we'll draw multiple line segments to simulate the line sag
+    const segments = 5;
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = characterX + (floaterX - characterX) * t;
+      const y = characterY + (floaterY - characterY) * t + Math.sin(t * Math.PI) * (distance / 20); // Slight sag
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
+
+    // Add subtle shadow/depth effect
+    this.fishingLine.lineStyle(Math.max(1, thickness + 1), 0x000000, 0.3);
+    this.fishingLine.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = characterX + (floaterX - characterX) * t + 1;
+      const y = characterY + (floaterY - characterY) * t + Math.sin(t * Math.PI) * (distance / 20) + 1;
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
   }
 
   private createUI(): void {
