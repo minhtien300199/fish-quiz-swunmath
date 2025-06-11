@@ -46,6 +46,7 @@ export class GameScene extends Phaser.Scene {
   private fishShadows: Phaser.GameObjects.Sprite[] = []; // Array to store fish shadows
   private fishShadowSpawnTimer: Phaser.Time.TimerEvent | null = null;
   private fishingLine: Phaser.GameObjects.Graphics | null = null; // Visual fishing line
+  private fishSplashingSound: Phaser.Sound.BaseSound | null = null; // Fish splashing sound
 
   constructor() {
     super({ key: 'GameScene' });
@@ -388,11 +389,6 @@ export class GameScene extends Phaser.Scene {
   private startFishing(): void {
     this.fishingState = 'casting';
 
-    // Play bait hit water sound effect with delay to match when bait hits water
-    this.time.delayedCall(500, () => {
-      MusicManager.playSound(this, 'bait-hit-water', { volume: 0.5 });
-    });
-
     // Set character to fishing throw action
     if (this.character) {
       CharacterFactory.setCharacterAction(
@@ -405,30 +401,52 @@ export class GameScene extends Phaser.Scene {
       // Store the character for later use
       const character = this.character;
 
-      // Create a delayed call to create the floater after the throw animation
-      // This creates a more realistic effect where the floater appears after the throw
-      this.time.delayedCall(800, () => {
-        // Only proceed if we're still in casting or waiting state
-        if (this.fishingState === 'casting' || this.fishingState === 'waiting') {
-          // Create floater using FloaterFactory with animated floating state and character direction
-          this.floater = FloaterFactory.createFloater(
-            this,
-            this.player.x,
-            this.player.y,
-            FloaterType.FLOATING,
-            character // Pass the character to determine direction
-          );
+      // Calculate the actual floater position using action offset instead of fixed directional offset
+      const targetPosition = this.calculateFloaterPositionWithActionOffset(character);
+
+      // Start the animated line casting
+      this.animateFishingLineCast(targetPosition, () => {
+        // Only proceed if we're still in casting state
+        if (this.fishingState === 'casting') {
+          // Create floater at the calculated position (using action offset)
+          this.floater = this.add.sprite(targetPosition.x, targetPosition.y, 'floater-floating-1')
+            .setScale(2.0) // Same scale as FloaterFactory.FLOATING
+            .setDepth(5)
+            .setOrigin(0.5, 0.5);
+
+          // Create and play floating animation
+          if (!this.anims.exists('floater-float')) {
+            // Create animation from individual frames
+            const frames = [];
+            for (let i = 1; i <= 5; i++) {
+              frames.push({
+                key: `floater-floating-${i}`
+              });
+            }
+
+            this.anims.create({
+              key: 'floater-float',
+              frames: frames,
+              frameRate: 6,
+              repeat: -1
+            });
+          }
+
+          // Play the animation
+          if (this.floater instanceof Phaser.GameObjects.Sprite) {
+            this.floater.play('floater-float');
+          }
 
           // Configure floater for UI camera
           FloaterFactory.configureFloaterForUI(this, this.floater);
 
-          // Create fishing line from character to floater
-          this.createFishingLine();
+          // Play bait hit water sound effect
+          MusicManager.playSound(this, 'bait-hit-water', { volume: 0.5 });
 
           // No lure creation - removed as requested
-          this.lure = null; // Set to null to avoid errors in other methods
+          this.lure = null;
 
-          // Start waiting for fish only after the floater appears
+          // Start waiting for fish
           this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
             this.fishBite();
           });
@@ -438,8 +456,7 @@ export class GameScene extends Phaser.Scene {
         }
       });
     } else {
-      // Fallback if no character exists
-      // Create floater immediately
+      // Fallback if no character exists - create floater immediately
       this.floater = FloaterFactory.createFloater(
         this,
         this.player.x,
@@ -466,11 +483,96 @@ export class GameScene extends Phaser.Scene {
     }
   }
 
+  /**
+   * Calculate floater position using action offset for casting, maintaining 50px distance
+   */
+  private calculateFloaterPositionWithActionOffset(character: Phaser.GameObjects.Sprite): { x: number, y: number } {
+    // Get the character's current direction
+    let direction = 'down'; // Default direction
+
+    // Check if there's a current animation playing
+    const currentAnim = character.anims.currentAnim;
+    if (currentAnim) {
+      const animKey = currentAnim.key;
+      if (animKey.includes('down')) direction = 'down';
+      else if (animKey.includes('left')) direction = 'left';
+      else if (animKey.includes('up')) direction = 'up';
+      else if (animKey.includes('right')) direction = 'right';
+    } else {
+      // If no animation, try to determine from the frame
+      const frame = character.frame.name;
+      if (typeof frame === 'number' || !isNaN(Number(frame))) {
+        const frameNum = Number(frame);
+        // These frame numbers correspond to CharacterDirection enum in characterFactory.ts
+        if (frameNum === 4 || frameNum === 5) direction = 'down';
+        else if (frameNum === 2 || frameNum === 3) direction = 'left';
+        else if (frameNum === 6 || frameNum === 7) direction = 'up';
+        else if (frameNum === 0 || frameNum === 1) direction = 'right';
+      }
+    }
+
+    // Convert direction to the format expected by getActionOffset (uppercase with full direction names)
+    let directionForOffset = 'RIGHT'; // Default
+    switch (direction) {
+      case 'down': directionForOffset = 'BOTTOM'; break;
+      case 'left': directionForOffset = 'LEFT'; break;
+      case 'up': directionForOffset = 'TOP'; break;
+      case 'right': directionForOffset = 'RIGHT'; break;
+    }
+
+    // Get the action offset for casting
+    const actionOffset = this.getActionOffset('casting', directionForOffset);
+
+    // The original system used 50px distance in cardinal directions
+    // We need to scale the action offset to maintain this 50px distance
+    const originalDistance = 50;
+
+    // Calculate the magnitude of the action offset
+    const actionMagnitude = Math.sqrt(actionOffset.x * actionOffset.x + actionOffset.y * actionOffset.y);
+
+    // If action offset is zero, use the original directional offset
+    if (actionMagnitude === 0) {
+      const originalOffsets: Record<string, { x: number; y: number }> = {
+        down: { x: 0, y: 50 },
+        left: { x: -50, y: 0 },
+        up: { x: 0, y: -50 },
+        right: { x: 50, y: 0 }
+      };
+      const originalOffset = originalOffsets[direction] || originalOffsets['down'];
+      return {
+        x: this.player.x + originalOffset.x,
+        y: this.player.y + originalOffset.y
+      };
+    }
+
+    // Scale the action offset to maintain the original 50px distance
+    const scaleFactor = originalDistance / actionMagnitude;
+    const scaledOffset = {
+      x: actionOffset.x * scaleFactor,
+      y: actionOffset.y * scaleFactor
+    };
+
+    // Calculate the final position with scaled action offset
+    return {
+      x: this.player.x + scaledOffset.x,
+      y: this.player.y + scaledOffset.y
+    };
+  }
+
   private fishBite(): void {
     if (this.fishingState !== 'waiting') return;
 
     // Fish is biting!
     this.fishingState = 'catching';
+
+    // Play fish splashing sound effect (looping) - use direct sound system for control
+    if (MusicManager.isSoundOn()) {
+      this.fishSplashingSound = this.sound.add('fish-splashing', {
+        volume: 0.7,
+        loop: true
+      });
+      this.fishSplashingSound.play();
+    }
 
     // Change character animation to REEL when the fish bites (not pull yet)
     if (this.character) {
@@ -534,6 +636,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private catchFish(): void {
+    // Stop fish splashing sound
+    if (this.fishSplashingSound) {
+      this.fishSplashingSound.stop();
+      this.fishSplashingSound = null;
+    }
+
     // Play rod reeling sound effect
     MusicManager.playSound(this, 'rod-reels', { volume: 0.6 });
 
@@ -626,6 +734,12 @@ export class GameScene extends Phaser.Scene {
   }
 
   private fishGotAway(): void {
+    // Stop fish splashing sound
+    if (this.fishSplashingSound) {
+      this.fishSplashingSound.stop();
+      this.fishSplashingSound = null;
+    }
+
     // Fish got away
     if (this.floater) {
       this.tweens.add({
@@ -682,6 +796,227 @@ export class GameScene extends Phaser.Scene {
         this.currentCharacterType
       );
     }
+  }
+
+  /**
+   * Calculate target position for floater based on character direction and throw distance
+   */
+  private calculateFloaterTarget(character: Phaser.GameObjects.Sprite): { x: number, y: number } {
+    // Base throw distance
+    const baseDistance = 150;
+    const randomDistance = Phaser.Math.Between(100, 200);
+
+    // Get a random angle for throwing direction (in degrees)
+    const throwAngle = Phaser.Math.Between(0, 360);
+
+    // Convert to radians for calculation
+    const angleRad = throwAngle * (Math.PI / 180);
+
+    // Calculate target position
+    const targetX = character.x + Math.cos(angleRad) * randomDistance;
+    const targetY = character.y + Math.sin(angleRad) * randomDistance;
+
+    // Ensure the target is within water bounds if possible
+    const validTarget = this.getValidMoveTarget(character.x, character.y, targetX, targetY);
+
+    return validTarget;
+  }
+
+  /**
+   * Animate the fishing line casting from character to target position
+   */
+  private animateFishingLineCast(targetPosition: { x: number, y: number }, onComplete: () => void): void {
+    if (!this.character) return;
+
+    // Create graphics object for the fishing line
+    this.fishingLine = this.add.graphics();
+    this.fishingLine.setDepth(10); // Above water but below UI
+
+    // Make sure fishing line is only visible to main camera
+    const cameras = this.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.fishingLine);
+      }
+    }
+
+    // Get both starting and ending character line attachment points
+    const direction = this.getCharacterDirectionToPoint(targetPosition);
+    const reelingPoint = this.getCharacterLinePoint(direction, 'reeling'); // Starting position
+    const castingPoint = this.getCharacterLinePoint(direction, 'casting'); // Ending position
+
+    // Animation parameters
+    const castDuration = 800; // 800ms cast duration
+    const segments = 5;
+    let animationProgress = 0;
+
+    // Create animation tween
+    this.tweens.add({
+      targets: { progress: 0 },
+      progress: 1,
+      duration: castDuration,
+      ease: 'Power2',
+      onUpdate: (tween) => {
+        animationProgress = tween.getValue() || 0;
+        this.drawAnimatedFishingLineWithMovingStart(reelingPoint, castingPoint, targetPosition, animationProgress, segments);
+      },
+      onComplete: () => {
+        // Animation complete, call the callback
+        onComplete();
+      }
+    });
+  }
+
+  /**
+   * Draw animated fishing line during casting with moving start point
+   */
+  private drawAnimatedFishingLineWithMovingStart(
+    reelingPoint: { x: number, y: number },
+    castingPoint: { x: number, y: number },
+    targetPosition: { x: number, y: number },
+    progress: number,
+    segments: number
+  ): void {
+    if (!this.fishingLine) return;
+
+    // Clear previous line
+    this.fishingLine.clear();
+
+    // Calculate current start point (interpolating from reeling to casting position)
+    const currentStartX = reelingPoint.x + (castingPoint.x - reelingPoint.x) * progress;
+    const currentStartY = reelingPoint.y + (castingPoint.y - reelingPoint.y) * progress;
+
+    // Calculate current end point based on animation progress
+    const currentEndX = currentStartX + (targetPosition.x - currentStartX) * progress;
+    const currentEndY = currentStartY + (targetPosition.y - currentStartY) * progress;
+
+    // Calculate line properties
+    const distance = Phaser.Math.Distance.Between(currentStartX, currentStartY, currentEndX, currentEndY);
+    const thickness = Math.max(1, 1 - (distance / 200));
+
+    // Set line style - white color for fishing line
+    this.fishingLine.lineStyle(thickness, 0xFFFFFF, 0.8);
+
+    // Draw the animated line with realistic sag
+    this.fishingLine.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = currentStartX + (currentEndX - currentStartX) * t;
+      const y = currentStartY + (currentEndY - currentStartY) * t + Math.sin(t * Math.PI) * (distance / 20) * progress; // Sag increases with progress
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
+
+    // Add subtle shadow/depth effect
+    this.fishingLine.lineStyle(Math.max(1, thickness + 1), 0x000000, 0.3);
+    this.fishingLine.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = currentStartX + (currentEndX - currentStartX) * t + 1;
+      const y = currentStartY + (currentEndY - currentStartY) * t + Math.sin(t * Math.PI) * (distance / 20) * progress + 1;
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
+  }
+
+  /**
+   * Draw animated fishing line during casting
+   */
+  private drawAnimatedFishingLine(startPoint: { x: number, y: number }, targetPosition: { x: number, y: number }, progress: number, segments: number): void {
+    if (!this.fishingLine) return;
+
+    // Clear previous line
+    this.fishingLine.clear();
+
+    // Calculate current end point based on animation progress
+    const currentEndX = startPoint.x + (targetPosition.x - startPoint.x) * progress;
+    const currentEndY = startPoint.y + (targetPosition.y - startPoint.y) * progress;
+
+    // Calculate line properties
+    const distance = Phaser.Math.Distance.Between(startPoint.x, startPoint.y, currentEndX, currentEndY);
+    const thickness = Math.max(1, 1 - (distance / 200));
+
+    // Set line style - white color for fishing line
+    this.fishingLine.lineStyle(thickness, 0xFFFFFF, 0.8);
+
+    // Draw the animated line with realistic sag
+    this.fishingLine.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = startPoint.x + (currentEndX - startPoint.x) * t;
+      const y = startPoint.y + (currentEndY - startPoint.y) * t + Math.sin(t * Math.PI) * (distance / 20) * progress; // Sag increases with progress
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
+
+    // Add subtle shadow/depth effect
+    this.fishingLine.lineStyle(Math.max(1, thickness + 1), 0x000000, 0.3);
+    this.fishingLine.beginPath();
+    for (let i = 0; i <= segments; i++) {
+      const t = i / segments;
+      const x = startPoint.x + (currentEndX - startPoint.x) * t + 1;
+      const y = startPoint.y + (currentEndY - startPoint.y) * t + Math.sin(t * Math.PI) * (distance / 20) * progress + 1;
+
+      if (i === 0) {
+        this.fishingLine.moveTo(x, y);
+      } else {
+        this.fishingLine.lineTo(x, y);
+      }
+    }
+    this.fishingLine.strokePath();
+  }
+
+  /**
+   * Get character's facing direction based on target point
+   */
+  private getCharacterDirectionToPoint(targetPoint: { x: number, y: number }): string {
+    if (!this.character) return 'RIGHT';
+
+    const deltaX = targetPoint.x - this.character.x;
+    const deltaY = targetPoint.y - this.character.y;
+
+    // Calculate angle in degrees
+    const angle = Math.atan2(deltaY, deltaX) * (180 / Math.PI);
+
+    // Convert to 0-360 range
+    const normalizedAngle = (angle + 360) % 360;
+
+    // Determine direction based on angle ranges
+    if (normalizedAngle >= 337.5 || normalizedAngle < 22.5) {
+      return 'RIGHT';
+    } else if (normalizedAngle >= 22.5 && normalizedAngle < 67.5) {
+      return 'BOTTOM_RIGHT';
+    } else if (normalizedAngle >= 67.5 && normalizedAngle < 112.5) {
+      return 'BOTTOM';
+    } else if (normalizedAngle >= 112.5 && normalizedAngle < 157.5) {
+      return 'BOTTOM_LEFT';
+    } else if (normalizedAngle >= 157.5 && normalizedAngle < 202.5) {
+      return 'LEFT';
+    } else if (normalizedAngle >= 202.5 && normalizedAngle < 247.5) {
+      return 'TOP_LEFT';
+    } else if (normalizedAngle >= 247.5 && normalizedAngle < 292.5) {
+      return 'TOP';
+    } else if (normalizedAngle >= 292.5 && normalizedAngle < 337.5) {
+      return 'TOP_RIGHT';
+    }
+
+    return 'RIGHT'; // Default fallback
   }
 
   /**

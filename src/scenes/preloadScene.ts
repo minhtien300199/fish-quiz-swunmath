@@ -181,6 +181,7 @@ export class PreloadScene extends Phaser.Scene {
     this.load.audio('bait-hit-water', 'assets/sounds/bait-hit-water.mp3');
     this.load.audio('rod-reels', 'assets/sounds/rod-reels.mp3');
     this.load.audio('star-blinking', 'assets/sounds/star-blinking.mp3');
+    this.load.audio('fish-splashing', 'assets/sounds/fish-splashing.mp3');
 
     // Load background music
     this.load.audio('game-background-music', 'assets/sounds/game-background-music.mp3');
