@@ -1,7 +1,7 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
-import { FishType } from '../const/fishType';
+import { FishType, fishVariants } from '../const/fishType';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 import { FishFactory } from '../factories/fishFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
@@ -2869,6 +2869,9 @@ export class GameScene extends Phaser.Scene {
       // Update game state with current caught fish types
       this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
 
+      // Add the caught fish to the storage box
+      this.addFishToBox(this.currentFish);
+
       // Show new fish discovery notification if it's a new catch
       if (isNewFish) {
         this.showNewFishNotification(this.currentFish);
@@ -3049,6 +3052,42 @@ export class GameScene extends Phaser.Scene {
       this.showHighScoreNotification(this.gameState.score, LeaderboardManager.getPlayerRank(this.gameState.score));
     } else {
       console.log(`Score saved: ${this.gameState.score} (${totalFishCaught} fish caught) for ${playerName}`);
+    }
+  }
+
+  /**
+   * Add a caught fish to the storage box
+   * @param fishType The type of fish to add to the box
+   */
+  private addFishToBox(fishType: FishType): void {
+    // Generate the fish texture key (same logic as FishFactory)
+    const fishKey = this.generateFishTextureKey(fishType);
+
+    // Add fish to the box using BoxFactory
+    const wasAdded = BoxFactory.addFish(this, fishKey);
+
+    if (wasAdded) {
+      console.log(`Added ${fishType} to storage box`);
+    } else {
+      console.log(`Storage box is full, cannot add ${fishType}`);
+      // TODO: Could show notification that box is full
+    }
+  }
+
+  /**
+   * Generate the texture key for a fish (matches FishFactory logic)
+   * @param fishType The fish type
+   * @returns The texture key to use for loading the fish image
+   */
+  private generateFishTextureKey(fishType: FishType): string {
+    const variants = fishVariants[fishType];
+
+    // If this fish has variants, randomly select one
+    if (variants && variants.length > 0) {
+      const variant = variants[Math.floor(Math.random() * variants.length)];
+      return `fish-${fishType}-${variant}`;
+    } else {
+      return `fish-${fishType}`;
     }
   }
 

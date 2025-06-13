@@ -67,12 +67,14 @@ export class BoxFactory {
         this.box = scene.add.image(0, 0, 'box');
         this.box.setOrigin(0.5, 0.5);
         this.box.setScale(4); // Scale up from 16x16 to 64x64
+        this.box.setDepth(1); // Base layer within container
         console.log('Box base created');
 
         // Create the cap (starts closed)
         this.cap = scene.add.image(0, -8, 'box-cap'); // Slightly above the box
         this.cap.setOrigin(0.5, 0.5);
         this.cap.setScale(4); // Match the box scale
+        this.cap.setDepth(10); // Top layer within container (above fish)
         console.log('Box cap created');
 
         // Add components to container
@@ -229,14 +231,20 @@ export class BoxFactory {
         for (let row = 0; row < this.boxProperties.gridSize; row++) {
             for (let col = 0; col < this.boxProperties.gridSize; col++) {
                 if (this.fishSlots[row][col] === null) {
-                    // Calculate position within the box
-                    const slotX = (col - 1.5) * this.boxProperties.tileSize; // Center in 4x4 grid
-                    const slotY = (row - 1.5) * this.boxProperties.tileSize;
+                    // Calculate position within the box starting from top-left
+                    // Box is 64x64 (at scale 4), so we need to position from top-left corner
+                    const halfBoxSize = (this.boxProperties.width * 4) / 2; // Half of scaled box size (128px)
+                    const tileSpacing = this.boxProperties.tileSize * 4; // Actual tile spacing (64px)
 
-                    // Create fish sprite
+                    // Start from top-left corner and offset by tile positions
+                    const slotX = -halfBoxSize + (col * tileSpacing) + (tileSpacing / 2);
+                    const slotY = -halfBoxSize + (row * tileSpacing) + (tileSpacing / 2);
+
+                    // Create fish sprite with appropriate scale for box tiles
                     const fishSprite = scene.add.image(slotX, slotY, fishTexture);
-                    fishSprite.setScale(1); // Small size to fit in slot
+                    fishSprite.setScale(4); // Scale to fit nicely in 16x16 tile slots
                     fishSprite.setOrigin(0.5, 0.5);
+                    fishSprite.setDepth(2); // Middle layer: above box base (1) but below cap (3)
 
                     // Add to container
                     if (this.container) {
