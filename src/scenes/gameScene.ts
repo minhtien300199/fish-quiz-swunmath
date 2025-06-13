@@ -10,6 +10,7 @@ import { FishCollectionManager } from '../managers/fishCollectionManager';
 import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager } from '../managers/leaderboardManager';
 import { FishShadowFactory, FishShadowSize, FishShadowAction, FishShadowDirection } from '../factories/fishShadowFactory';
+import { BoxFactory, BoxState } from '../factories/boxFactory';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -51,6 +52,7 @@ export class GameScene extends Phaser.Scene {
   private bitingFishShadow: Phaser.GameObjects.Sprite | null = null; // Fish shadow that will bite the floater
   private catchButton: Phaser.GameObjects.Container | null = null; // Button to catch fish when biting
   private fishCelebrationContainer: Phaser.GameObjects.Container | null = null; // Fish celebration display
+  private fishBox: Phaser.GameObjects.Container | null = null; // Fish storage box
 
   constructor() {
     super({ key: 'GameScene' });
@@ -85,6 +87,9 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 128,
       frameHeight: 128
     });
+
+    // Load box assets
+    BoxFactory.loadAssets(this);
   }
   async create(): Promise<void> {
     // Clean up any existing objects first
@@ -281,6 +286,8 @@ export class GameScene extends Phaser.Scene {
         camera.ignore([fishmarketStall, fishmarketShop]);
       }
     }
+
+    // Fish storage box will be created in createUI method
   }
 
   update(): void {
@@ -351,8 +358,8 @@ export class GameScene extends Phaser.Scene {
         keyboardMovement = true;
       }
 
-      // Handle mouse movement (only if no keyboard movement is active)
-      if (!keyboardMovement && this.input.activePointer.isDown) {
+      // Handle mouse movement (only if no keyboard movement is active and not clicking on UI)
+      if (!keyboardMovement && this.input.activePointer.isDown && !this.isClickingOnUI()) {
         this.handleMouseMovement(boatSpeed);
       }
 
@@ -389,6 +396,31 @@ export class GameScene extends Phaser.Scene {
       // Stop movement when fishing
       this.player.setVelocity(0);
     }
+  }
+
+  private isClickingOnUI(): boolean {
+    if (!this.input.activePointer) {
+      return false;
+    }
+
+    const pointer = this.input.activePointer;
+
+    // Check if clicking on the fishing box
+    if (this.fishBox) {
+      const bounds = this.fishBox.getBounds();
+      if (pointer.x >= bounds.x && pointer.x <= bounds.x + bounds.width &&
+        pointer.y >= bounds.y && pointer.y <= bounds.y + bounds.height) {
+        return true;
+      }
+    }
+
+    // Check if the menu is open (since it blocks boat movement)
+    if (this.isMenuOpen) {
+      return true;
+    }
+
+    // Add other UI elements as needed
+    return false;
   }
 
   private handleMouseMovement(boatSpeed: number): void {
@@ -1511,6 +1543,9 @@ export class GameScene extends Phaser.Scene {
     // If there's a floater or lure, ignore them in the UI camera
     if (this.floater) uiCamera.ignore(this.floater);
     if (this.lure) uiCamera.ignore(this.lure);
+
+    // Create fish storage box in bottom right corner (after UI camera is set up)
+    this.fishBox = BoxFactory.createBox(this);
   }
 
   /**
@@ -1999,6 +2034,12 @@ export class GameScene extends Phaser.Scene {
 
     // Clean up fish shadows
     this.cleanupFishShadows();
+
+    // Clean up fish box
+    if (this.fishBox) {
+      BoxFactory.destroy();
+      this.fishBox = null;
+    }
   }
 
   /**
