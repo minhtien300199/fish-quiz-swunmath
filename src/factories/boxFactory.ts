@@ -1,4 +1,5 @@
 import 'phaser';
+import { MusicManager } from '../managers/musicManager';
 
 // Box states
 export enum BoxState {
@@ -39,6 +40,7 @@ export class BoxFactory {
         scene.load.image('box', 'assets/fishing_box/box.png');
         scene.load.image('box-cap', 'assets/fishing_box/box_cap.png');
         scene.load.image('box-cap-open', 'assets/fishing_box/box_cap_open.png');
+        scene.load.audio('open-box', 'assets/sounds/open-box.mp3');
         console.log('Box assets loaded');
     }
 
@@ -169,6 +171,9 @@ export class BoxFactory {
         this.currentState = BoxState.OPEN;
         this.cap.setTexture('box-cap-open');
 
+        // Play box opening sound
+        MusicManager.playSound(scene, 'open-box', { volume: 0.5 });
+
         // Calculate position above the first row
         // Box is 64x64 pixels (4x4 grid with 16px per tile when scaled)
         // First row starts at -32px from center (half of box height)
@@ -197,6 +202,9 @@ export class BoxFactory {
 
         this.currentState = BoxState.CLOSED;
         this.cap.setTexture('box-cap');
+
+        // Play box closing sound
+        MusicManager.playSound(scene, 'open-box', { volume: 0.5 });
 
         // Animate the cap closing
         scene.tweens.add({
