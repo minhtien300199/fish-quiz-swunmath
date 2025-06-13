@@ -3,6 +3,7 @@ import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
 import { FishType } from '../const/fishType';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
+import { FishFactory } from '../factories/fishFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { pointRules } from '../const/pointRules';
 import { FishCollectionManager } from '../managers/fishCollectionManager';
@@ -47,6 +48,9 @@ export class GameScene extends Phaser.Scene {
   private fishShadowSpawnTimer: Phaser.Time.TimerEvent | null = null;
   private fishingLine: Phaser.GameObjects.Graphics | null = null; // Visual fishing line
   private fishSplashingSound: Phaser.Sound.BaseSound | null = null; // Fish splashing sound
+  private bitingFishShadow: Phaser.GameObjects.Sprite | null = null; // Fish shadow that will bite the floater
+  private catchButton: Phaser.GameObjects.Container | null = null; // Button to catch fish when biting
+  private fishCelebrationContainer: Phaser.GameObjects.Container | null = null; // Fish celebration display
 
   constructor() {
     super({ key: 'GameScene' });
@@ -72,6 +76,15 @@ export class GameScene extends Phaser.Scene {
 
     // Load fish shadow assets
     FishShadowFactory.loadAllShadowAssets(this);
+
+    // Load fishmarket stall
+    this.load.image('fishmarket-stall', 'assets/fishmarket/commerce_fishmarket_stall.png');
+
+    // Load fishmarket shop spritesheet
+    this.load.spritesheet('fishmarket-shop', 'assets/fishmarket/commerce_fishmarket_shop.png', {
+      frameWidth: 128,
+      frameHeight: 128
+    });
   }
   async create(): Promise<void> {
     // Clean up any existing objects first
@@ -180,6 +193,9 @@ export class GameScene extends Phaser.Scene {
       this.currentBoatType
     );
 
+    // Set boat depth higher than fishmarket-shop and fish shadows
+    this.player.setDepth(15);
+
     // Add character on top of the boat (only one character)
     const characterOffset = CharacterFactory.getCharacterOffset(this.currentCharacterType);
     this.character = CharacterFactory.createCharacter(
@@ -236,6 +252,35 @@ export class GameScene extends Phaser.Scene {
 
     // Start spawning fish shadows in water areas
     this.startFishShadowSpawning();
+
+    // Add fishmarket stall in the sand at the start of the map (after camera setup)
+    const fishmarketStall = this.add.image(150, 140, 'fishmarket-stall');
+    fishmarketStall.setOrigin(0.5, 1); // Set origin to bottom center for proper ground placement
+    fishmarketStall.setDepth(10); // Make sure it appears above the ground tiles
+
+    // Add fishmarket shop with animation at specified coordinates
+    const fishmarketShop = this.add.sprite(1080, 180, 'fishmarket-shop');
+    fishmarketShop.setOrigin(0.5, 1); // Set origin to bottom center for proper ground placement
+    fishmarketShop.setDepth(10); // Make sure it appears above the ground tiles
+
+    // Create animation for fishmarket shop
+    this.anims.create({
+      key: 'fishmarket-shop-anim',
+      frames: this.anims.generateFrameNumbers('fishmarket-shop', { start: 0, end: 1 }),
+      frameRate: 1,
+      repeat: -1
+    });
+
+    // Play the animation
+    fishmarketShop.play('fishmarket-shop-anim');
+
+    // Ensure both fishmarket buildings are only visible to the main camera
+    for (let i = 1; i < this.cameras.cameras.length; i++) {
+      const camera = this.cameras.cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore([fishmarketStall, fishmarketShop]);
+      }
+    }
   }
 
   update(): void {
@@ -252,6 +297,9 @@ export class GameScene extends Phaser.Scene {
 
     // Update UI elements
     this.updateUI();
+
+    // Update catch button position
+    this.updateCatchButton();
 
     // Ensure UI camera stays fixed
     const uiCamera = this.cameras.getCamera('UICamera');
@@ -446,13 +494,16 @@ export class GameScene extends Phaser.Scene {
           // No lure creation - removed as requested
           this.lure = null;
 
-          // Start waiting for fish
-          this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
-            this.fishBite();
-          });
-
-          // Update fishing state
+          // Update fishing state to waiting
           this.fishingState = 'waiting';
+
+          // Start the fish shadow bite sequence instead of simple timer
+          const biteDelay = Phaser.Math.Between(1000, 3000); // Delay before fish appears
+          this.fishingTimer = this.time.delayedCall(biteDelay, () => {
+            if (this.fishingState === 'waiting') {
+              this.spawnBitingFishShadow();
+            }
+          });
         }
       });
     } else {
@@ -473,13 +524,16 @@ export class GameScene extends Phaser.Scene {
       // No lure creation - removed as requested
       this.lure = null;
 
-      // Start waiting for fish
-      this.fishingTimer = this.time.delayedCall(Phaser.Math.Between(2000, 5000), () => {
-        this.fishBite();
-      });
-
-      // Update fishing state
+      // Update fishing state to waiting
       this.fishingState = 'waiting';
+
+      // Start the fish shadow bite sequence instead of simple timer
+      const biteDelay = Phaser.Math.Between(1000, 3000); // Delay before fish appears
+      this.fishingTimer = this.time.delayedCall(biteDelay, () => {
+        if (this.fishingState === 'waiting') {
+          this.spawnBitingFishShadow();
+        }
+      });
     }
   }
 
@@ -602,9 +656,12 @@ export class GameScene extends Phaser.Scene {
     const fishTypes = Object.values(FishType);
     this.currentFish = fishTypes[Phaser.Math.Between(0, fishTypes.length - 1)] as FishType;
 
-    // Player needs to press space to catch the fish
+    // Show catch button above player's head
+    this.showCatchButton();
+
+    // Player needs to press space or click button to catch the fish
     const catchWindow = this.time.delayedCall(2000, () => {
-      // If player didn't press space in time, fish gets away
+      // If player didn't press space or click button in time, fish gets away
       if (this.fishingState === 'catching') {
         this.fishGotAway();
       }
@@ -615,19 +672,9 @@ export class GameScene extends Phaser.Scene {
       delay: 100,
       callback: () => {
         if (this.spaceKey.isDown && this.fishingState === 'catching') {
-          // Change animation from reel to pull when space is pressed
-          if (this.character) {
-            CharacterFactory.setCharacterAction(
-              this.character,
-              this,
-              CharacterActionType.FISHING_PULL,
-              this.currentCharacterType
-            );
-          }
-
           catchWindow.remove();
           spaceCheck.remove();
-          this.catchFish();
+          this.handleCatchAttempt();
         }
       },
       callbackScope: this,
@@ -664,59 +711,16 @@ export class GameScene extends Phaser.Scene {
         // Listen for quiz completion
         this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
           if (data && data.success) {
-            // Increment fish caught counter
-            this.fishCaught++;
-
-            // Add the caught fish to the collection if we have a current fish
-            let isNewFish = false;
+            // Show fish celebration first, then continue with other logic
             if (this.currentFish) {
-              isNewFish = FishCollectionManager.addCaughtFish(this.currentFish);
-
-              // Add fish to current run tracking
-              this.gameState.currentRunFish.push(this.currentFish.toString());
-
-              // Update game state with current caught fish types
-              this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
-
-              // Show new fish discovery notification if it's a new catch
-              if (isNewFish) {
-                this.showNewFishNotification(this.currentFish);
-              }
-            }
-
-            // Determine fish size/rarity type
-            let fishType: 'small' | 'medium' | 'rare';
-
-            // Use RarityRate from completion data to determine fish type
-            const rarityRoll = Math.random();
-            if (rarityRoll < 0.6) {
-              fishType = 'small'; // 60% chance for small fish
-            } else if (rarityRoll < 0.9) {
-              fishType = 'medium'; // 30% chance for medium fish
+              this.showFishCelebration(this.currentFish, () => {
+                // Continue with success logic after celebration
+                this.handleQuizSuccess(data);
+              });
             } else {
-              fishType = 'rare'; // 10% chance for rare fish
+              // Fallback if no current fish
+              this.handleQuizSuccess(data);
             }
-
-            // Award points based on fish type using pointRules
-            const pointsAwarded = pointRules[fishType];
-            this.points += pointsAwarded;
-
-            // Check if there's a time bonus for answering quickly
-            if (data.timeBonus && data.timeBonus > 0) {
-              // Calculate bonus points - 10 points per second remaining
-              const bonusPoints = data.timeBonus * 10;
-              this.points += bonusPoints;
-
-              // Show bonus points notification
-              this.showBonusPointsNotification(bonusPoints);
-            }
-
-            // Show points awarded notification for the fish
-            this.showPointsNotification(pointsAwarded, fishType);
-
-            // Update game state
-            this.gameState.fishCaught = this.fishCaught;
-            this.gameState.score = this.points;
           } else {
             this.lives--;
             this.gameState.lives = this.lives;
@@ -724,10 +728,10 @@ export class GameScene extends Phaser.Scene {
             if (this.lives <= 0) {
               this.gameOver();
             }
-          }
 
-          // Clean up fishing
-          this.cleanUpFishing();
+            // Clean up fishing
+            this.cleanUpFishing();
+          }
         });
       }
     });
@@ -739,6 +743,9 @@ export class GameScene extends Phaser.Scene {
       this.fishSplashingSound.stop();
       this.fishSplashingSound = null;
     }
+
+    // Remove catch button
+    this.removeCatchButton();
 
     // Fish got away
     if (this.floater) {
@@ -770,6 +777,12 @@ export class GameScene extends Phaser.Scene {
       this.fishingLine.destroy();
       this.fishingLine = null;
     }
+
+    // Remove biting fish shadow if it exists
+    this.removeBitingFishShadow();
+
+    // Remove catch button if it exists
+    this.removeCatchButton();
 
     // Reset fishing state
     this.fishingState = 'idle';
@@ -830,7 +843,7 @@ export class GameScene extends Phaser.Scene {
 
     // Create graphics object for the fishing line
     this.fishingLine = this.add.graphics();
-    this.fishingLine.setDepth(10); // Above water but below UI
+    this.fishingLine.setDepth(20); // Above boat and character
 
     // Make sure fishing line is only visible to main camera
     const cameras = this.cameras.cameras;
@@ -1027,7 +1040,7 @@ export class GameScene extends Phaser.Scene {
 
     // Create graphics object for the fishing line
     this.fishingLine = this.add.graphics();
-    this.fishingLine.setDepth(10); // Above water but below UI
+    this.fishingLine.setDepth(20); // Above boat and character
 
     // Make sure fishing line is only visible to main camera
     const cameras = this.cameras.cameras;
@@ -1963,6 +1976,21 @@ export class GameScene extends Phaser.Scene {
       this.lure = null;
     }
 
+    // Remove biting fish shadow if it exists
+    this.removeBitingFishShadow();
+
+    // Remove catch button if it exists
+    this.removeCatchButton();
+
+    // Remove fish celebration if it exists
+    this.removeFishCelebration();
+
+    // Stop any playing sounds
+    if (this.fishSplashingSound) {
+      this.fishSplashingSound.stop();
+      this.fishSplashingSound = null;
+    }
+
     // Clear any timers
     if (this.fishingTimer) {
       this.fishingTimer.remove();
@@ -2204,6 +2232,644 @@ export class GameScene extends Phaser.Scene {
   private convertToSwimmingFish(appearingFish: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
     // This method is no longer used since we now use the movement phase system
     console.warn('convertToSwimmingFish called but is deprecated');
+  }
+
+  /**
+ * Find a nearby fish shadow or spawn a new one to bite the floater
+ */
+  private spawnBitingFishShadow(): void {
+    if (!this.floater) {
+      console.warn('Cannot spawn biting fish shadow: no floater present');
+      return;
+    }
+
+    // First, try to find a nearby existing fish shadow
+    const nearbyFish = this.findNearbyFishShadow(this.floater.x, this.floater.y, 300); // Search within 300px
+
+    if (nearbyFish) {
+      const distance = Phaser.Math.Distance.Between(this.floater.x, this.floater.y, nearbyFish.fish.x, nearbyFish.fish.y);
+      console.log(`Found nearby fish shadow (${Math.round(distance)}px away), redirecting to floater`);
+      this.redirectFishToFloater(nearbyFish.fish, nearbyFish.size);
+    } else {
+      console.log(`No nearby fish found within 300px (${this.fishShadows.length} total fish in area), spawning new fish shadow`);
+      this.spawnNewBitingFishShadow();
+    }
+  }
+
+  /**
+   * Find the nearest fish shadow within a given radius
+   */
+  private findNearbyFishShadow(x: number, y: number, radius: number): { fish: Phaser.GameObjects.Sprite, size: FishShadowSize } | null {
+    let nearestFish: Phaser.GameObjects.Sprite | null = null;
+    let nearestDistance = radius;
+    let fishSize: FishShadowSize = FishShadowSize.MEDIUM;
+
+    for (const fishShadow of this.fishShadows) {
+      if (!fishShadow || !fishShadow.active) continue;
+
+      const distance = Phaser.Math.Distance.Between(x, y, fishShadow.x, fishShadow.y);
+
+      if (distance < nearestDistance) {
+        nearestDistance = distance;
+        nearestFish = fishShadow;
+
+        // Try to determine fish size from texture key
+        const textureKey = fishShadow.texture.key;
+        if (textureKey.includes('big')) {
+          fishSize = FishShadowSize.BIG;
+        } else if (textureKey.includes('small')) {
+          fishSize = FishShadowSize.SMALL;
+        } else {
+          fishSize = FishShadowSize.MEDIUM;
+        }
+      }
+    }
+
+    return nearestFish ? { fish: nearestFish, size: fishSize } : null;
+  }
+
+  /**
+   * Redirect an existing fish shadow to swim to the floater
+   */
+  private redirectFishToFloater(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
+    if (!fishShadow || !fishShadow.active) return;
+
+    // Stop any existing tweens on this fish
+    this.tweens.killTweensOf(fishShadow);
+
+    // Remove from regular fish shadows array and add to biting fish
+    const index = this.fishShadows.indexOf(fishShadow);
+    if (index > -1) {
+      this.fishShadows.splice(index, 1);
+    }
+
+    this.bitingFishShadow = fishShadow;
+
+    console.log(`Redirecting existing fish shadow: ${size} from (${Math.round(fishShadow.x)}, ${Math.round(fishShadow.y)}) to floater at (${Math.round(this.floater!.x)}, ${Math.round(this.floater!.y)})`);
+
+    // Start swimming toward the floater
+    this.animateFishShadowToFloater(fishShadow, size);
+  }
+
+  /**
+   * Spawn a completely new fish shadow to bite the floater
+   */
+  private spawnNewBitingFishShadow(): void {
+    if (!this.floater) return;
+
+    // Get a spawn position near the floater but not too close
+    const spawnDistance = Phaser.Math.Between(120, 200);
+    const angle = Phaser.Math.Between(0, 360) * (Math.PI / 180);
+
+    const spawnX = this.floater.x + Math.cos(angle) * spawnDistance;
+    const spawnY = this.floater.y + Math.sin(angle) * spawnDistance;
+
+    // Ensure spawn position is in water
+    const validSpawnPosition = this.getValidMoveTarget(this.floater.x, this.floater.y, spawnX, spawnY);
+
+    // Random size for the biting fish
+    const size = FishShadowFactory.getRandomSize();
+
+    // Create the fish shadow
+    this.bitingFishShadow = FishShadowFactory.createFishShadow(
+      this,
+      validSpawnPosition.x,
+      validSpawnPosition.y,
+      size,
+      FishShadowAction.APPEARING,
+      FishShadowDirection.RIGHT // Will be updated when swimming
+    );
+
+    console.log(`Spawned new biting fish shadow: ${size} at (${validSpawnPosition.x}, ${validSpawnPosition.y})`);
+
+    // Start with appearing animation
+    try {
+      FishShadowFactory.playAppearingAnimation(this, this.bitingFishShadow, size, () => {
+        // After appearing, swim towards the floater
+        this.animateFishShadowToFloater(this.bitingFishShadow!, size);
+      });
+    } catch (error) {
+      console.warn('Failed to play appearing animation for biting fish:', error);
+      // If appearing fails, directly swim to floater
+      this.animateFishShadowToFloater(this.bitingFishShadow, size);
+    }
+  }
+
+  /**
+   * Animate the fish shadow swimming towards the floater to bite it
+   */
+  private animateFishShadowToFloater(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
+    if (!fishShadow || !fishShadow.active || !this.floater) {
+      return;
+    }
+
+    // Calculate direction from fish to floater
+    const deltaX = this.floater.x - fishShadow.x;
+    const deltaY = this.floater.y - fishShadow.y;
+
+    // Determine swimming direction based on movement vector
+    let swimDirection: FishShadowDirection;
+    if (Math.abs(deltaX) > Math.abs(deltaY)) {
+      // Horizontal movement is dominant
+      swimDirection = deltaX > 0 ? FishShadowDirection.RIGHT : FishShadowDirection.LEFT;
+    } else {
+      // Vertical movement is dominant
+      swimDirection = deltaY > 0 ? FishShadowDirection.BOTTOM : FishShadowDirection.TOP;
+    }
+
+    // For diagonal movement, combine directions
+    if (Math.abs(deltaX) > 20 && Math.abs(deltaY) > 20) {
+      if (deltaX > 0 && deltaY > 0) swimDirection = FishShadowDirection.BOTTOM_RIGHT;
+      else if (deltaX < 0 && deltaY > 0) swimDirection = FishShadowDirection.BOTTOM_LEFT;
+      else if (deltaX > 0 && deltaY < 0) swimDirection = FishShadowDirection.TOP_RIGHT;
+      else if (deltaX < 0 && deltaY < 0) swimDirection = FishShadowDirection.TOP_LEFT;
+    }
+
+    console.log(`Fish swimming to floater: direction ${swimDirection}`);
+
+    // Start swimming animation
+    try {
+      FishShadowFactory.playSwimmingAnimation(this, fishShadow, size, swimDirection);
+    } catch (error) {
+      console.warn('Failed to start swimming animation for biting fish:', error);
+    }
+
+    // Animate movement to floater
+    const duration = Phaser.Math.Between(1500, 2500); // Swimming duration
+
+    this.tweens.add({
+      targets: fishShadow,
+      x: this.floater.x,
+      y: this.floater.y,
+      duration: duration,
+      ease: 'Power2',
+      onComplete: () => {
+        // Fish has reached the floater - trigger bite!
+        console.log('Fish shadow reached floater, triggering bite');
+
+        // Stop swimming animation
+        try {
+          FishShadowFactory.stopSwimmingAnimation(fishShadow, size, swimDirection, 1);
+        } catch (error) {
+          console.warn('Failed to stop swimming animation:', error);
+        }
+
+        // Remove the biting fish shadow (it "disappears" into the bite)
+        this.removeBitingFishShadow();
+
+        // Trigger the fish bite event
+        this.fishBite();
+      }
+    });
+  }
+
+  /**
+   * Remove the biting fish shadow
+   */
+  private removeBitingFishShadow(): void {
+    if (this.bitingFishShadow) {
+      // Stop any ongoing tweens
+      this.tweens.killTweensOf(this.bitingFishShadow);
+
+      // Make sure it's not in the regular fish shadows array
+      const index = this.fishShadows.indexOf(this.bitingFishShadow);
+      if (index > -1) {
+        this.fishShadows.splice(index, 1);
+      }
+
+      this.bitingFishShadow.destroy();
+      this.bitingFishShadow = null;
+    }
+  }
+
+  /**
+   * Show a catch button above the player's head when fish is biting
+   */
+  private showCatchButton(): void {
+    if (!this.character) return;
+
+    // Remove existing button if any
+    this.removeCatchButton();
+
+    // Create a container for the button
+    this.catchButton = this.add.container(this.character.x, this.character.y - 60);
+
+    // Create button background (smaller size)
+    const buttonBg = this.add.rectangle(0, 0, 60, 30, 0xe74c3c, 0.9)
+      .setStrokeStyle(2, 0xffffff, 1);
+
+    // Create button text (smaller font)
+    const buttonText = this.add.text(0, 0, 'CATCH!', {
+      fontSize: '9px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
+
+    // Create pulsing exclamation mark (smaller)
+    const exclamation = this.add.text(0, -18, '!', {
+      fontSize: '16px',
+      color: '#ffff00',
+      fontStyle: 'bold',
+      stroke: '#ff0000',
+      strokeThickness: 1
+    }).setOrigin(0.5);
+
+    // Add all elements to container
+    this.catchButton.add([buttonBg, buttonText, exclamation]);
+
+    // Set depth to appear above everything else
+    this.catchButton.setDepth(1001);
+
+    // Make sure it's visible to main camera only
+    const cameras = this.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.catchButton);
+      }
+    }
+
+    // Make button interactive
+    buttonBg.setInteractive({ useHandCursor: true });
+
+    // Add hover effects
+    buttonBg.on('pointerover', () => {
+      buttonBg.setFillStyle(0xc0392b, 1);
+      buttonBg.setScale(1.05);
+    });
+
+    buttonBg.on('pointerout', () => {
+      buttonBg.setFillStyle(0xe74c3c, 0.9);
+      buttonBg.setScale(1);
+    });
+
+    // Add click handler
+    buttonBg.on('pointerdown', () => {
+      this.handleCatchAttempt();
+    });
+
+    // Add pulsing animation to exclamation mark
+    this.tweens.add({
+      targets: exclamation,
+      scaleX: 1.3,
+      scaleY: 1.3,
+      duration: 300,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Add gentle bobbing animation to entire button
+    this.tweens.add({
+      targets: this.catchButton,
+      y: this.character.y - 65,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    console.log('Catch button displayed above player');
+  }
+
+  /**
+   * Remove the catch button
+   */
+  private removeCatchButton(): void {
+    if (this.catchButton) {
+      // Stop any tweens on the button
+      this.tweens.killTweensOf(this.catchButton);
+
+      // Check if container has children and stop their tweens too
+      if (this.catchButton.list && this.catchButton.list.length > 0) {
+        this.catchButton.list.forEach(child => {
+          this.tweens.killTweensOf(child);
+        });
+      }
+
+      this.catchButton.destroy();
+      this.catchButton = null;
+      console.log('Catch button removed');
+    }
+  }
+
+  /**
+   * Handle catch attempt (from button click or space key)
+   */
+  private handleCatchAttempt(): void {
+    if (this.fishingState === 'catching') {
+      // Change animation from reel to pull when catch is attempted
+      if (this.character) {
+        CharacterFactory.setCharacterAction(
+          this.character,
+          this,
+          CharacterActionType.FISHING_PULL,
+          this.currentCharacterType
+        );
+      }
+
+      // Remove the catch button
+      this.removeCatchButton();
+
+      // Proceed with catching the fish
+      this.catchFish();
+
+      console.log('Fish caught via button/space!');
+    }
+  }
+
+  /**
+   * Update catch button position to follow character
+   */
+  private updateCatchButton(): void {
+    if (this.catchButton && this.character) {
+      // Keep button positioned above character's head
+      this.catchButton.x = this.character.x;
+      // Don't update y position as it's handled by the bobbing animation
+    }
+  }
+
+  /**
+   * Show fish celebration with lighting effects after quiz success
+   */
+  private showFishCelebration(fishType: FishType, onComplete: () => void): void {
+    if (!this.currentFish || !this.player) return;
+
+    // Get camera zoom for scaling calculations
+    const cameraZoom = this.cameras.main.zoom;
+
+    // Pause the game
+    this.physics.pause();
+
+    // Create celebration container above the player
+    this.fishCelebrationContainer = this.add.container(
+      this.player.x,
+      this.player.y - 70 // Position above the player, moved down 50px
+    );
+
+    // Create dark overlay centered on player
+    const overlay = this.add.rectangle(
+      this.player.x,
+      this.player.y,
+      this.cameras.main.width * 2,
+      this.cameras.main.height * 2,
+      0x000000,
+      0.7
+    );
+    overlay.setDepth(2000);
+
+    // Create main celebration background
+    const celebrationBg = this.add.rectangle(
+      0, 0,
+      300, 200,
+      0x2c3e50,
+      0.95
+    ).setStrokeStyle(4, 0xf39c12, 1);
+
+    // Create "Fish Obtained!" text
+    const titleText = this.add.text(0, -60, 'Fish Obtained!', {
+      fontSize: '24px',
+      color: '#f39c12',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Create fish sprite using FishFactory
+    const fishSprite = FishFactory.createFish(this, 0, -10, fishType);
+    fishSprite.setScale(4);
+
+    // Create fish name
+    const fishName = this.formatFishName(fishType);
+    const fishNameText = this.add.text(0, 40, fishName, {
+      fontSize: '18px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 2
+    }).setOrigin(0.5);
+
+    // Add all elements to celebration container
+    this.fishCelebrationContainer.add([
+      celebrationBg,
+      titleText,
+      fishSprite,
+      fishNameText
+    ]);
+
+    // Set high depth for celebration
+    this.fishCelebrationContainer.setDepth(2001);
+
+    // Make sure basic celebration elements are visible to main camera only
+    const cameras = this.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore([overlay, this.fishCelebrationContainer]);
+      }
+    }
+
+    // Scale in animation for the celebration - adjust for camera zoom
+    const targetScale = 1 / cameraZoom; // Inverse scale to maintain size regardless of zoom
+
+    this.fishCelebrationContainer.setScale(0);
+    this.tweens.add({
+      targets: this.fishCelebrationContainer,
+      scaleX: targetScale,
+      scaleY: targetScale,
+      duration: 500,
+      ease: 'Back.easeOut'
+    });
+
+    // Pulsing effect for the fish
+    this.tweens.add({
+      targets: fishSprite,
+      scaleX: fishSprite.scaleX * 1.1,
+      scaleY: fishSprite.scaleY * 1.1,
+      duration: 800,
+      yoyo: true,
+      repeat: -1,
+      ease: 'Sine.easeInOut'
+    });
+
+    // Variables to store effects (will be created after delay)
+    let lightRays: Phaser.GameObjects.Graphics | null = null;
+    let particles: Phaser.GameObjects.Particles.ParticleEmitter | null = null;
+
+    // Add celebration effects after a short delay (after container animation completes)
+    this.time.delayedCall(600, () => {
+      // Create rotating light rays around the fish
+      lightRays = this.add.graphics();
+      lightRays.setDepth(2000);
+
+      // Scale light rays with camera zoom
+      const rayScale = 1 / cameraZoom;
+      lightRays.setScale(rayScale);
+
+      // Draw light rays positioned around the celebration container center
+      for (let i = 0; i < 8; i++) {
+        const angle = (i * 45) * (Math.PI / 180);
+        const rayLength = 120; // Fixed ray length for container scale
+        const innerRadius = 50; // Inner radius around container
+
+        lightRays.lineStyle(3, 0xffd700, 0.6);
+        lightRays.beginPath();
+        lightRays.moveTo(
+          this.fishCelebrationContainer!.x + Math.cos(angle) * innerRadius,
+          this.fishCelebrationContainer!.y + Math.sin(angle) * innerRadius
+        );
+        lightRays.lineTo(
+          this.fishCelebrationContainer!.x + Math.cos(angle) * rayLength,
+          this.fishCelebrationContainer!.y + Math.sin(angle) * rayLength
+        );
+        lightRays.strokePath();
+      }
+
+      // Animate light rays rotation
+      this.tweens.add({
+        targets: lightRays,
+        rotation: Math.PI * 2,
+        duration: 2000,
+        repeat: -1,
+        ease: 'Linear'
+      });
+
+      // Create sparkling particles positioned around celebration container
+      particles = this.add.particles(
+        this.fishCelebrationContainer!.x,
+        this.fishCelebrationContainer!.y,
+        'star-blinking',
+        {
+          scale: { start: 0.3, end: 0 },
+          alpha: { start: 1, end: 0 },
+          speed: { min: 30, max: 80 },
+          lifespan: 1500,
+          frequency: 80,
+          quantity: 3,
+          emitZone: {
+            source: new Phaser.Geom.Circle(0, 0, 80),
+            type: 'edge',
+            quantity: 3
+          }
+        }
+      );
+      particles.setDepth(2002);
+
+      // Make sure effects are visible to main camera only
+      for (let i = 1; i < cameras.length; i++) {
+        const camera = cameras[i];
+        if (camera && camera !== this.cameras.main) {
+          camera.ignore([lightRays, particles]);
+        }
+      }
+    });
+
+    // Auto-close after 3 seconds
+    this.time.delayedCall(3000, () => {
+      // Scale out animation
+      this.tweens.add({
+        targets: [this.fishCelebrationContainer, overlay],
+        alpha: 0,
+        duration: 500,
+        onComplete: () => {
+          this.removeFishCelebration();
+          // Resume physics
+          this.physics.resume();
+          onComplete();
+        }
+      });
+
+      // Stop particles and light rays if they exist
+      if (particles) {
+        particles.destroy();
+      }
+      if (lightRays) {
+        lightRays.destroy();
+      }
+    });
+  }
+
+  /**
+   * Remove fish celebration display
+   */
+  private removeFishCelebration(): void {
+    if (this.fishCelebrationContainer) {
+      this.fishCelebrationContainer.destroy();
+      this.fishCelebrationContainer = null;
+    }
+  }
+
+  /**
+   * Format fish name for display
+   */
+  private formatFishName(fishType: FishType): string {
+    return fishType
+      .replace(/_/g, ' ')
+      .split(' ')
+      .map(word => word.charAt(0).toUpperCase() + word.slice(1))
+      .join(' ');
+  }
+
+  /**
+   * Handle quiz success logic after celebration
+   */
+  private handleQuizSuccess(data: any): void {
+    // Increment fish caught counter
+    this.fishCaught++;
+
+    // Add the caught fish to the collection if we have a current fish
+    let isNewFish = false;
+    if (this.currentFish) {
+      isNewFish = FishCollectionManager.addCaughtFish(this.currentFish);
+
+      // Add fish to current run tracking
+      this.gameState.currentRunFish.push(this.currentFish.toString());
+
+      // Update game state with current caught fish types
+      this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
+
+      // Show new fish discovery notification if it's a new catch
+      if (isNewFish) {
+        this.showNewFishNotification(this.currentFish);
+      }
+    }
+
+    // Determine fish size/rarity type
+    let fishType: 'small' | 'medium' | 'rare';
+
+    // Use RarityRate from completion data to determine fish type
+    const rarityRoll = Math.random();
+    if (rarityRoll < 0.6) {
+      fishType = 'small'; // 60% chance for small fish
+    } else if (rarityRoll < 0.9) {
+      fishType = 'medium'; // 30% chance for medium fish
+    } else {
+      fishType = 'rare'; // 10% chance for rare fish
+    }
+
+    // Award points based on fish type using pointRules
+    const pointsAwarded = pointRules[fishType];
+    this.points += pointsAwarded;
+
+    // Check if there's a time bonus for answering quickly
+    if (data.timeBonus && data.timeBonus > 0) {
+      // Calculate bonus points - 10 points per second remaining
+      const bonusPoints = data.timeBonus * 10;
+      this.points += bonusPoints;
+
+      // Show bonus points notification
+      this.showBonusPointsNotification(bonusPoints);
+    }
+
+    // Show points awarded notification for the fish
+    this.showPointsNotification(pointsAwarded, fishType);
+
+    // Update game state
+    this.gameState.fishCaught = this.fishCaught;
+    this.gameState.score = this.points;
+
+    // Clean up fishing
+    this.cleanUpFishing();
   }
 
   /**

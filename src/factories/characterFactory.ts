@@ -98,8 +98,8 @@ export class CharacterFactory {
     const properties = this.characterProperties[characterType];
     character.setScale(properties.scale);
 
-    // Set the character's depth to be higher than the boat but lower than UI
-    character.setDepth(10);
+    // Set the character's depth same as boat
+    character.setDepth(15);
 
     // Prevent shadow artifacts with proper rendering settings
     character.setOrigin(0.5, 0.5); // Center origin point
