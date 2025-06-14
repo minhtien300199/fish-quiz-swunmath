@@ -4,6 +4,11 @@ export class HowToPlayScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Disable browser context menu on right-click
+    this.game.canvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+    });
+
     // Add semi-transparent background
     this.add.image(this.cameras.main.width / 2, this.cameras.main.height / 2, 'map')
       .setScale(0.5)
@@ -45,8 +50,8 @@ export class HowToPlayScene extends Phaser.Scene {
       "CONTROLS:",
       "• Arrow Keys or WASD - Move your boat",
       "• Mouse Click & Hold - Move your boat towards mouse pointer",
-      "• SPACE - Cast your fishing line",
-      "• SPACE (when fish bites) - Reel in the fish",
+      "• SPACE or Right-Click - Cast your fishing line",
+      "• SPACE or Right-Click (when fish bites) - Reel in the fish",
       "",
       "FISHING TIPS:",
       "• Watch for the bobber to move when a fish bites",

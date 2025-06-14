@@ -58,13 +58,14 @@ The built files will be in the `dist` directory.
 - **S**: Move boat down
 - **D**: Move boat right
 - **Spacebar**: Cast fishing rod / Reel in fish
+- **Right-click**: Cast fishing rod / Reel in fish (alternative to spacebar)
 
 ## Game Rules
 
 1. You have 3 lives
 2. Move your boat around the lake to find good fishing spots
-3. Press spacebar to cast your fishing rod
-4. When a fish bites (the floater bobs), press spacebar to catch it
+3. Press spacebar or right-click to cast your fishing rod
+4. When a fish bites (the floater bobs), press spacebar or right-click to catch it
 5. Answer the math question correctly to keep the fish
 6. If you answer incorrectly or run out of time, you lose a life
 7. Game ends when all lives are lost

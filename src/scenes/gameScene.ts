@@ -20,6 +20,7 @@ export class GameScene extends Phaser.Scene {
   private character!: Phaser.GameObjects.Sprite; // Character sprite
   private cursors!: Phaser.Types.Input.Keyboard.CursorKeys;
   private spaceKey!: Phaser.Input.Keyboard.Key;
+  private rightClickJustPressed: boolean = false; // Track right-click just pressed state
   private map!: Phaser.Tilemaps.Tilemap;
   private mapLayers: { [key: string]: Phaser.Tilemaps.TilemapLayer } = {};
   private floater: Phaser.GameObjects.Sprite | Phaser.GameObjects.Image | null = null;
@@ -226,6 +227,19 @@ export class GameScene extends Phaser.Scene {
       this.spaceKey = this.input.keyboard.addKey(Phaser.Input.Keyboard.KeyCodes.SPACE);
     }
 
+    // Disable browser context menu on right-click
+    this.game.canvas.addEventListener('contextmenu', (event) => {
+      event.preventDefault();
+    });
+
+    // Set up mouse input for right-click
+    this.input.on('pointerdown', (pointer: Phaser.Input.Pointer) => {
+      // Right mouse button (button 2) acts as space key
+      if (pointer.rightButtonDown()) {
+        this.rightClickJustPressed = true;
+      }
+    });
+
     // Make sure the player stays within the map boundaries
     this.player.setCollideWorldBounds(true);
 
@@ -336,6 +350,11 @@ export class GameScene extends Phaser.Scene {
 
     // Ensure cursor stays on top
     CursorManager.bringToTop();
+
+    // Reset right-click flag if mouse button is no longer pressed
+    if (this.rightClickJustPressed && !this.input.activePointer.rightButtonDown()) {
+      this.rightClickJustPressed = false;
+    }
 
     // Debug: Check if cursors are active
     if (this.time.now % 1000 < 16) { // Log every second (approximately)
@@ -488,9 +507,10 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Start fishing when space is pressed
-    if (Phaser.Input.Keyboard.JustDown(this.spaceKey) && this.fishingState === 'idle') {
+    // Start fishing when space is pressed or right-click is pressed
+    if ((Phaser.Input.Keyboard.JustDown(this.spaceKey) || this.rightClickJustPressed) && this.fishingState === 'idle') {
       this.startFishing();
+      this.rightClickJustPressed = false; // Reset flag after use
     }
   }
 
@@ -727,11 +747,11 @@ export class GameScene extends Phaser.Scene {
       }
     });
 
-    // Check for space key to catch fish
+    // Check for space key or right-click to catch fish
     const spaceCheck = this.time.addEvent({
       delay: 100,
       callback: () => {
-        if (this.spaceKey.isDown && this.fishingState === 'catching') {
+        if ((this.spaceKey.isDown || this.input.activePointer.rightButtonDown()) && this.fishingState === 'catching') {
           catchWindow.remove();
           spaceCheck.remove();
           this.handleCatchAttempt();
@@ -2537,14 +2557,26 @@ export class GameScene extends Phaser.Scene {
     // Create a container for the button
     this.catchButton = this.add.container(this.character.x, this.character.y - 60);
 
-    // Create button background (adjusted size for keyboard gif)
-    const buttonBg = this.add.rectangle(0, 0, 80, 40, 0xe74c3c, 0.9)
+    // Create button background (adjusted size for keyboard gif and cursor)
+    const buttonBg = this.add.rectangle(0, 0, 140, 40, 0xe74c3c, 0.9)
       .setStrokeStyle(2, 0xffffff, 1);
 
-    // Create animated keyboard sprite instead of text
-    const keyboardSprite = this.add.image(0, 0, 'keyboard-frame-1');
+    // Create animated keyboard sprite
+    const keyboardSprite = this.add.image(-30, 0, 'keyboard-frame-1');
     keyboardSprite.setOrigin(0.5);
     keyboardSprite.setScale(0.15); // Scale down to fit nicely in the button (488x185 -> ~58x22)
+
+    // Create cursor/click icon
+    const cursorSprite = this.add.image(30, 0, 'pointer-normal');
+    cursorSprite.setOrigin(0.5);
+    cursorSprite.setScale(0.5); // Scale down the cursor icon
+
+    // Add "OR" text between them
+    const orText = this.add.text(20, 0, 'OR', {
+      fontSize: '10px',
+      color: '#ffffff',
+      fontStyle: 'bold'
+    }).setOrigin(0.5);
 
     // Create animation by alternating between frames
     let currentFrame = 1;
@@ -2569,7 +2601,7 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Add all elements to container
-    this.catchButton.add([buttonBg, keyboardSprite, exclamation]);
+    this.catchButton.add([buttonBg, keyboardSprite, cursorSprite, orText, exclamation]);
 
     // Set depth to appear above everything else
     this.catchButton.setDepth(1001);
