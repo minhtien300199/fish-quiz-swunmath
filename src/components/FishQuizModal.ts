@@ -247,7 +247,7 @@ export class FishQuizModal {
                 borderColor = 0xaa0000;
             }
 
-            const choiceBg = this.scene.add.rectangle(-50, yPos, 700, 30, bgColor);
+            const choiceBg = this.scene.add.rectangle(0, yPos, 700, 30, bgColor);
             choiceBg.setStrokeStyle(2, borderColor);
             choiceBg.setDepth(50002);
 
@@ -263,11 +263,12 @@ export class FishQuizModal {
 
             // Strip HTML from choice text
             const cleanChoiceText = this.parseQuestionContent(choice.text);
-            const choiceText = this.scene.add.text(-350, yPos, `${choice.key}. ${indicator}${cleanChoiceText}`, {
+            const choiceText = this.scene.add.text(0, yPos, `${choice.key}. ${indicator}${cleanChoiceText}`, {
                 fontSize: '18px',
                 color: '#333333',
-                wordWrap: { width: 650 }
-            }).setOrigin(0, 0.5).setDepth(50003);
+                wordWrap: { width: 650 },
+                align: 'center'
+            }).setOrigin(0.5, 0.5).setDepth(50003);
 
             elements.push(choiceBg, choiceText);
         });
