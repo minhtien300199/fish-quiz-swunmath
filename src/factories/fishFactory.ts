@@ -1,6 +1,6 @@
 import 'phaser';
 import { FishType, fishSizes, FishVariantType, fishVariants, hasFishVariants, FishFileType } from '../const/fishType';
-import { getFishPath } from '../const/fishType';
+import { getFishPath, getFishInventoryPath, isSharkPattern } from '../const/fishType';
 
 // Define fish animation types (for future implementation with spritesheets)
 export enum FishAnimationType {
@@ -239,6 +239,15 @@ export class FishFactory {
 
         console.log(`Loading fish variant: ${fishKey} from ${fishPath}`);
         scene.load.image(fishKey, fishPath);
+
+        // For shark pattern fish, also load inventory version
+        if (isSharkPattern(fishType)) {
+          const inventoryKey = `fish-${fishType}-${variant}-inventory`;
+          const inventoryPath = getFishInventoryPath(fishType, variant);
+
+          console.log(`Loading shark inventory variant: ${inventoryKey} from ${inventoryPath}`);
+          scene.load.image(inventoryKey, inventoryPath);
+        }
       });
     } else {
       // Load the base fish
@@ -247,6 +256,15 @@ export class FishFactory {
 
       console.log(`Loading base fish: ${fishKey} from ${fishPath}`);
       scene.load.image(fishKey, fishPath);
+
+      // For shark pattern fish, also load inventory version
+      if (isSharkPattern(fishType)) {
+        const inventoryKey = `fish-${fishType}-inventory`;
+        const inventoryPath = getFishInventoryPath(fishType);
+
+        console.log(`Loading shark inventory: ${inventoryKey} from ${inventoryPath}`);
+        scene.load.image(inventoryKey, inventoryPath);
+      }
     }
   }
 

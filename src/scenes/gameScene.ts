@@ -1,7 +1,7 @@
 import { GameState } from '../types/gameState';
 import { BoatFactory, BoatType } from '../factories/boatFactory';
 import { CharacterFactory, CharacterType, CharacterActionType } from '../factories/characterFactory';
-import { FishType, fishVariants } from '../const/fishType';
+import { FishType, fishVariants, isSharkPattern } from '../const/fishType';
 import { FloaterFactory, FloaterType } from '../factories/floaterFactory';
 import { FishFactory } from '../factories/fishFactory';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
@@ -3104,6 +3104,7 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Generate the texture key for a fish (matches FishFactory logic)
+   * For shark pattern fish, uses inventory version for box display
    * @param fishType The fish type
    * @returns The texture key to use for loading the fish image
    */
@@ -3113,8 +3114,16 @@ export class GameScene extends Phaser.Scene {
     // If this fish has variants, randomly select one
     if (variants && variants.length > 0) {
       const variant = variants[Math.floor(Math.random() * variants.length)];
+      // For shark pattern fish, use inventory version for box display
+      if (isSharkPattern(fishType)) {
+        return `fish-${fishType}-${variant}-inventory`;
+      }
       return `fish-${fishType}-${variant}`;
     } else {
+      // For shark pattern fish, use inventory version for box display
+      if (isSharkPattern(fishType)) {
+        return `fish-${fishType}-inventory`;
+      }
       return `fish-${fishType}`;
     }
   }

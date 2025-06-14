@@ -271,3 +271,40 @@ export const getFishPath = (fishType: FishType, variant?: string): string => {
     // For fish without variants, use the fish type name as the image name
     return `${fishPath}${fishType}/${fishType}.png`;
 };
+
+/**
+ * Check if a fish type is a shark pattern fish
+ * @param fishType The type of fish to check
+ * @returns True if the fish is a shark pattern, false otherwise
+ */
+export const isSharkPattern = (fishType: FishType): boolean => {
+    return fishType.includes('shark');
+};
+
+/**
+ * Get path for fish inventory display (used in fish box)
+ * For shark pattern fish, adds _0002 suffix for inventory access
+ * @param fishType The type of fish
+ * @param variant Optional variant of the fish
+ * @returns Path to the fish inventory image
+ */
+export const getFishInventoryPath = (fishType: FishType, variant?: string): string => {
+    // If a specific variant is provided, use that path with variant name
+    if (variant) {
+        const suffix = isSharkPattern(fishType) ? '_0002' : '';
+        return `${fishPath}${fishType}/${variant}/${variant}${suffix}.png`;
+    }
+
+    // If this fish type has variants but no specific variant was requested,
+    // use the first variant as the default
+    if (hasFishVariants(fishType)) {
+        const defaultVariant = fishVariants[fishType][0];
+        const suffix = isSharkPattern(fishType) ? '_0002' : '';
+        return `${fishPath}${fishType}/${defaultVariant}/${defaultVariant}${suffix}.png`;
+    }
+
+    // For fish without variants, use the fish type name as the image name
+    // Add _0002 suffix for shark pattern fish
+    const suffix = isSharkPattern(fishType) ? '_0002' : '';
+    return `${fishPath}${fishType}/${fishType}${suffix}.png`;
+};
