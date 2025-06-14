@@ -122,7 +122,7 @@ export class FishFactory {
       variant = variants[Math.floor(Math.random() * variants.length)];
       // Use the variant-specific image key
       fishKey = `fish-${fishType}-${variant}`;
-      console.log(`Selected random variant for ${fishType}: ${variant}`);
+
     }
 
     // Get fish size category and properties
@@ -146,7 +146,7 @@ export class FishFactory {
     // For special cases like shark_whale (48x16), adjust the origin
     // to ensure the fish is properly centered
     if (fishDimensions.width !== 16 || fishDimensions.height !== 16) {
-      console.log(`Special fish dimensions for ${fishType}: ${fishDimensions.width}x${fishDimensions.height}`);
+
     }
 
     // Apply visual effects based on state
@@ -237,7 +237,7 @@ export class FishFactory {
         const fishKey = `fish-${fishType}-${variant}`;
         const fishPath = getFishPath(fishType, variant);
 
-        console.log(`Loading fish variant: ${fishKey} from ${fishPath}`);
+
         scene.load.image(fishKey, fishPath);
 
         // For shark pattern fish, also load inventory version
@@ -245,7 +245,7 @@ export class FishFactory {
           const inventoryKey = `fish-${fishType}-${variant}-inventory`;
           const inventoryPath = getFishInventoryPath(fishType, variant);
 
-          console.log(`Loading shark inventory variant: ${inventoryKey} from ${inventoryPath}`);
+
           scene.load.image(inventoryKey, inventoryPath);
         }
       });
@@ -254,15 +254,12 @@ export class FishFactory {
       const fishKey = `fish-${fishType}`;
       const fishPath = getFishPath(fishType);
 
-      console.log(`Loading base fish: ${fishKey} from ${fishPath}`);
       scene.load.image(fishKey, fishPath);
 
       // For shark pattern fish, also load inventory version
       if (isSharkPattern(fishType)) {
         const inventoryKey = `fish-${fishType}-inventory`;
         const inventoryPath = getFishInventoryPath(fishType);
-
-        console.log(`Loading shark inventory: ${inventoryKey} from ${inventoryPath}`);
         scene.load.image(inventoryKey, inventoryPath);
       }
     }

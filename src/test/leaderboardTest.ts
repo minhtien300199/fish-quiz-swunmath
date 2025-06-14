@@ -9,8 +9,6 @@ import { LeaderboardManager } from '../managers/leaderboardManager';
  * Add sample scores to the leaderboard for testing
  */
 export function addSampleScores(): void {
-    console.log('Adding sample scores to leaderboard...');
-
     // Add various test scores
     LeaderboardManager.saveScore('Alice', 1250, 15, 'Intermediate');
     LeaderboardManager.saveScore('Bob', 980, 12, 'Easy');
@@ -23,7 +21,6 @@ export function addSampleScores(): void {
     LeaderboardManager.saveScore('Ivy', 1350, 16, 'Intermediate');
     LeaderboardManager.saveScore('Jack', 2250, 28, 'Expert');
 
-    console.log('Sample scores added! Check the leaderboard in the main menu.');
     displayLeaderboard();
 }
 
@@ -34,23 +31,9 @@ export function displayLeaderboard(): void {
     const leaderboard = LeaderboardManager.getLeaderboard();
     const stats = LeaderboardManager.getStats();
 
-    console.log('=== FISH QUIZ LEADERBOARD ===');
-    console.log(`Total Players: ${stats.totalEntries} | Highest Score: ${stats.highestScore} | Average: ${stats.averageScore}`);
-    console.log('');
-
     if (leaderboard.length === 0) {
-        console.log('No scores recorded yet!');
         return;
     }
-
-    console.table(leaderboard.map((entry, index) => ({
-        Rank: index + 1,
-        Player: entry.playerName,
-        Score: entry.score,
-        Fish: entry.fishCaught,
-        Difficulty: entry.completionTitle,
-        Date: LeaderboardManager.formatDate(entry.timestamp)
-    })));
 }
 
 /**
@@ -58,7 +41,6 @@ export function displayLeaderboard(): void {
  */
 export function clearLeaderboard(): void {
     LeaderboardManager.clearLeaderboard();
-    console.log('Leaderboard cleared!');
 }
 
 /**
@@ -67,10 +49,6 @@ export function clearLeaderboard(): void {
 export function testHighScore(score: number): void {
     const isHigh = LeaderboardManager.isHighScore(score);
     const rank = LeaderboardManager.getPlayerRank(score);
-
-    console.log(`Score ${score}:`);
-    console.log(`- Qualifies for leaderboard: ${isHigh ? 'YES' : 'NO'}`);
-    console.log(`- Would rank: #${rank}`);
 }
 
 /**
@@ -79,12 +57,8 @@ export function testHighScore(score: number): void {
 export function addTestScore(playerName: string, score: number, fishCaught: number = 10, difficulty: string = 'Test'): void {
     const isHighScore = LeaderboardManager.saveScore(playerName, score, fishCaught, difficulty);
 
-    console.log(`Added score for ${playerName}: ${score} points (${fishCaught} fish)`);
-    console.log(`High score: ${isHighScore ? 'YES' : 'NO'}`);
-
     if (isHighScore) {
         const rank = LeaderboardManager.getPlayerRank(score);
-        console.log(`New rank: #${rank}`);
     }
 }
 
@@ -98,5 +72,5 @@ if (typeof window !== 'undefined') {
         addTestScore
     };
 
-    console.log('Leaderboard test utilities loaded! Use LeaderboardTest.addSampleScores() to add test data.');
+
 } 

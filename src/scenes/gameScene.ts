@@ -69,7 +69,7 @@ export class GameScene extends Phaser.Scene {
   init(data: any): void {
     // Check if we should reset the game (coming from WinScene)
     this.shouldReset = data && data.reset === true;
-    console.log('GameScene init with reset:', this.shouldReset);
+
   }
   preload(): void {
     // Load tilemap from Tiled
@@ -109,7 +109,7 @@ export class GameScene extends Phaser.Scene {
     // Fetch completion data from mock backend
     try {
       this.completionData = await fetchCompletionData();
-      console.log('Fetched completion data:', this.completionData);
+
     } catch (error) {
       console.error('Error fetching completion data:', error);
       // Use default values if fetch fails
@@ -123,7 +123,7 @@ export class GameScene extends Phaser.Scene {
 
     // Reset game state - always reset if coming from WinScene or if it's a new game
     if (this.shouldReset || !this.gameState) {
-      console.log('Resetting game state completely');
+
       this.gameState = {
         lives: 3,
         fishCaught: 0,
@@ -1509,7 +1509,7 @@ export class GameScene extends Phaser.Scene {
     musicButton.on('pointerdown', () => {
       const isMusicOn = MusicManager.toggleMusic();
       musicButton.setFillStyle(isMusicOn ? 0x27ae60 : 0xe74c3c, 0.8);
-      console.log('Music toggled:', isMusicOn ? 'ON' : 'OFF');
+
     });
 
     // Sound button handlers
@@ -1524,7 +1524,7 @@ export class GameScene extends Phaser.Scene {
     soundButton.on('pointerdown', () => {
       const isSoundOn = MusicManager.toggleSound();
       soundButton.setFillStyle(isSoundOn ? 0x27ae60 : 0xe74c3c, 0.8);
-      console.log('Sound toggled:', isSoundOn ? 'ON' : 'OFF');
+
     });
 
     // Add all UI elements to the container
@@ -1565,11 +1565,11 @@ export class GameScene extends Phaser.Scene {
   private showGameMenu(): void {
     // Prevent multiple menus from opening
     if (this.isMenuOpen) {
-      console.log('Menu already open, ignoring request');
+
       return;
     }
 
-    console.log('Opening game menu...');
+
     this.isMenuOpen = true;
 
     // Pause the game physics but keep the scene running
@@ -1634,7 +1634,7 @@ export class GameScene extends Phaser.Scene {
         else if (color === 0x34495e) hoverColor = 0x5d6d7e; // Lighter dark gray hover (Exit to Menu button)
 
         button.setFillStyle(hoverColor);
-        console.log(`Hovering over ${text} button`);
+
       });
 
       button.on('pointerout', () => {
@@ -1642,7 +1642,7 @@ export class GameScene extends Phaser.Scene {
       });
 
       button.on('pointerdown', () => {
-        console.log(`${text} button clicked!`);
+
         callback();
       });
 
@@ -1651,7 +1651,7 @@ export class GameScene extends Phaser.Scene {
 
     // Cleanup function
     const cleanup = () => {
-      console.log('Cleaning up menu...');
+
       this.isMenuOpen = false;
       this.physics.resume();
 
@@ -1713,14 +1713,14 @@ export class GameScene extends Phaser.Scene {
     const escKey = this.input.keyboard?.addKey(Phaser.Input.Keyboard.KeyCodes.ESC);
     if (escKey) {
       const escHandler = () => {
-        console.log('ESC pressed - closing menu');
+
         cleanup();
         escKey.off('down', escHandler);
       };
       escKey.on('down', escHandler);
     }
 
-    console.log('Menu created successfully for UI camera only');
+
   }
 
   private updateUI(): void {
@@ -1737,7 +1737,7 @@ export class GameScene extends Phaser.Scene {
       // Check if player has caught enough fish to win
       if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
         // Player has won! Transition to the win scene
-        console.log('Player has caught enough fish to win!');
+
         this.triggerWin();
       }
     }
@@ -1991,7 +1991,7 @@ export class GameScene extends Phaser.Scene {
       });
     });
 
-    console.log(`🎉 New fish discovered: ${fishName}!`);
+
   }
 
   /**
@@ -2082,7 +2082,7 @@ export class GameScene extends Phaser.Scene {
       loop: true
     });
 
-    console.log('Fish shadow spawning started');
+
   }
 
   /**
@@ -2146,7 +2146,7 @@ export class GameScene extends Phaser.Scene {
     // Add to our tracking array
     this.fishShadows.push(fishShadow);
 
-    console.log(`Spawned fish shadow: ${size} at (${validPosition.x}, ${validPosition.y})`);
+
   }
 
   /**
@@ -2163,7 +2163,7 @@ export class GameScene extends Phaser.Scene {
     const totalMoves = Phaser.Math.Between(1, 3);
     let currentMove = 0;
 
-    console.log(`Starting movement phase for fish: ${totalMoves} moves planned`);
+
 
     // Start the movement sequence
     this.executeNextMove(fishShadow, size, currentMove, totalMoves);
@@ -2208,7 +2208,7 @@ export class GameScene extends Phaser.Scene {
     targetX = validTarget.x;
     targetY = validTarget.y;
 
-    console.log(`Fish swimming ${currentMove + 1}/${totalMoves}: (${fishShadow.x}, ${fishShadow.y}) → (${targetX}, ${targetY}) direction: ${direction.swim}`);
+
 
     // Start swimming animation in the movement direction
     try {
@@ -2278,7 +2278,7 @@ export class GameScene extends Phaser.Scene {
   private startFishDisappearingPhase(fishShadow: Phaser.GameObjects.Sprite, size: FishShadowSize): void {
     if (!fishShadow || !fishShadow.active) return;
 
-    console.log('Starting disappearing phase for fish');
+
 
     try {
       FishShadowFactory.playDisappearingAnimation(this, fishShadow, size, () => {
@@ -2314,10 +2314,10 @@ export class GameScene extends Phaser.Scene {
 
     if (nearbyFish) {
       const distance = Phaser.Math.Distance.Between(this.floater.x, this.floater.y, nearbyFish.fish.x, nearbyFish.fish.y);
-      console.log(`Found nearby fish shadow (${Math.round(distance)}px away), redirecting to floater`);
+
       this.redirectFishToFloater(nearbyFish.fish, nearbyFish.size);
     } else {
-      console.log(`No nearby fish found within 300px (${this.fishShadows.length} total fish in area), spawning new fish shadow`);
+
       this.spawnNewBitingFishShadow();
     }
   }
@@ -2371,7 +2371,7 @@ export class GameScene extends Phaser.Scene {
 
     this.bitingFishShadow = fishShadow;
 
-    console.log(`Redirecting existing fish shadow: ${size} from (${Math.round(fishShadow.x)}, ${Math.round(fishShadow.y)}) to floater at (${Math.round(this.floater!.x)}, ${Math.round(this.floater!.y)})`);
+
 
     // Start swimming toward the floater
     this.animateFishShadowToFloater(fishShadow, size);
@@ -2406,7 +2406,7 @@ export class GameScene extends Phaser.Scene {
       FishShadowDirection.RIGHT // Will be updated when swimming
     );
 
-    console.log(`Spawned new biting fish shadow: ${size} at (${validSpawnPosition.x}, ${validSpawnPosition.y})`);
+
 
     // Start with appearing animation
     try {
@@ -2451,7 +2451,7 @@ export class GameScene extends Phaser.Scene {
       else if (deltaX < 0 && deltaY < 0) swimDirection = FishShadowDirection.TOP_LEFT;
     }
 
-    console.log(`Fish swimming to floater: direction ${swimDirection}`);
+
 
     // Start swimming animation
     try {
@@ -2471,7 +2471,7 @@ export class GameScene extends Phaser.Scene {
       ease: 'Power2',
       onComplete: () => {
         // Fish has reached the floater - trigger bite!
-        console.log('Fish shadow reached floater, triggering bite');
+
 
         // Stop swimming animation
         try {
@@ -2606,7 +2606,7 @@ export class GameScene extends Phaser.Scene {
       ease: 'Sine.easeInOut'
     });
 
-    console.log('Catch button displayed above player');
+
   }
 
   /**
@@ -2632,7 +2632,7 @@ export class GameScene extends Phaser.Scene {
 
       this.catchButton.destroy();
       this.catchButton = null;
-      console.log('Catch button removed');
+
     }
   }
 
@@ -2657,7 +2657,7 @@ export class GameScene extends Phaser.Scene {
       // Proceed with catching the fish
       this.catchFish();
 
-      console.log('Fish caught via button/space!');
+
     }
   }
 
@@ -2900,7 +2900,7 @@ export class GameScene extends Phaser.Scene {
     // Store quiz data if provided
     if (data.quizData) {
       this.fishQuizDataList.push(data.quizData);
-      console.log('Stored quiz data for fish:', data.quizData.fishType);
+
     }
 
     // Increment fish caught counter
@@ -3045,7 +3045,7 @@ export class GameScene extends Phaser.Scene {
     // Use factory's destroy method with fade out
     FishShadowFactory.destroyFishShadow(this, fishShadow, true);
 
-    console.log('Removed fish shadow');
+
   }
 
   /**
@@ -3066,7 +3066,7 @@ export class GameScene extends Phaser.Scene {
     });
     this.fishShadows = [];
 
-    console.log('Fish shadows cleaned up');
+
   }
 
   /**
@@ -3094,12 +3094,12 @@ export class GameScene extends Phaser.Scene {
 
     // Show feedback to player
     if (isHighScore) {
-      console.log(`🎉 New high score saved! Score: ${this.gameState.score}, Rank: ${LeaderboardManager.getPlayerRank(this.gameState.score)}`);
+
 
       // Create high score notification
       this.showHighScoreNotification(this.gameState.score, LeaderboardManager.getPlayerRank(this.gameState.score));
     } else {
-      console.log(`Score saved: ${this.gameState.score} (${totalFishCaught} fish caught) for ${playerName}`);
+
     }
   }
 
@@ -3117,9 +3117,9 @@ export class GameScene extends Phaser.Scene {
     });
 
     if (wasAdded) {
-      console.log(`Added ${fishType} to storage box`);
+
     } else {
-      console.log(`Storage box is full, cannot add ${fishType}`);
+
       // TODO: Could show notification that box is full
     }
   }

@@ -89,7 +89,7 @@ export class FishShadowFactory {
                 frameWidth: 32,
                 frameHeight: 32
             });
-            console.log(`Loading appearing animation spritesheet: ${appearingKey} from ${appearingPath}`);
+
         });
 
         // Load disappearing animations as spritesheets (4 frames, 32x32 each)
@@ -101,7 +101,7 @@ export class FishShadowFactory {
                 frameWidth: 32,
                 frameHeight: 32
             });
-            console.log(`Loading disappearing animation spritesheet: ${disappearingKey} from ${disappearingPath}`);
+
         });
 
         // Load swimming animations for all sizes and directions
@@ -133,7 +133,7 @@ export class FishShadowFactory {
         // Load swimming animations for this size
         this.loadSwimAssets(scene, size);
 
-        console.log(`Loading shadow assets for size: ${size}`);
+
     }
 
     /**
@@ -176,7 +176,7 @@ export class FishShadowFactory {
                 scene.load.image(frameKey, framePath);
             }
 
-            console.log(`Loading swimming assets for ${size} fish, direction: ${direction}`);
+
         });
     }
 
@@ -230,7 +230,7 @@ export class FishShadowFactory {
             }
         }
 
-        console.log(`Created fish shadow: size=${size}, action=${action}, direction=${direction}, position=(${x}, ${y})`);
+
 
         return fishShadow;
     }
@@ -262,7 +262,7 @@ export class FishShadowFactory {
                 frameRate: 8,
                 repeat: 0 // Play once
             });
-            console.log(`Created appearing animation: ${animKey}`);
+
         }
 
         // Start with alpha 0 for fade-in effect
@@ -279,7 +279,7 @@ export class FishShadowFactory {
             duration: properties.animationDuration,
             ease: 'Power2',
             onComplete: () => {
-                console.log(`Fish shadow appearing animation completed for size: ${size}`);
+
                 if (onComplete) {
                     onComplete();
                 }
@@ -314,7 +314,7 @@ export class FishShadowFactory {
                 frameRate: 8,
                 repeat: 0 // Play once
             });
-            console.log(`Created disappearing animation: ${animKey}`);
+
         }
 
         // Play the spritesheet animation
@@ -328,7 +328,7 @@ export class FishShadowFactory {
             duration: properties.animationDuration,
             ease: 'Power2',
             onComplete: () => {
-                console.log(`Fish shadow disappearing animation completed for size: ${size}`);
+
                 if (onComplete) {
                     onComplete();
                 }
@@ -388,7 +388,7 @@ export class FishShadowFactory {
                     repeat: this.swimConfig.repeat
                 });
 
-                console.log(`Created swimming animation: ${animKey}`);
+
             } catch (error) {
                 console.error(`Failed to create animation ${animKey}:`, error);
                 return;
@@ -403,7 +403,7 @@ export class FishShadowFactory {
                 fishShadow.once('animationcomplete', onComplete);
             }
 
-            console.log(`Playing swimming animation: ${animKey} for size: ${size}, direction: ${direction}`);
+
         } catch (error) {
             console.error(`Failed to play animation ${animKey}:`, error);
         }
@@ -428,7 +428,7 @@ export class FishShadowFactory {
         const frameKey = `fish-shadow-${size}-swim-${direction}-frame-${frameNumber}`;
         fishShadow.setTexture(frameKey);
 
-        console.log(`Stopped swimming animation for size: ${size}, direction: ${direction}, static frame: ${staticFrame}`);
+
     }
 
     /**
@@ -502,7 +502,7 @@ export class FishShadowFactory {
         // Start new swimming animation in the new direction
         this.playSwimmingAnimation(scene, fishShadow, size, newDirection);
 
-        console.log(`Changed swim direction to: ${newDirection} for size: ${size}`);
+
     }
 
     /**
@@ -533,12 +533,12 @@ export class FishShadowFactory {
                 ease: 'Power2',
                 onComplete: () => {
                     fishShadow.destroy();
-                    console.log('Fish shadow destroyed with fade out');
+
                 }
             });
         } else {
             fishShadow.destroy();
-            console.log('Fish shadow destroyed immediately');
+
         }
     }
 } 

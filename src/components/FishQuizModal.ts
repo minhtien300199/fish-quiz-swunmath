@@ -147,7 +147,7 @@ export class FishQuizModal {
             ease: 'Back.easeOut'
         });
 
-        console.log('Showing quiz modal for fish:', quizData.fishType);
+
     }
 
     /**

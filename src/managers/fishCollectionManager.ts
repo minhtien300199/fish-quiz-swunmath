@@ -38,7 +38,7 @@ export class FishCollectionManager {
 
         try {
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(caughtFish));
-            console.log(`New fish discovered: ${fishType}`);
+
             return true; // New fish discovered
         } catch (error) {
             console.error('Error saving caught fish to storage:', error);
@@ -88,7 +88,7 @@ export class FishCollectionManager {
     public static clearCollection(): void {
         try {
             localStorage.removeItem(this.STORAGE_KEY);
-            console.log('Fish collection cleared');
+
         } catch (error) {
             console.error('Error clearing fish collection:', error);
         }
@@ -106,7 +106,7 @@ export class FishCollectionManager {
             );
 
             localStorage.setItem(this.STORAGE_KEY, JSON.stringify(validFishTypes));
-            console.log(`Imported ${validFishTypes.length} fish types to collection`);
+
         } catch (error) {
             console.error('Error importing fish collection:', error);
         }

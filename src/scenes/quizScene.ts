@@ -45,10 +45,10 @@ export class QuizScene extends Phaser.Scene {
     // Set timer based on completion data or default to 15 seconds
     if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
       this.timeRemaining = this.completionData.Timers[0];
-      console.log(`Setting quiz timer to ${this.timeRemaining} seconds from completion data`);
+
     } else {
       this.timeRemaining = 15; // Default timer
-      console.log('Using default quiz timer of 15 seconds');
+
     }
   }
 
@@ -56,11 +56,8 @@ export class QuizScene extends Phaser.Scene {
     // Create quiz questions
     this.createQuizQuestions();
 
-    console.log(`Loaded ${this.questions.length} questions from ${window.QUIZ_QUESTIONS ? 'API' : 'fallback'}`);
-
     // Select a random question
     this.currentQuestion = this.questions[Phaser.Math.Between(0, this.questions.length - 1)];
-    console.log('Selected question:', this.currentQuestion.question.substring(0, 50) + '...');
 
     // Create UI with paper background
     this.createPaperBackground();
@@ -126,7 +123,7 @@ export class QuizScene extends Phaser.Scene {
   private createQuizQuestions(): void {
     // Use questions from the mock API (global variable)
     if (window.QUIZ_QUESTIONS && window.QUIZ_QUESTIONS.length > 0) {
-      console.log('Using questions from API:', window.QUIZ_QUESTIONS.length);
+
       this.questions = window.QUIZ_QUESTIONS;
     } else {
       // Fallback to default questions if API data is not available
@@ -312,7 +309,7 @@ export class QuizScene extends Phaser.Scene {
 
     // Calculate time bonus - how much time is left
     const timeBonus = this.timeRemaining;
-    console.log(`Answer selected with ${timeBonus} seconds remaining`);
+
 
     // Show result and pass time bonus and user answer
     this.showResult(isCorrect, timeBonus, selectedKey);

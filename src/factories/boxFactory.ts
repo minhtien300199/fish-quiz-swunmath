@@ -36,12 +36,12 @@ export class BoxFactory {
      * @param scene The scene to load assets into
      */
     public static loadAssets(scene: Phaser.Scene): void {
-        console.log('Loading box assets...');
+
         scene.load.image('box', 'assets/fishing_box/box.png');
         scene.load.image('box-cap', 'assets/fishing_box/box_cap.png');
         scene.load.image('box-cap-open', 'assets/fishing_box/box_cap_open.png');
         scene.load.audio('open-box', 'assets/sounds/open-box.mp3');
-        console.log('Box assets loaded');
+
     }
 
     /**
@@ -50,32 +50,32 @@ export class BoxFactory {
      * @returns The created box container
      */
     public static createBox(scene: Phaser.Scene): Phaser.GameObjects.Container {
-        console.log('Creating box...');
+
         // Calculate position for bottom right of camera
         const camera = scene.cameras.main;
         const boxX = camera.width - this.boxProperties.width / 2 - 150; // 20px margin from right edge
         const boxY = camera.height - this.boxProperties.height / 2 - 150; // 20px margin from bottom edge
-        console.log('Box position calculated:', boxX, boxY, 'Camera size:', camera.width, camera.height);
+
 
         // Create container for the box system
         this.container = scene.add.container(boxX, boxY);
         this.container.setDepth(this.boxProperties.depth);
         this.container.setScrollFactor(0); // Stay fixed to camera
-        console.log('Container created with depth:', this.boxProperties.depth);
+
 
         // Create the box base
         this.box = scene.add.image(0, 0, 'box');
         this.box.setOrigin(0.5, 0.5);
         this.box.setScale(4); // Scale up from 16x16 to 64x64
         this.box.setDepth(1); // Base layer within container
-        console.log('Box base created');
+
 
         // Create the cap (starts closed)
         this.cap = scene.add.image(0, -8, 'box-cap'); // Slightly above the box
         this.cap.setOrigin(0.5, 0.5);
         this.cap.setScale(4); // Match the box scale
         this.cap.setDepth(10); // Top layer within container (above fish)
-        console.log('Box cap created');
+
 
         // Add components to container
         this.container.add([this.box, this.cap]);
@@ -91,12 +91,12 @@ export class BoxFactory {
         if (uiCamera) {
             // Box should be visible on UI camera (no zoom), not main camera (3x zoom)
             scene.cameras.main.ignore(this.container);
-            console.log('Box set to UI camera only to avoid zoom issues');
+
         } else {
             console.warn('UI Camera not found, box may be affected by zoom');
         }
 
-        console.log('Box created at position:', boxX, boxY);
+
         return this.container;
     }
 
@@ -128,7 +128,7 @@ export class BoxFactory {
         this.container.setSize(actualWidth, actualHeight);
         this.container.setInteractive();
 
-        console.log('Interactive area set to:', actualWidth, 'x', actualHeight);
+
 
         // Add click handler - simpler approach without event parameter issues
         this.container.on('pointerdown', () => {
@@ -192,7 +192,7 @@ export class BoxFactory {
             ease: 'Power2'
         });
 
-        console.log('Box opened - cap positioned above first row at y:', capOpenY);
+
     }
 
     /**
@@ -217,7 +217,7 @@ export class BoxFactory {
             ease: 'Power2'
         });
 
-        console.log('Box closed');
+
     }
 
     /**
@@ -281,7 +281,7 @@ export class BoxFactory {
                     // Store in grid
                     this.fishSlots[row][col] = fishSprite;
 
-                    console.log(`Fish added to slot [${row}][${col}]`);
+
                     return true;
                 }
             }

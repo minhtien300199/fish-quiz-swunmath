@@ -449,7 +449,7 @@ export class MenuScene extends Phaser.Scene {
     musicButton.on('pointerdown', () => {
       const isMusicOn = MusicManager.toggleMusic();
       musicButton.setFillStyle(isMusicOn ? 0x27ae60 : 0xe74c3c, 0.8);
-      console.log('Music toggled from main menu:', isMusicOn ? 'ON' : 'OFF');
+
 
       // Play a feedback sound if sound is enabled
       if (MusicManager.isSoundOn()) {
@@ -472,7 +472,7 @@ export class MenuScene extends Phaser.Scene {
     soundButton.on('pointerdown', () => {
       const isSoundOn = MusicManager.toggleSound();
       soundButton.setFillStyle(isSoundOn ? 0x27ae60 : 0xe74c3c, 0.8);
-      console.log('Sound toggled from main menu:', isSoundOn ? 'ON' : 'OFF');
+
     });
 
     // Add tooltips with delayed text display

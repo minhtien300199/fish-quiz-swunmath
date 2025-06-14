@@ -98,7 +98,7 @@ export class LeaderboardManager {
     static clearLeaderboard(): void {
         try {
             localStorage.removeItem(this.STORAGE_KEY);
-            console.log('Leaderboard cleared');
+
         } catch (error) {
             console.error('Error clearing leaderboard:', error);
         }

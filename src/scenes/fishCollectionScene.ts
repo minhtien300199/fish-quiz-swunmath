@@ -42,15 +42,7 @@ export class FishCollectionScene extends Phaser.Scene {
         // Load fish info data
         this.fishInfoData = this.cache.json.get('fishInfo') || {};
 
-        // Debug: Check if fish info data is loaded
-        console.log('Fish info data loaded:', Object.keys(this.fishInfoData).length, 'fish types');
-        if (Object.keys(this.fishInfoData).length > 0) {
-            console.log('First few fish keys:', Object.keys(this.fishInfoData).slice(0, 10));
-            console.log('Sample fish data for bass:', this.fishInfoData['bass'] || 'bass not found');
-            console.log('Sample fish data for clown_fish:', this.fishInfoData['clown_fish'] || 'clown_fish not found');
-        } else {
-            console.warn('FishInfo data is empty! This will cause fish details to show fallback data.');
-        }
+
 
         // Create background that covers full screen
         this.add.rectangle(
@@ -204,11 +196,7 @@ export class FishCollectionScene extends Phaser.Scene {
             const fishTypeKey = fishType.toString();
             const fishInfo = this.fishInfoData[fishTypeKey];
 
-            // Debug: Check fish info lookup
-            if (!fishInfo) {
-                console.log(`Fish info not found for key: "${fishTypeKey}"`);
-                console.log('Available keys:', Object.keys(this.fishInfoData).slice(0, 5), '...'); // Show first 5 keys
-            }
+
 
             const fishName = fishInfo ? fishInfo.name : this.formatFishName(fishType);
             const nameText = this.add.text(0, 20, fishName, {
@@ -284,7 +272,7 @@ export class FishCollectionScene extends Phaser.Scene {
         if (!fishInfo) {
             const fishTypeKey = fishType.toString();
             fishInfo = this.fishInfoData[fishTypeKey];
-            console.log(`Looking up fish info for ${fishTypeKey}:`, fishInfo ? 'found' : 'not found');
+
         }
 
         // Create modal overlay

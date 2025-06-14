@@ -54,7 +54,7 @@ export class PreloadScene extends Phaser.Scene {
   private async fetchQuestionBank(): Promise<void> {
     // Simulate API delay
     return new Promise((resolve) => {
-      console.log('Fetching question bank from API...');
+
 
       // Simulate network delay (1 second)
       setTimeout(() => {
@@ -62,7 +62,7 @@ export class PreloadScene extends Phaser.Scene {
         import('../datas/quesionBank').then(module => {
           // Store questions in global variable for access across scenes
           window.QUIZ_QUESTIONS = module.questionBank;
-          console.log('Question bank loaded:', window.QUIZ_QUESTIONS.length, 'questions');
+
           resolve();
         });
       }, 1000);
@@ -111,7 +111,7 @@ export class PreloadScene extends Phaser.Scene {
     Object.values(FishType).forEach(fishType => {
       variantCount += fishVariants[fishType as FishType].length;
     });
-    console.log(`Loaded ${Object.keys(FishType).length} fish types and ${variantCount} variants`);
+
 
 
     // Load fishing equipment
