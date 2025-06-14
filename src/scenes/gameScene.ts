@@ -11,6 +11,7 @@ import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager } from '../managers/leaderboardManager';
 import { FishShadowFactory, FishShadowSize, FishShadowAction, FishShadowDirection } from '../factories/fishShadowFactory';
 import { BoxFactory, BoxState } from '../factories/boxFactory';
+import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -54,6 +55,8 @@ export class GameScene extends Phaser.Scene {
   private fishCelebrationContainer: Phaser.GameObjects.Container | null = null; // Fish celebration display
   private fishBox: Phaser.GameObjects.Container | null = null; // Fish storage box
   private keyboardAnimationTimer: Phaser.Time.TimerEvent | null = null; // Timer for keyboard animation
+  private fishQuizDataList: FishQuizData[] = []; // Store quiz data for caught fish
+  private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
 
   constructor() {
     super({ key: 'GameScene' });
@@ -262,6 +265,9 @@ export class GameScene extends Phaser.Scene {
 
     // Start spawning fish shadows in water areas
     this.startFishShadowSpawning();
+
+    // Initialize fish quiz modal component
+    this.fishQuizModal = new FishQuizModal(this);
 
     // Add fishmarket stall in the sand at the start of the map (after camera setup)
     const fishmarketStall = this.add.image(150, 140, 'fishmarket-stall');
@@ -2051,6 +2057,14 @@ export class GameScene extends Phaser.Scene {
       this.keyboardAnimationTimer.remove();
       this.keyboardAnimationTimer = null;
     }
+
+    // Clean up fish quiz modal
+    if (this.fishQuizModal) {
+      this.fishQuizModal.close();
+    }
+
+    // Clear quiz data list
+    this.fishQuizDataList = [];
   }
 
   /**
@@ -2883,6 +2897,12 @@ export class GameScene extends Phaser.Scene {
    * Handle quiz success logic after celebration
    */
   private handleQuizSuccess(data: any): void {
+    // Store quiz data if provided
+    if (data.quizData) {
+      this.fishQuizDataList.push(data.quizData);
+      console.log('Stored quiz data for fish:', data.quizData.fishType);
+    }
+
     // Increment fish caught counter
     this.fishCaught++;
 
@@ -3091,8 +3111,10 @@ export class GameScene extends Phaser.Scene {
     // Generate the fish texture key (same logic as FishFactory)
     const fishKey = this.generateFishTextureKey(fishType);
 
-    // Add fish to the box using BoxFactory
-    const wasAdded = BoxFactory.addFish(this, fishKey);
+    // Add fish to the box using BoxFactory with click callback
+    const wasAdded = BoxFactory.addFish(this, fishKey, (fishIndex: number) => {
+      this.onFishClicked(fishIndex);
+    });
 
     if (wasAdded) {
       console.log(`Added ${fishType} to storage box`);
@@ -3101,6 +3123,24 @@ export class GameScene extends Phaser.Scene {
       // TODO: Could show notification that box is full
     }
   }
+
+  /**
+   * Handle fish click in the storage box
+   * @param fishIndex The index of the clicked fish
+   */
+  private onFishClicked(fishIndex: number): void {
+    // Find the corresponding quiz data for this fish
+    if (fishIndex < this.fishQuizDataList.length) {
+      const quizData = this.fishQuizDataList[fishIndex];
+      if (this.fishQuizModal) {
+        this.fishQuizModal.show(quizData);
+      }
+    } else {
+      console.warn('No quiz data found for fish index:', fishIndex);
+    }
+  }
+
+
 
   /**
    * Generate the texture key for a fish (matches FishFactory logic)

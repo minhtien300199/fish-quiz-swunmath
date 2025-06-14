@@ -314,8 +314,8 @@ export class QuizScene extends Phaser.Scene {
     const timeBonus = this.timeRemaining;
     console.log(`Answer selected with ${timeBonus} seconds remaining`);
 
-    // Show result and pass time bonus
-    this.showResult(isCorrect, timeBonus);
+    // Show result and pass time bonus and user answer
+    this.showResult(isCorrect, timeBonus, selectedKey);
   }
 
   private displayQuestionContent(): void {
@@ -469,7 +469,7 @@ export class QuizScene extends Phaser.Scene {
     }
   }
 
-  private showResult(isCorrect: boolean, timeBonus: number = 0): void {
+  private showResult(isCorrect: boolean, timeBonus: number = 0, userAnswer?: string): void {
     // Disable option buttons - safely check each button before disabling
     this.optionButtons.forEach(button => {
       if (button && button.input) {
@@ -512,7 +512,16 @@ export class QuizScene extends Phaser.Scene {
     this.time.delayedCall(2000, () => {
       this.scene.resume('GameScene', {
         success: isCorrect,
-        timeBonus: timeBonus
+        timeBonus: timeBonus,
+        quizData: {
+          fishType: this.currentFish,
+          question: this.currentQuestion.question,
+          choices: this.currentQuestion.choices,
+          correctAnswer: this.currentQuestion.correctAnswer,
+          userAnswer: userAnswer,
+          isCorrect: isCorrect,
+          timeBonus: timeBonus
+        }
       });
       this.scene.stop();
     });

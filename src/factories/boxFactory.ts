@@ -221,12 +221,13 @@ export class BoxFactory {
     }
 
     /**
-     * Add a fish to the box storage
-     * @param scene The scene containing the box
-     * @param fishTexture The texture key of the fish to add
-     * @returns True if fish was added successfully, false if box is full
-     */
-    public static addFish(scene: Phaser.Scene, fishTexture: string): boolean {
+ * Add a fish to the box storage
+ * @param scene The scene containing the box
+ * @param fishTexture The texture key of the fish to add
+ * @param onFishClick Optional callback when fish is clicked
+ * @returns True if fish was added successfully, false if box is full
+ */
+    public static addFish(scene: Phaser.Scene, fishTexture: string, onFishClick?: (fishIndex: number) => void): boolean {
         // Find first empty slot
         for (let row = 0; row < this.boxProperties.gridSize; row++) {
             for (let col = 0; col < this.boxProperties.gridSize; col++) {
@@ -245,6 +246,27 @@ export class BoxFactory {
                     fishSprite.setScale(4); // Scale to fit nicely in 16x16 tile slots
                     fishSprite.setOrigin(0.5, 0.5);
                     fishSprite.setDepth(2); // Middle layer: above box base (1) but below cap (3)
+
+                    // Make fish interactive if callback is provided
+                    if (onFishClick) {
+                        fishSprite.setInteractive({ useHandCursor: true });
+
+                        // Calculate fish index for callback
+                        const fishIndex = row * this.boxProperties.gridSize + col;
+
+                        fishSprite.on('pointerdown', () => {
+                            onFishClick(fishIndex);
+                        });
+
+                        // Add hover effects
+                        fishSprite.on('pointerover', () => {
+                            fishSprite.setTint(0xcccccc); // Slightly darker on hover
+                        });
+
+                        fishSprite.on('pointerout', () => {
+                            fishSprite.clearTint(); // Remove tint
+                        });
+                    }
 
                     // Add to container
                     if (this.container) {
