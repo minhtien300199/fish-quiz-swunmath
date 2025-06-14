@@ -12,6 +12,8 @@ import { LeaderboardManager } from '../managers/leaderboardManager';
 import { FishShadowFactory, FishShadowSize, FishShadowAction, FishShadowDirection } from '../factories/fishShadowFactory';
 import { BoxFactory, BoxState } from '../factories/boxFactory';
 import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
+import { CursorManager } from '../managers/cursorManager';
+import { DOMCursorManager } from '../managers/domCursorManager';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -299,6 +301,12 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Fish storage box will be created in createUI method
+
+    // Initialize custom cursor at the very end after everything is set up
+    CursorManager.createCursor(this);
+
+    // Also try DOM-based cursor as alternative
+    DOMCursorManager.init();
   }
 
   update(): void {
@@ -324,6 +332,15 @@ export class GameScene extends Phaser.Scene {
     if (uiCamera) {
       uiCamera.setScroll(0, 0);
       uiCamera.setZoom(1); // Always keep UI at normal zoom
+    }
+
+    // Ensure cursor stays on top
+    CursorManager.bringToTop();
+
+    // Debug: Check if cursors are active
+    if (this.time.now % 1000 < 16) { // Log every second (approximately)
+      console.log('Phaser cursor active:', CursorManager.isActive());
+      console.log('DOM cursor active:', DOMCursorManager.isActive());
     }
   }
 

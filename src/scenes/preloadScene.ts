@@ -2,6 +2,7 @@ import { BodyColor } from "../const/bodyType";
 import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets } from "../const/rodType";
 import { FishType, getFishPath, fishSizes, FishVariantType, fishVariants, hasFishVariants } from '../const/fishType';
 import { FishFactory } from '../factories/fishFactory';
+import { CursorManager } from '../managers/cursorManager';
 
 // Define a global variable to store the questions
 declare global {
@@ -176,6 +177,9 @@ export class PreloadScene extends Phaser.Scene {
 
     // Load fish information JSON
     this.load.json('fishInfo', 'assets/data/fishInfo.json');
+
+    // Load custom cursor assets
+    CursorManager.init(this);
 
     // Load sound effects
     this.load.audio('bait-hit-water', 'assets/sounds/bait-hit-water.mp3');

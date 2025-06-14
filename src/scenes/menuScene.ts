@@ -1,5 +1,6 @@
 import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager, LeaderboardEntry } from '../managers/leaderboardManager';
+import { CursorManager } from '../managers/cursorManager';
 
 export class MenuScene extends Phaser.Scene {
   constructor() {
@@ -78,6 +79,9 @@ export class MenuScene extends Phaser.Scene {
 
     // Create sound toggle buttons in the top-right corner
     this.createSoundButtons();
+
+    // Initialize custom cursor at the very end
+    CursorManager.createCursor(this);
 
     // Decorative fish removed as requested
   }
