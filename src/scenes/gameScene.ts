@@ -53,6 +53,7 @@ export class GameScene extends Phaser.Scene {
   private catchButton: Phaser.GameObjects.Container | null = null; // Button to catch fish when biting
   private fishCelebrationContainer: Phaser.GameObjects.Container | null = null; // Fish celebration display
   private fishBox: Phaser.GameObjects.Container | null = null; // Fish storage box
+  private keyboardAnimationTimer: Phaser.Time.TimerEvent | null = null; // Timer for keyboard animation
 
   constructor() {
     super({ key: 'GameScene' });
@@ -87,6 +88,10 @@ export class GameScene extends Phaser.Scene {
       frameWidth: 128,
       frameHeight: 128
     });
+
+    // Load keyboard sprite images for catch button animation
+    this.load.image('keyboard-frame-1', 'assets/ui/control_ui/space_0001.png');
+    this.load.image('keyboard-frame-2', 'assets/ui/control_ui/space_0002.png');
 
     // Load box assets
     BoxFactory.loadAssets(this);
@@ -2040,6 +2045,12 @@ export class GameScene extends Phaser.Scene {
       BoxFactory.destroy();
       this.fishBox = null;
     }
+
+    // Clean up keyboard animation timer
+    if (this.keyboardAnimationTimer) {
+      this.keyboardAnimationTimer.remove();
+      this.keyboardAnimationTimer = null;
+    }
   }
 
   /**
@@ -2495,19 +2506,30 @@ export class GameScene extends Phaser.Scene {
     // Create a container for the button
     this.catchButton = this.add.container(this.character.x, this.character.y - 60);
 
-    // Create button background (smaller size)
-    const buttonBg = this.add.rectangle(0, 0, 60, 30, 0xe74c3c, 0.9)
+    // Create button background (adjusted size for keyboard gif)
+    const buttonBg = this.add.rectangle(0, 0, 80, 40, 0xe74c3c, 0.9)
       .setStrokeStyle(2, 0xffffff, 1);
 
-    // Create button text (smaller font)
-    const buttonText = this.add.text(0, 0, 'CATCH!', {
-      fontSize: '9px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
+    // Create animated keyboard sprite instead of text
+    const keyboardSprite = this.add.image(0, 0, 'keyboard-frame-1');
+    keyboardSprite.setOrigin(0.5);
+    keyboardSprite.setScale(0.15); // Scale down to fit nicely in the button (488x185 -> ~58x22)
+
+    // Create animation by alternating between frames
+    let currentFrame = 1;
+    this.keyboardAnimationTimer = this.time.addEvent({
+      delay: 200, // Switch frames every 500ms
+      callback: () => {
+        if (keyboardSprite && keyboardSprite.active) {
+          currentFrame = currentFrame === 1 ? 2 : 1;
+          keyboardSprite.setTexture(`keyboard-frame-${currentFrame}`);
+        }
+      },
+      loop: true
+    });
 
     // Create pulsing exclamation mark (smaller)
-    const exclamation = this.add.text(0, -18, '!', {
+    const exclamation = this.add.text(0, -22, '!', {
       fontSize: '16px',
       color: '#ffff00',
       fontStyle: 'bold',
@@ -2516,7 +2538,7 @@ export class GameScene extends Phaser.Scene {
     }).setOrigin(0.5);
 
     // Add all elements to container
-    this.catchButton.add([buttonBg, buttonText, exclamation]);
+    this.catchButton.add([buttonBg, keyboardSprite, exclamation]);
 
     // Set depth to appear above everything else
     this.catchButton.setDepth(1001);
@@ -2586,6 +2608,12 @@ export class GameScene extends Phaser.Scene {
         this.catchButton.list.forEach(child => {
           this.tweens.killTweensOf(child);
         });
+      }
+
+      // Stop keyboard animation timer
+      if (this.keyboardAnimationTimer) {
+        this.keyboardAnimationTimer.remove();
+        this.keyboardAnimationTimer = null;
       }
 
       this.catchButton.destroy();
