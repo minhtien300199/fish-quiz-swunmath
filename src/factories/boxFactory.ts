@@ -249,6 +249,11 @@ export class BoxFactory {
                     // Add to container
                     if (this.container) {
                         this.container.add(fishSprite);
+
+                        // Ensure cap stays on top by bringing it to front
+                        if (this.cap) {
+                            this.container.bringToTop(this.cap);
+                        }
                     }
 
                     // Store in grid

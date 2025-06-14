@@ -1350,7 +1350,7 @@ export class GameScene extends Phaser.Scene {
     this.fishCaughtText = this.add.text(
       20,
       this.livesText.y + this.livesText.height + 10,
-      `Fish: ${this.fishCaught}/${this.completionData?.TotalFish || 5} fish`,
+      `Progress: ${this.fishCaught}/${this.completionData?.TotalFish || 5} fish`,
       {
         fontSize: '24px',
         color: '#ffffff',
