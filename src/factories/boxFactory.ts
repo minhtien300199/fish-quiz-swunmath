@@ -51,10 +51,10 @@ export class BoxFactory {
      */
     public static createBox(scene: Phaser.Scene): Phaser.GameObjects.Container {
 
-        // Calculate position for bottom right of camera
+        // Calculate position for bottom left of camera
         const camera = scene.cameras.main;
-        const boxX = camera.width - this.boxProperties.width / 2 - 150; // 20px margin from right edge
-        const boxY = camera.height - this.boxProperties.height / 2 - 150; // 20px margin from bottom edge
+        const boxX = this.boxProperties.width / 2 + 150; // 50px margin from left edge
+        const boxY = camera.height - this.boxProperties.height / 2 - 150; // 150px margin from bottom edge
 
 
         // Create container for the box system
@@ -287,7 +287,6 @@ export class BoxFactory {
             }
         }
 
-        console.log('Box is full, cannot add more fish');
         return false;
     }
 
@@ -308,7 +307,6 @@ export class BoxFactory {
             this.container.remove(fishSprite);
             fishSprite.destroy();
             this.fishSlots[row][col] = null;
-            console.log(`Fish removed from slot [${row}][${col}]`);
             return true;
         }
 
@@ -358,19 +356,18 @@ export class BoxFactory {
                 }
             }
         }
-        console.log('All fish cleared from box');
     }
 
     /**
-     * Update box position to stay in bottom right of camera
+     * Update box position to stay in bottom left of camera
      * @param scene The scene containing the box
      */
     public static updatePosition(scene: Phaser.Scene): void {
         if (!this.container) return;
 
         const camera = scene.cameras.main;
-        const boxX = camera.width - this.boxProperties.width / 2 - 20;
-        const boxY = camera.height - this.boxProperties.height / 2 - 20;
+        const boxX = this.boxProperties.width / 2 + 150; // 50px margin from left edge
+        const boxY = camera.height - this.boxProperties.height / 2 - 150; // 150px margin from bottom edge
 
         this.container.setPosition(boxX, boxY);
     }

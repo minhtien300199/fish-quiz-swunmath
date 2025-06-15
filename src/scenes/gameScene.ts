@@ -14,6 +14,7 @@ import { BoxFactory, BoxState } from '../factories/boxFactory';
 import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
 import { CursorManager } from '../managers/cursorManager';
 import { DOMCursorManager } from '../managers/domCursorManager';
+import { JoystickManager } from '../managers/joystickManager';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -60,6 +61,7 @@ export class GameScene extends Phaser.Scene {
   private keyboardAnimationTimer: Phaser.Time.TimerEvent | null = null; // Timer for keyboard animation
   private fishQuizDataList: FishQuizData[] = []; // Store quiz data for caught fish
   private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
+  private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
 
   constructor() {
     super({ key: 'GameScene' });
@@ -321,6 +323,9 @@ export class GameScene extends Phaser.Scene {
 
     // Also try DOM-based cursor as alternative
     DOMCursorManager.init();
+
+    // Initialize joystick manager for mobile devices
+    this.joystickManager = new JoystickManager(this);
   }
 
   update(): void {
@@ -356,10 +361,15 @@ export class GameScene extends Phaser.Scene {
       this.rightClickJustPressed = false;
     }
 
+    // Update joystick manager
+    if (this.joystickManager) {
+      this.joystickManager.update();
+    }
+
     // Debug: Check if cursors are active
     if (this.time.now % 1000 < 16) { // Log every second (approximately)
-      console.log('Phaser cursor active:', CursorManager.isActive());
-      console.log('DOM cursor active:', DOMCursorManager.isActive());
+      // console.log('Phaser cursor active:', CursorManager.isActive());
+      // console.log('DOM cursor active:', DOMCursorManager.isActive());
     }
   }
 
@@ -405,8 +415,11 @@ export class GameScene extends Phaser.Scene {
         keyboardMovement = true;
       }
 
-      // Handle mouse movement (only if no keyboard movement is active and not clicking on UI)
-      if (!keyboardMovement && this.input.activePointer.isDown && !this.isClickingOnUI()) {
+      // No joystick movement anymore - mobile users use WASD or mouse
+      let joystickMovement = false;
+
+      // Handle mouse movement (only if no keyboard or joystick movement is active and not clicking on UI)
+      if (!keyboardMovement && !joystickMovement && this.input.activePointer.isDown && !this.isClickingOnUI()) {
         this.handleMouseMovement(boatSpeed);
       }
 
@@ -2102,6 +2115,12 @@ export class GameScene extends Phaser.Scene {
 
     // Clear quiz data list
     this.fishQuizDataList = [];
+
+    // Clean up joystick manager
+    if (this.joystickManager) {
+      this.joystickManager.destroy();
+      this.joystickManager = null;
+    }
   }
 
   /**
@@ -2686,9 +2705,16 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Get current fishing state (for external access)
+   */
+  public getCurrentFishingState(): 'idle' | 'casting' | 'waiting' | 'catching' | 'reeling' {
+    return this.fishingState;
+  }
+
+  /**
    * Handle catch attempt (from button click or space key)
    */
-  private handleCatchAttempt(): void {
+  public handleCatchAttempt(): void {
     if (this.fishingState === 'catching') {
       // Change animation from reel to pull when catch is attempted
       if (this.character) {

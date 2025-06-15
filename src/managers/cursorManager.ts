@@ -19,15 +19,15 @@ export class CursorManager {
      */
     private static loadAssets(scene: Phaser.Scene): void {
         // Load cursor sprites
-        console.log('Loading cursor assets...');
+        // console.log('Loading cursor assets...');
         scene.load.image('pointer-normal', 'assets/ui/control_ui/pointer_0001.png');
         scene.load.image('pointer-click', 'assets/ui/control_ui/pointer_0002.png');
 
         // Add load complete event to verify assets loaded
         scene.load.once('complete', () => {
-            console.log('Cursor assets loaded successfully');
-            console.log('pointer-normal exists:', scene.textures.exists('pointer-normal'));
-            console.log('pointer-click exists:', scene.textures.exists('pointer-click'));
+            // console.log('Cursor assets loaded successfully');
+            // console.log('pointer-normal exists:', scene.textures.exists('pointer-normal'));
+            // console.log('pointer-click exists:', scene.textures.exists('pointer-click'));
         });
     }
 
@@ -50,7 +50,7 @@ export class CursorManager {
         } else {
             // Create cursor sprite with loaded assets
             this.cursorSprite = scene.add.image(0, 0, 'pointer-normal');
-            console.log('Cursor sprite created with assets:', this.cursorSprite);
+            // console.log('Cursor sprite created with assets:', this.cursorSprite);
         }
 
         // Hide the default browser cursor
@@ -62,10 +62,10 @@ export class CursorManager {
             this.cursorSprite.setScale(3); // Make cursor even larger
 
             // Debug: Log cursor properties
-            console.log('Cursor created at position:', this.cursorSprite.x, this.cursorSprite.y);
-            console.log('Cursor depth:', this.cursorSprite.depth);
-            console.log('Cursor visible:', this.cursorSprite.visible);
-            console.log('Cursor scale:', this.cursorSprite.scale);
+            // console.log('Cursor created at position:', this.cursorSprite.x, this.cursorSprite.y);
+            // console.log('Cursor depth:', this.cursorSprite.depth);
+            // console.log('Cursor visible:', this.cursorSprite.visible);
+            // console.log('Cursor scale:', this.cursorSprite.scale);
 
             // Force cursor to a specific visible position for testing
             this.cursorSprite.setPosition(100, 100);
@@ -106,12 +106,12 @@ export class CursorManager {
         // Try to add cursor specifically to UI camera if it exists
         const uiCamera = scene.cameras.getCamera('UICamera');
         if (uiCamera && this.cursorSprite) {
-            console.log('Found UI camera, making cursor visible only to UI camera');
+            // console.log('Found UI camera, making cursor visible only to UI camera');
             // Make cursor invisible to main camera but visible to UI camera
             scene.cameras.main.ignore(this.cursorSprite);
-            console.log('Cursor ignored by main camera');
+            // console.log('Cursor ignored by main camera');
         } else {
-            console.log('No UI camera found, cursor will render on all cameras');
+            // console.log('No UI camera found, cursor will render on all cameras');
         }
 
         // Force cursor to be visible initially

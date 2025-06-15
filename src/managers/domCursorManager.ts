@@ -50,7 +50,7 @@ export class DOMCursorManager {
         document.addEventListener('mouseup', this.setNormalState);
 
         this.isInitialized = true;
-        console.log('DOM cursor created and initialized');
+        // console.log('DOM cursor created and initialized');
     }
 
     /**
@@ -101,7 +101,7 @@ export class DOMCursorManager {
         }
 
         this.isInitialized = false;
-        console.log('DOM cursor destroyed');
+        // console.log('DOM cursor destroyed');
     }
 
     /**

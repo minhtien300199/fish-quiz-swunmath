@@ -3,6 +3,7 @@ import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets }
 import { FishType, getFishPath, fishSizes, FishVariantType, fishVariants, hasFishVariants } from '../const/fishType';
 import { FishFactory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
+import { HourglassLoadingBar } from '../components/HourglassLoadingBar';
 
 // Define a global variable to store the questions
 declare global {
@@ -12,33 +13,29 @@ declare global {
 }
 
 export class PreloadScene extends Phaser.Scene {
-  private loadingBar!: Phaser.GameObjects.Graphics;
-  private progressBar!: Phaser.GameObjects.Graphics;
+  private hourglassLoadingBar: HourglassLoadingBar | null = null;
   public defaultCharacterColor: 'light' | 'dark' | 'brown' | 'black' = 'light';
   constructor() {
     super({ key: 'PreloadScene' });
   }
 
   preload(): void {
-    // Create loading bar
-    this.createLoadingBar();
+    // Initialize hourglass loading bar
+    this.hourglassLoadingBar = new HourglassLoadingBar(this);
+
+    // Show loading screen
+    this.hourglassLoadingBar.show('Loading game assets...');
 
     // Register loading progress event
     this.load.on('progress', (value: number) => {
-      this.progressBar.clear();
-      this.progressBar.fillStyle(0xffffff, 1);
-      this.progressBar.fillRect(
-        this.cameras.main.width / 4,
-        this.cameras.main.height / 2 - 16,
-        (this.cameras.main.width / 2) * value,
-        32
-      );
+      if (this.hourglassLoadingBar) {
+        this.hourglassLoadingBar.updateProgress(value, `Loading... ${Math.round(value * 100)}%`);
+      }
     });
 
     // Register complete event
     this.load.on('complete', () => {
-      this.progressBar.destroy();
-      this.loadingBar.destroy();
+      // Loading bar will auto-hide when progress reaches 100%
     });
 
     // Load all game assets
@@ -70,17 +67,7 @@ export class PreloadScene extends Phaser.Scene {
     });
   }
 
-  private createLoadingBar(): void {
-    this.loadingBar = this.add.graphics();
-    this.loadingBar.fillStyle(0x222222, 0.8);
-    this.loadingBar.fillRect(
-      this.cameras.main.width / 4 - 2,
-      this.cameras.main.height / 2 - 18,
-      this.cameras.main.width / 2 + 4,
-      36
-    );
-    this.progressBar = this.add.graphics();
-  }
+
 
   private loadAssets(): void {
     // set default character color:
@@ -169,10 +156,7 @@ export class PreloadScene extends Phaser.Scene {
     });
 
     // Load UI elements
-    this.load.image('button', 'assets/ui_fishing_minigame/button.png');
-    this.load.image('panel', 'assets/ui_fishing_minigame/panel.png');
     this.load.image('heart-icon', 'assets/game_ui/icons/heart-icon.png'); // 16x16 heart icon for lives
-    this.load.image('paper-bg', 'assets/ui/paper-bg.png'); // Paper background for quiz
     this.load.image('game-over-bg', 'assets/background/game_over.png'); // Game over background image
 
     // Load fish information JSON

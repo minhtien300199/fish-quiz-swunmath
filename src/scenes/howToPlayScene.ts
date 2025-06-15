@@ -52,6 +52,7 @@ export class HowToPlayScene extends Phaser.Scene {
       "• Mouse Click & Hold - Move your boat towards mouse pointer",
       "• SPACE or Right-Click - Cast your fishing line",
       "• SPACE or Right-Click (when fish bites) - Reel in the fish",
+      "• Mobile Fishing Button (Mobile/Tablet) - Cast and catch fish",
       "",
       "FISHING TIPS:",
       "• Watch for the bobber to move when a fish bites",

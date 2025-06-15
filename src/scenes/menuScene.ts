@@ -1,8 +1,11 @@
 import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager, LeaderboardEntry } from '../managers/leaderboardManager';
 import { CursorManager } from '../managers/cursorManager';
+import { JoystickManager } from '../managers/joystickManager';
 
 export class MenuScene extends Phaser.Scene {
+  private joystickManager: JoystickManager | null = null;
+
   constructor() {
     super({ key: 'MenuScene' });
   }
@@ -82,6 +85,9 @@ export class MenuScene extends Phaser.Scene {
 
     // Initialize custom cursor at the very end
     CursorManager.createCursor(this);
+
+    // Initialize joystick manager for mobile devices
+    this.joystickManager = new JoystickManager(this);
 
     // Decorative fish removed as requested
   }
