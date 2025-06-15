@@ -377,9 +377,11 @@ export class FishCollectionScene extends Phaser.Scene {
             // Reset modal state
             this.modalOpen = false;
 
-            // Re-enable interactive cards
+            // Re-enable interactive cards (with safety check)
             this.interactiveCardBackgrounds.forEach(bg => {
-                bg.setInteractive();
+                if (bg && bg.active && bg.scene) {
+                    bg.setInteractive();
+                }
             });
         };
 

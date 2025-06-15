@@ -12,6 +12,7 @@ import { LeaderboardManager } from '../managers/leaderboardManager';
 import { FishShadowFactory, FishShadowSize, FishShadowAction, FishShadowDirection } from '../factories/fishShadowFactory';
 import { BoxFactory, BoxState } from '../factories/boxFactory';
 import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
+import { TutorialStepper } from '../components/TutorialStepper';
 import { CursorManager } from '../managers/cursorManager';
 import { DOMCursorManager } from '../managers/domCursorManager';
 import { JoystickManager } from '../managers/joystickManager';
@@ -62,6 +63,7 @@ export class GameScene extends Phaser.Scene {
   private fishQuizDataList: FishQuizData[] = []; // Store quiz data for caught fish
   private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
   private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
+  private tutorialStepper: TutorialStepper | null = null; // Tutorial stepper for new players
 
   constructor() {
     super({ key: 'GameScene' });
@@ -326,6 +328,32 @@ export class GameScene extends Phaser.Scene {
 
     // Initialize joystick manager for mobile devices
     this.joystickManager = new JoystickManager(this);
+
+    // Initialize tutorial stepper
+    this.tutorialStepper = new TutorialStepper(this);
+
+    // Check if this is a new player and show tutorial
+    this.checkAndShowTutorial();
+  }
+
+  /**
+   * Check if this is a new player and show tutorial if needed
+   */
+  private checkAndShowTutorial(): void {
+    // Check if player has seen the tutorial before
+    const hasSeenTutorial = localStorage.getItem('fishQuizTutorialCompleted');
+
+    if (!hasSeenTutorial && this.tutorialStepper) {
+      // Delay tutorial start to ensure everything is loaded
+      this.time.delayedCall(1000, () => {
+        if (this.tutorialStepper) {
+          this.tutorialStepper.start(() => {
+            // Mark tutorial as completed
+            localStorage.setItem('fishQuizTutorialCompleted', 'true');
+          });
+        }
+      });
+    }
   }
 
   update(): void {
@@ -379,8 +407,8 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Only allow movement when not fishing
-    if (this.fishingState === 'idle') {
+    // Only allow movement when not fishing and not in tutorial
+    if (this.fishingState === 'idle' && (!this.tutorialStepper || !this.tutorialStepper.getIsActive())) {
       // Reset velocity at the start of each update
       this.player.setVelocity(0);
 
@@ -401,18 +429,34 @@ export class GameScene extends Phaser.Scene {
       if (this.cursors.left.isDown || (keyA && keyA.isDown)) {
         this.player.setVelocityX(-boatSpeed);
         keyboardMovement = true;
+        // Notify tutorial of movement
+        if (this.tutorialStepper) {
+          this.tutorialStepper.handleAction('move');
+        }
       } else if (this.cursors.right.isDown || (keyD && keyD.isDown)) {
         this.player.setVelocityX(boatSpeed);
         keyboardMovement = true;
+        // Notify tutorial of movement
+        if (this.tutorialStepper) {
+          this.tutorialStepper.handleAction('move');
+        }
       }
 
       // Handle vertical movement
       if (this.cursors.up.isDown || (keyW && keyW.isDown)) {
         this.player.setVelocityY(-boatSpeed);
         keyboardMovement = true;
+        // Notify tutorial of movement
+        if (this.tutorialStepper) {
+          this.tutorialStepper.handleAction('move');
+        }
       } else if (this.cursors.down.isDown || (keyS && keyS.isDown)) {
         this.player.setVelocityY(boatSpeed);
         keyboardMovement = true;
+        // Notify tutorial of movement
+        if (this.tutorialStepper) {
+          this.tutorialStepper.handleAction('move');
+        }
       }
 
       // No joystick movement anymore - mobile users use WASD or mouse
@@ -517,6 +561,16 @@ export class GameScene extends Phaser.Scene {
   private handleFishing(): void {
     // Check if player exists and space key is defined
     if (!this.player || !this.spaceKey) {
+      return;
+    }
+
+    // Don't allow fishing during tutorial
+    if (this.tutorialStepper && this.tutorialStepper.getIsActive()) {
+      // But still notify tutorial of space action
+      if (Phaser.Input.Keyboard.JustDown(this.spaceKey) || this.rightClickJustPressed) {
+        this.tutorialStepper.handleAction('space');
+        this.rightClickJustPressed = false; // Reset flag after use
+      }
       return;
     }
 
@@ -1718,18 +1772,25 @@ export class GameScene extends Phaser.Scene {
       cleanup();
     });
 
-    const fishCollectionBtn = createButton(0, startY + buttonSpacing, 0x27ae60, 'Fish Collection', () => {
+    const tutorialBtn = createButton(0, startY + buttonSpacing, 0x9b59b6, 'Show Tutorial', () => {
+      cleanup();
+      if (this.tutorialStepper) {
+        this.tutorialStepper.start();
+      }
+    });
+
+    const fishCollectionBtn = createButton(0, startY + buttonSpacing * 2, 0x27ae60, 'Fish Collection', () => {
       cleanup();
       this.scene.pause();
       this.scene.launch('FishCollectionScene', { returnTo: 'GameScene' });
     });
 
-    const restartBtn = createButton(0, startY + buttonSpacing * 2, 0xe74c3c, 'Restart', () => {
+    const restartBtn = createButton(0, startY + buttonSpacing * 3, 0xe74c3c, 'Restart', () => {
       cleanup();
       this.scene.start('GameScene', { reset: true });
     });
 
-    const mainMenuBtn = createButton(0, startY + buttonSpacing * 3, 0x34495e, 'Exit to Menu', () => {
+    const mainMenuBtn = createButton(0, startY + buttonSpacing * 4, 0x34495e, 'Exit to Menu', () => {
       cleanup();
       this.scene.start('MenuScene');
     });
@@ -1740,6 +1801,8 @@ export class GameScene extends Phaser.Scene {
       title,
       resumeBtn.button,
       resumeBtn.buttonText,
+      tutorialBtn.button,
+      tutorialBtn.buttonText,
       fishCollectionBtn.button,
       fishCollectionBtn.buttonText,
       restartBtn.button,
@@ -1754,6 +1817,7 @@ export class GameScene extends Phaser.Scene {
     this.cameras.main.ignore([
       menuBg, title,
       resumeBtn.button, resumeBtn.buttonText,
+      tutorialBtn.button, tutorialBtn.buttonText,
       fishCollectionBtn.button, fishCollectionBtn.buttonText,
       restartBtn.button, restartBtn.buttonText,
       mainMenuBtn.button, mainMenuBtn.buttonText
@@ -1782,7 +1846,7 @@ export class GameScene extends Phaser.Scene {
     // Update fish caught text
     if (this.fishCaughtText) {
       const totalFish = this.completionData?.TotalFish || 5;
-      this.fishCaughtText.setText(`Fish: ${this.fishCaught}/${totalFish} fish`);
+      this.fishCaughtText.setText(`Progress: ${this.fishCaught}/${totalFish} fish`);
 
       // Check if player has caught enough fish to win
       if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
@@ -1802,12 +1866,12 @@ export class GameScene extends Phaser.Scene {
       this.livesIcons[i].setVisible(i < this.lives);
     }
 
-    // Update coordinates text with player position (rounded to integers for readability)
-    if (this.coordsText && this.player) {
-      const x = Math.round(this.player.x);
-      const y = Math.round(this.player.y);
-      this.coordsText.setText(`X: ${x}, Y: ${y}`);
-    }
+    // Coordinates display removed per user request
+    // if (this.coordsText && this.player) {
+    //   const x = Math.round(this.player.x);
+    //   const y = Math.round(this.player.y);
+    //   this.coordsText.setText(`X: ${x}, Y: ${y}`);
+    // }
 
     // Update game state
     this.gameState.lives = this.lives;
@@ -2120,6 +2184,12 @@ export class GameScene extends Phaser.Scene {
     if (this.joystickManager) {
       this.joystickManager.destroy();
       this.joystickManager = null;
+    }
+
+    // Clean up tutorial stepper
+    if (this.tutorialStepper) {
+      this.tutorialStepper.stop();
+      this.tutorialStepper = null;
     }
   }
 

@@ -102,11 +102,6 @@ export class PreloadScene extends Phaser.Scene {
 
 
 
-    // Load fishing equipment
-    this.load.image('fishing-rod', 'assets/fishing_rods/fishing_rod.png');
-    this.load.image('floater', 'assets/floaters/floater.png');
-    this.load.image('lure', 'assets/lure/lure.png');
-
     // Load background
     this.load.image('menu-background', 'assets/background/background_v1.png');
 
