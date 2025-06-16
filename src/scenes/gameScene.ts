@@ -64,6 +64,7 @@ export class GameScene extends Phaser.Scene {
   private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
   private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
   private tutorialStepper: TutorialStepper | null = null; // Tutorial stepper for new players
+  private fishCatchLightEffect: Phaser.GameObjects.Container | null = null; // Light effect container for fish catch
 
   constructor() {
     super({ key: 'GameScene' });
@@ -841,45 +842,80 @@ export class GameScene extends Phaser.Scene {
 
     this.fishingState = 'reeling';
 
-    // Show reeling animation - only target the floater since lure is removed
+    // Show reeling animation - reel the floater back to the player
     this.tweens.add({
       targets: this.floater,
-      y: this.player.y,
+      x: this.character.x,
+      y: this.character.y,
       duration: 1000,
+      ease: 'Power2',
+      onUpdate: () => {
+        // Update fishing line during reeling to show the line being pulled back
+        if (this.fishingLine && this.character && this.floater) {
+          this.fishingLine.clear();
+
+          // Get character line attachment point for reeling
+          const direction = this.getCharacterDirection();
+          const linePoint = this.getCharacterLinePoint(direction, 'reeling');
+
+          // Draw line from character to floater
+          this.fishingLine.lineStyle(2, 0x8B4513, 0.8); // Brown line
+          this.fishingLine.beginPath();
+          this.fishingLine.moveTo(linePoint.x, linePoint.y);
+          this.fishingLine.lineTo(this.floater.x, this.floater.y);
+          this.fishingLine.strokePath();
+        }
+      },
       onComplete: () => {
-        // Start the quiz
-        this.scene.pause();
-        this.scene.launch('QuizScene', {
-          gameState: this.gameState,
-          currentFish: this.currentFish,
-          completionData: this.completionData
-        });
+        // Remove the floater and fishing line as they reach the character
+        if (this.floater) {
+          this.floater.destroy();
+          this.floater = null;
+        }
 
-        // Listen for quiz completion
-        this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
-          if (data && data.success) {
-            // Show fish celebration first, then continue with other logic
-            if (this.currentFish) {
-              this.showFishCelebration(this.currentFish, () => {
-                // Continue with success logic after celebration
-                this.handleQuizSuccess(data);
-              });
-            } else {
-              // Fallback if no current fish
-              this.handleQuizSuccess(data);
-            }
-          } else {
-            this.lives--;
-            this.gameState.lives = this.lives;
+        if (this.fishingLine) {
+          this.fishingLine.destroy();
+          this.fishingLine = null;
+        }
 
-            if (this.lives <= 0) {
-              this.gameOver();
-            }
+        // Show spectacular fish catch light effect above player's head
+        if (this.currentFish) {
+          this.showFishCatchLightEffect(this.currentFish, () => {
+            // After light effect, start the quiz
+            this.scene.pause();
+            this.scene.launch('QuizScene', {
+              gameState: this.gameState,
+              currentFish: this.currentFish,
+              completionData: this.completionData
+            });
 
-            // Clean up fishing
-            this.cleanUpFishing();
-          }
-        });
+            // Listen for quiz completion
+            this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
+              if (data && data.success) {
+                // Show fish celebration first, then continue with other logic
+                if (this.currentFish) {
+                  this.showFishCelebration(this.currentFish, () => {
+                    // Continue with success logic after celebration
+                    this.handleQuizSuccess(data);
+                  });
+                } else {
+                  // Fallback if no current fish
+                  this.handleQuizSuccess(data);
+                }
+              } else {
+                this.lives--;
+                this.gameState.lives = this.lives;
+
+                if (this.lives <= 0) {
+                  this.gameOver();
+                }
+
+                // Clean up fishing
+                this.cleanUpFishing();
+              }
+            });
+          });
+        }
       }
     });
   }
@@ -930,6 +966,9 @@ export class GameScene extends Phaser.Scene {
 
     // Remove catch button if it exists
     this.removeCatchButton();
+
+    // Remove fish catch light effect if it exists
+    this.removeFishCatchLightEffect();
 
     // Reset fishing state
     this.fishingState = 'idle';
@@ -3359,5 +3398,142 @@ export class GameScene extends Phaser.Scene {
       duration: 500,
       ease: 'Back.easeOut'
     });
+  }
+
+  /**
+   * Show spectacular fish catch effect with radial light spread above player
+   */
+  private showFishCatchLightEffect(fishType: FishType, onComplete: () => void): void {
+    if (!this.character || !this.currentFish) return;
+
+    // Create container for the light effect
+    this.fishCatchLightEffect = this.add.container();
+    this.fishCatchLightEffect.setDepth(100); // Very high depth to be above everything
+
+    // Position above player's head
+    const effectX = this.character.x;
+    const effectY = this.character.y - 80; // 80 pixels above character
+
+    // Create radial light burst effect
+    const lightRays: Phaser.GameObjects.Graphics[] = [];
+    const numRays = 16; // Reduced number of light rays
+    const maxRayLength = 70; // Shorter rays
+    const minRayLength = 35;
+
+    for (let i = 0; i < numRays; i++) {
+      const angle = (i / numRays) * Math.PI * 2;
+      const rayLength = Phaser.Math.Between(minRayLength, maxRayLength);
+
+      const lightRay = this.add.graphics();
+
+      // Create gradient-like effect by drawing multiple lines with decreasing alpha
+      for (let j = 0; j < 3; j++) { // Reduced layers for thinner rays
+        const alpha = 0.6 - (j * 0.15);
+        const width = 2 - j; // Thinner lines
+        lightRay.lineStyle(width, 0xFFD700, alpha); // Golden color to match glow circle
+
+        const startX = Math.cos(angle) * 6;
+        const startY = Math.sin(angle) * 6;
+        const endX = Math.cos(angle) * (rayLength - j * 3);
+        const endY = Math.sin(angle) * (rayLength - j * 3);
+
+        lightRay.beginPath();
+        lightRay.moveTo(startX, startY);
+        lightRay.lineTo(endX, endY);
+        lightRay.strokePath();
+      }
+
+      lightRay.setAlpha(0);
+      lightRays.push(lightRay);
+      this.fishCatchLightEffect.add(lightRay);
+    }
+
+    // Create the caught fish sprite using FishFactory
+    const caughtFish = FishFactory.createFish(this, 0, 0, fishType);
+    caughtFish.setScale(2.5); // Smaller scale for more subtle effect
+    caughtFish.setAlpha(0);
+    this.fishCatchLightEffect.add(caughtFish);
+
+    // Create golden glow background
+    const glowCircle = this.add.graphics();
+    glowCircle.fillGradientStyle(0xFFD700, 0xFFD700, 0xFFD700, 0xFFD700, 1, 0.8, 0.6, 0);
+    glowCircle.fillCircle(0, 0, 35); // Smaller glow circle
+    glowCircle.setAlpha(0);
+    this.fishCatchLightEffect.add(glowCircle);
+
+    // Position the entire effect
+    this.fishCatchLightEffect.setPosition(effectX, effectY);
+
+    // Make sure light effect is only visible to main camera
+    const cameras = this.cameras.cameras;
+    for (let i = 1; i < cameras.length; i++) {
+      const camera = cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.fishCatchLightEffect);
+      }
+    }
+
+    // Animate the light effect
+    // First, fade in the glow
+    this.tweens.add({
+      targets: glowCircle,
+      alpha: 0.8,
+      duration: 300,
+      ease: 'Power2'
+    });
+
+    // Then animate the light rays spreading out
+    lightRays.forEach((ray, index) => {
+      this.tweens.add({
+        targets: ray,
+        alpha: 0.8,
+        duration: 500,
+        delay: index * 20, // Stagger the rays
+        ease: 'Power2',
+        yoyo: true,
+        repeat: 2
+      });
+    });
+
+    // Animate the fish appearing
+    this.tweens.add({
+      targets: caughtFish,
+      alpha: 1,
+      scaleX: caughtFish.scaleX * 1.1, // Smaller bounce effect
+      scaleY: caughtFish.scaleY * 1.1,
+      duration: 600,
+      delay: 200,
+      ease: 'Back.easeOut',
+      onComplete: () => {
+        // Add gentle floating animation to fish
+        this.tweens.add({
+          targets: caughtFish,
+          y: caughtFish.y - 6, // Smaller floating distance
+          duration: 1000,
+          ease: 'Sine.easeInOut',
+          yoyo: true,
+          repeat: -1
+        });
+      }
+    });
+
+    // Play star blinking sound for the light effect
+    MusicManager.playSound(this, 'star-blinking', { volume: 0.8 });
+
+    // Clean up and continue after effect duration
+    this.time.delayedCall(2500, () => {
+      this.removeFishCatchLightEffect();
+      onComplete();
+    });
+  }
+
+  /**
+   * Remove the fish catch light effect
+   */
+  private removeFishCatchLightEffect(): void {
+    if (this.fishCatchLightEffect) {
+      this.fishCatchLightEffect.destroy();
+      this.fishCatchLightEffect = null;
+    }
   }
 }
