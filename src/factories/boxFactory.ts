@@ -28,7 +28,7 @@ export class BoxFactory {
     private static box: Phaser.GameObjects.Image | null = null;
     private static cap: Phaser.GameObjects.Image | null = null;
     private static container: Phaser.GameObjects.Container | null = null;
-    private static currentState: BoxState = BoxState.CLOSED;
+    private static currentState: BoxState = BoxState.OPEN;
     private static fishSlots: (Phaser.GameObjects.Image | null)[][] = [];
 
     /**
@@ -70,11 +70,16 @@ export class BoxFactory {
         this.box.setDepth(1); // Base layer within container
 
 
-        // Create the cap (starts closed)
-        this.cap = scene.add.image(0, -8, 'box-cap'); // Slightly above the box
+        // Create the cap (starts open by default)
+        // Calculate the open position for the cap (above the first row)
+        const actualTileSize = this.boxProperties.tileSize * 4; // 4px * 4 scale = 16px per tile
+        const firstRowY = -(this.boxProperties.height + 44); // Top edge of box
+        const capOpenY = firstRowY - (actualTileSize); // Position cap above first row
+
+        this.cap = scene.add.image(0, capOpenY, 'box-cap-open'); // Start in open position
         this.cap.setOrigin(0.5, 0.5);
         this.cap.setScale(4); // Match the box scale
-        this.cap.setDepth(10); // Top layer within container (above fish)
+        this.cap.setDepth(100); // Much higher z-index to be above everything
 
 
         // Add components to container
@@ -192,6 +197,8 @@ export class BoxFactory {
             ease: 'Power2'
         });
 
+        // Enable fish interactivity when box opens
+        this.setFishInteractivity(true);
 
     }
 
@@ -217,6 +224,8 @@ export class BoxFactory {
             ease: 'Power2'
         });
 
+        // Disable fish interactivity when box closes
+        this.setFishInteractivity(false);
 
     }
 
@@ -247,25 +256,34 @@ export class BoxFactory {
                     fishSprite.setOrigin(0.5, 0.5);
                     fishSprite.setDepth(2); // Middle layer: above box base (1) but below cap (3)
 
-                    // Make fish interactive if callback is provided
+                    // Make fish interactive if callback is provided and box is open
                     if (onFishClick) {
-                        fishSprite.setInteractive({ useHandCursor: true });
-
                         // Calculate fish index for callback
                         const fishIndex = row * this.boxProperties.gridSize + col;
 
-                        fishSprite.on('pointerdown', () => {
-                            onFishClick(fishIndex);
-                        });
+                        // Set up click handler and hover effects
+                        const setupInteraction = () => {
+                            fishSprite.on('pointerdown', () => {
+                                onFishClick(fishIndex);
+                            });
 
-                        // Add hover effects
-                        fishSprite.on('pointerover', () => {
-                            fishSprite.setTint(0xcccccc); // Slightly darker on hover
-                        });
+                            fishSprite.on('pointerover', () => {
+                                fishSprite.setTint(0xcccccc); // Slightly darker on hover
+                            });
 
-                        fishSprite.on('pointerout', () => {
-                            fishSprite.clearTint(); // Remove tint
-                        });
+                            fishSprite.on('pointerout', () => {
+                                fishSprite.clearTint(); // Remove tint
+                            });
+                        };
+
+                        // Only make interactive if box is currently open
+                        if (this.currentState === BoxState.OPEN) {
+                            fishSprite.setInteractive({ useHandCursor: true });
+                            setupInteraction();
+                        } else {
+                            // Store the callback for later when box opens
+                            setupInteraction();
+                        }
                     }
 
                     // Add to container
@@ -370,6 +388,29 @@ export class BoxFactory {
         const boxY = camera.height - this.boxProperties.height / 2 - 150; // 150px margin from bottom edge
 
         this.container.setPosition(boxX, boxY);
+    }
+
+    /**
+     * Set interactivity for all fish in the box
+     * @param interactive Whether fish should be interactive
+     */
+    private static setFishInteractivity(interactive: boolean): void {
+        for (let row = 0; row < this.boxProperties.gridSize; row++) {
+            for (let col = 0; col < this.boxProperties.gridSize; col++) {
+                const fishSprite = this.fishSlots[row][col];
+                if (fishSprite) {
+                    if (interactive) {
+                        // Enable interactivity
+                        fishSprite.setInteractive({ useHandCursor: true });
+                    } else {
+                        // Disable interactivity
+                        fishSprite.disableInteractive();
+                        // Clear any hover effects
+                        fishSprite.clearTint();
+                    }
+                }
+            }
+        }
     }
 
     /**
