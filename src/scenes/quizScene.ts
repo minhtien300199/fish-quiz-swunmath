@@ -2,6 +2,7 @@ import { GameState } from '../types/gameState';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fishType';
 import { FishFactory, FishState, FishSizeCategory } from '../factories/fishFactory';
+import { CursorManager } from '../managers/cursorManager';
 
 interface QuizQuestion {
   question: string;
@@ -65,6 +66,9 @@ export class QuizScene extends Phaser.Scene {
 
     // Start timer
     this.startTimer();
+
+    // Initialize cursor management for this scene
+    CursorManager.createCursor(this);
   }
 
   private createPaperBackground(): void {

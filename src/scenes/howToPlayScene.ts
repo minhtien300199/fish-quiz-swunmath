@@ -1,3 +1,5 @@
+import { CursorManager } from '../managers/cursorManager';
+
 export class HowToPlayScene extends Phaser.Scene {
   constructor() {
     super({ key: 'HowToPlayScene' });
@@ -101,6 +103,9 @@ export class HowToPlayScene extends Phaser.Scene {
       'Back to Menu',
       () => this.scene.start('MenuScene')
     );
+
+    // Initialize cursor management for this scene
+    CursorManager.createCursor(this);
   }
 
   private createButton(x: number, y: number, text: string, callback: () => void): void {

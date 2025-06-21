@@ -1,5 +1,6 @@
 import { GameState } from '../types/gameState';
 import { FishType, getFishPath } from '../const/fishType';
+import { CursorManager } from '../managers/cursorManager';
 
 export class WinScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -182,6 +183,9 @@ export class WinScene extends Phaser.Scene {
       // Return to the main menu
       this.scene.start('MenuScene');
     });
+
+    // Initialize cursor management for this scene
+    CursorManager.createCursor(this);
   }
 
   private displayCaughtFishAssets(startY: number): void {

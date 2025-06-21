@@ -1,4 +1,5 @@
 import { GameState } from '../types/gameState';
+import { CursorManager } from '../managers/cursorManager';
 
 export class GameOverScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -130,5 +131,8 @@ export class GameOverScene extends Phaser.Scene {
     mainMenuButton.on('pointerdown', () => {
       this.scene.start('MenuScene');
     });
+
+    // Initialize cursor management for this scene
+    CursorManager.createCursor(this);
   }
 }

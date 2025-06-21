@@ -14,7 +14,6 @@ import { BoxFactory, BoxState } from '../factories/boxFactory';
 import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
 import { TutorialStepper } from '../components/TutorialStepper';
 import { CursorManager } from '../managers/cursorManager';
-import { DOMCursorManager } from '../managers/domCursorManager';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
 
@@ -327,8 +326,11 @@ export class GameScene extends Phaser.Scene {
     // Initialize custom cursor at the very end after everything is set up
     CursorManager.createCursor(this);
 
-    // Also try DOM-based cursor as alternative
-    DOMCursorManager.init();
+    // Add scene resume event handler to recreate cursor when returning from pause screens
+    this.events.on('resume', () => {
+      console.log('GameScene resumed, recreating cursor...');
+      CursorManager.forceCursorRecreation(this);
+    });
 
     // Initialize joystick manager for mobile devices
     this.joystickManager = new JoystickManager(this);

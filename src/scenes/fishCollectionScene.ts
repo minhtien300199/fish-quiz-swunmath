@@ -1,6 +1,7 @@
 import { FishType } from '../const/fishType';
 import { FishCollectionManager } from '../managers/fishCollectionManager';
 import { FishFactory, FishSizeCategory } from '../factories/fishFactory';
+import { CursorManager } from '../managers/cursorManager';
 
 interface FishInfo {
     name: string;
@@ -111,6 +112,9 @@ export class FishCollectionScene extends Phaser.Scene {
 
         // Add scroll controls
         this.setupScrolling();
+
+        // Initialize cursor management for this scene
+        CursorManager.createCursor(this);
     }
 
     private createFishGrid(): void {

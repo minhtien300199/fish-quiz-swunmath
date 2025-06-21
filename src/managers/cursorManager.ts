@@ -14,10 +14,16 @@ export class CursorManager {
     }
 
     /**
-     * Load cursor assets
+     * Load cursor assets (only if not already loaded)
      * @param scene The scene to load assets into
      */
     private static loadAssets(scene: Phaser.Scene): void {
+        // Check if assets are already loaded to prevent duplicates
+        if (scene.textures.exists('pointer-normal') && scene.textures.exists('pointer-click')) {
+            // console.log('Cursor assets already loaded, skipping...');
+            return;
+        }
+
         // Load cursor sprites
         // console.log('Loading cursor assets...');
         scene.load.image('pointer-normal', 'assets/ui/control_ui/pointer_0001.png');
@@ -36,7 +42,13 @@ export class CursorManager {
      * @param scene The scene to create the cursor in
      */
     public static createCursor(scene: Phaser.Scene): void {
-        if (this.isInitialized) return;
+        // If we're already initialized but for a different scene, destroy and recreate
+        if (this.isInitialized && this.scene !== scene) {
+            this.destroy();
+        }
+
+        // If already initialized for the same scene, just return
+        if (this.isInitialized && this.scene === scene) return;
 
         this.scene = scene;
 
@@ -70,9 +82,19 @@ export class CursorManager {
             // Force cursor to a specific visible position for testing
             this.cursorSprite.setPosition(100, 100);
 
-            // Ensure it's always on top by adding to display list last
-            this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+            // Ensure it's always on top by adding to display list last (with safety check)
+            if (this.cursorSprite.scene && this.cursorSprite.scene.children) {
+                try {
+                    this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+                } catch (error) {
+                    console.warn('Could not bring cursor to top during creation:', error);
+                }
+            }
         }
+
+        // Remove previous event listeners to avoid duplicates
+        // Note: We don't call removeAllListeners to avoid interfering with other scene functionality
+        // Instead, we rely on the scene transition destroying the old cursor properly
 
         // Set up mouse tracking
         scene.input.on('pointermove', (pointer: Phaser.Input.Pointer) => {
@@ -124,18 +146,32 @@ export class CursorManager {
     }
 
     /**
+     * Force recreate cursor for current scene (useful for scene resume)
+     * @param scene The scene to recreate cursor for
+     */
+    public static forceCursorRecreation(scene: Phaser.Scene): void {
+        this.destroy();
+        this.createCursor(scene);
+    }
+
+    /**
      * Update cursor position
      * @param x X coordinate
      * @param y Y coordinate
      */
     private static updateCursorPosition(x: number, y: number): void {
-        if (this.cursorSprite) {
+        if (this.cursorSprite && this.cursorSprite.scene && this.cursorSprite.scene.children && this.cursorSprite.active) {
             this.cursorSprite.setPosition(x, y);
             // Make sure cursor stays visible and on top
             this.cursorSprite.setVisible(true);
             this.cursorSprite.setDepth(Number.MAX_SAFE_INTEGER);
-            // Always bring to top when moving
-            this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+            // Always bring to top when moving (with safety check)
+            try {
+                this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+            } catch (error) {
+                // Scene might be in an invalid state, ignore the error
+                console.warn('Could not bring cursor to top:', error);
+            }
         }
     }
 
@@ -144,14 +180,18 @@ export class CursorManager {
      * @param isClicking Whether the cursor is in clicking state
      */
     private static setClickState(isClicking: boolean): void {
-        if (!this.cursorSprite) return;
+        if (!this.cursorSprite || !this.cursorSprite.active || !this.cursorSprite.scene) return;
 
         this.isClicking = isClicking;
 
-        if (isClicking) {
-            this.cursorSprite.setTexture('pointer-click');
-        } else {
-            this.cursorSprite.setTexture('pointer-normal');
+        try {
+            if (isClicking) {
+                this.cursorSprite.setTexture('pointer-click');
+            } else {
+                this.cursorSprite.setTexture('pointer-normal');
+            }
+        } catch (error) {
+            console.warn('Could not set cursor texture:', error);
         }
     }
 
@@ -159,8 +199,12 @@ export class CursorManager {
      * Hide the cursor
      */
     private static hideCursor(): void {
-        if (this.cursorSprite) {
-            this.cursorSprite.setVisible(false);
+        if (this.cursorSprite && this.cursorSprite.active && this.cursorSprite.scene) {
+            try {
+                this.cursorSprite.setVisible(false);
+            } catch (error) {
+                console.warn('Could not hide cursor:', error);
+            }
         }
     }
 
@@ -168,8 +212,12 @@ export class CursorManager {
      * Show the cursor
      */
     private static showCursor(): void {
-        if (this.cursorSprite) {
-            this.cursorSprite.setVisible(true);
+        if (this.cursorSprite && this.cursorSprite.active && this.cursorSprite.scene) {
+            try {
+                this.cursorSprite.setVisible(true);
+            } catch (error) {
+                console.warn('Could not show cursor:', error);
+            }
         }
     }
 
@@ -202,8 +250,12 @@ export class CursorManager {
      * @param scale Scale factor
      */
     public static setScale(scale: number): void {
-        if (this.cursorSprite) {
-            this.cursorSprite.setScale(scale);
+        if (this.cursorSprite && this.cursorSprite.active && this.cursorSprite.scene) {
+            try {
+                this.cursorSprite.setScale(scale);
+            } catch (error) {
+                console.warn('Could not set cursor scale:', error);
+            }
         }
     }
 
@@ -211,9 +263,14 @@ export class CursorManager {
      * Force cursor to top of display list
      */
     public static bringToTop(): void {
-        if (this.cursorSprite && this.cursorSprite.scene) {
+        if (this.cursorSprite && this.cursorSprite.scene && this.cursorSprite.scene.children && this.cursorSprite.active) {
             this.cursorSprite.setDepth(Number.MAX_SAFE_INTEGER);
-            this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+            try {
+                this.cursorSprite.scene.children.bringToTop(this.cursorSprite);
+            } catch (error) {
+                // Scene might be in an invalid state, ignore the error
+                console.warn('Could not bring cursor to top:', error);
+            }
         }
     }
 } 
