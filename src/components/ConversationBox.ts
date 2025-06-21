@@ -63,18 +63,21 @@ export class ConversationBox {
 
         // Create message text
         const messageText = this.scene.add.text(0, -5, message, {
-            fontSize: '14px',
+            fontSize: '11px',
             color: '#000000',
             fontStyle: 'bold',
             align: 'center',
             wordWrap: { width: bubbleWidth - 20 },
-            lineSpacing: 3,
+            lineSpacing: 2,
             stroke: '#ffffff',
-            strokeThickness: 0.7
+            strokeThickness: 0.2
         }).setOrigin(0.5);
 
         // Fix blurry text by rounding position and disabling smoothing
         messageText.setPosition(Math.round(messageText.x), Math.round(messageText.y));
+
+        // Disable texture smoothing to prevent blur
+        messageText.texture.setFilter(Phaser.Textures.FilterMode.NEAREST);
 
         // Add elements to container
         this.container.add([bubble, messageText]);

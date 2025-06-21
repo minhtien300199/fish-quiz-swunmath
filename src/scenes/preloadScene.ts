@@ -166,6 +166,24 @@ export class PreloadScene extends Phaser.Scene {
     this.load.audio('star-blinking', 'assets/sounds/star-blinking.mp3');
     this.load.audio('fish-splashing', 'assets/sounds/fish-splashing.mp3');
 
+    // Load star animation frames (1-13 frames, 32x32 px)
+    for (let i = 1; i <= 13; i++) {
+      const frameNumber = String(i).padStart(4, '0'); // Format as 0001, 0002, etc.
+      this.load.image(
+        `star-frame-${i}`,
+        `assets/effect/star/star_${frameNumber}.png`
+      );
+    }
+
+    // Load blink animation frames (1-4 frames, 32x32 px)
+    for (let i = 1; i <= 4; i++) {
+      const frameNumber = String(i).padStart(4, '0'); // Format as 0001, 0002, etc.
+      this.load.image(
+        `blink-frame-${i}`,
+        `assets/effect/blink/blink_${frameNumber}.png`
+      );
+    }
+
     // Load background music
     this.load.audio('game-background-music', 'assets/sounds/game-background-music.mp3');
 

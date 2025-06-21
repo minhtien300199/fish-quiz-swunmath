@@ -3116,32 +3116,123 @@ export class GameScene extends Phaser.Scene {
         ease: 'Linear'
       });
 
-      // Create sparkling particles positioned around celebration container
-      particles = this.add.particles(
-        this.fishCelebrationContainer!.x,
-        this.fishCelebrationContainer!.y,
-        'star-blinking',
-        {
-          scale: { start: 0.3, end: 0 },
-          alpha: { start: 1, end: 0 },
-          speed: { min: 30, max: 80 },
-          lifespan: 1500,
-          frequency: 80,
-          quantity: 3,
-          emitZone: {
-            source: new Phaser.Geom.Circle(0, 0, 80),
-            type: 'edge',
-            quantity: 3
+      // Create animated star and blink effects around celebration container
+      const createStarEffect = () => {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 80 + Math.random() * 40; // Random radius around container
+        const x = this.fishCelebrationContainer!.x + Math.cos(angle) * radius;
+        const y = this.fishCelebrationContainer!.y + Math.sin(angle) * radius;
+
+        // Create star sprite with first frame
+        const star = this.add.image(x, y, 'star-frame-1');
+        star.setScale(0.8);
+        star.setDepth(2003);
+        star.setAlpha(0);
+
+        // Animate star frames (1-13)
+        let currentFrame = 1;
+        const starAnimation = this.time.addEvent({
+          delay: 80, // 80ms per frame for smooth animation
+          callback: () => {
+            if (currentFrame <= 13 && star.active) {
+              star.setTexture(`star-frame-${currentFrame}`);
+              currentFrame++;
+            } else {
+              starAnimation.destroy();
+              if (star.active) star.destroy();
+            }
+          },
+          repeat: 12 // 13 frames total (0-12 repeats)
+        });
+
+        // Fade in and out animation
+        this.tweens.add({
+          targets: star,
+          alpha: 1,
+          duration: 200,
+          ease: 'Power2',
+          yoyo: true,
+          repeat: 0,
+          onComplete: () => {
+            this.tweens.add({
+              targets: star,
+              alpha: 0,
+              duration: 400,
+              ease: 'Power2'
+            });
           }
-        }
-      );
-      particles.setDepth(2002);
+        });
+      };
+
+      const createBlinkEffect = () => {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = 60 + Math.random() * 30; // Closer to container than stars
+        const x = this.fishCelebrationContainer!.x + Math.cos(angle) * radius;
+        const y = this.fishCelebrationContainer!.y + Math.sin(angle) * radius;
+
+        // Create blink sprite with first frame
+        const blink = this.add.image(x, y, 'blink-frame-1');
+        blink.setScale(0.6);
+        blink.setDepth(2004);
+        blink.setAlpha(0);
+
+        // Animate blink frames (1-4)
+        let currentFrame = 1;
+        const blinkAnimation = this.time.addEvent({
+          delay: 150, // 150ms per frame for visible blink effect
+          callback: () => {
+            if (currentFrame <= 4 && blink.active) {
+              blink.setTexture(`blink-frame-${currentFrame}`);
+              currentFrame++;
+            } else {
+              blinkAnimation.destroy();
+              if (blink.active) blink.destroy();
+            }
+          },
+          repeat: 3 // 4 frames total (0-3 repeats)
+        });
+
+        // Fade in and out animation
+        this.tweens.add({
+          targets: blink,
+          alpha: 0.9,
+          duration: 150,
+          ease: 'Power2',
+          yoyo: true,
+          repeat: 0,
+          onComplete: () => {
+            this.tweens.add({
+              targets: blink,
+              alpha: 0,
+              duration: 300,
+              ease: 'Power2'
+            });
+          }
+        });
+      };
+
+      // Create effects at intervals
+      const effectTimer = this.time.addEvent({
+        delay: 300, // Create new effect every 300ms
+        callback: () => {
+          // Randomly choose between star and blink effect
+          if (Math.random() < 0.6) {
+            createStarEffect();
+          } else {
+            createBlinkEffect();
+          }
+        },
+        repeat: 7 // Create 8 effects total during the 3-second display
+      });
+
+      // Store the timer so we can clean it up
+      particles = effectTimer as any;
 
       // Make sure effects are visible to main camera only
       for (let i = 1; i < cameras.length; i++) {
         const camera = cameras[i];
         if (camera && camera !== this.cameras.main) {
-          camera.ignore([lightRays, particles]);
+          camera.ignore([lightRays]);
         }
       }
     });
@@ -3161,9 +3252,9 @@ export class GameScene extends Phaser.Scene {
         }
       });
 
-      // Stop particles and light rays if they exist
+      // Stop effect timer and light rays if they exist
       if (particles) {
-        particles.destroy();
+        (particles as unknown as Phaser.Time.TimerEvent).destroy();
       }
       if (lightRays) {
         lightRays.destroy();
