@@ -176,18 +176,18 @@ export class FishCollectionScene extends Phaser.Scene {
             const fishSprite = FishFactory.createFish(this, 0, -30, fishType);
             const sizeCategory = FishFactory.getFishSizeCategory(fishType);
 
-            // Adjust scale for card display
-            let cardScale = 2.0;
+            // Scale based on fish size for better card layout
+            let cardScale = 0.5; // Use uniform scale for all fish
             switch (sizeCategory) {
                 case FishSizeCategory.LARGE:
-                    cardScale = 1.5;
+                    cardScale = 0.5;
                     break;
                 case FishSizeCategory.MEDIUM:
-                    cardScale = 1.8;
+                    cardScale = 0.5;
                     break;
                 case FishSizeCategory.SMALL:
                 default:
-                    cardScale = 2.0;
+                    cardScale = 0.5;
                     break;
             }
             fishSprite.setScale(cardScale);
@@ -302,13 +302,13 @@ export class FishCollectionScene extends Phaser.Scene {
             fishType
         );
         const sizeCategory = FishFactory.getFishSizeCategory(fishType);
-        let modalScale = 4.0;
+        let modalScale = 0.7; // Updated to 0.65 for detail view
         switch (sizeCategory) {
             case FishSizeCategory.LARGE:
-                modalScale = 3.0;
+                modalScale = 0.7;
                 break;
             case FishSizeCategory.MEDIUM:
-                modalScale = 3.5;
+                modalScale = 0.7;
                 break;
         }
         fishSprite.setScale(modalScale);

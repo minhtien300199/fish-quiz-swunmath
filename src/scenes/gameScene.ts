@@ -16,6 +16,7 @@ import { TutorialStepper } from '../components/TutorialStepper';
 import { CursorManager } from '../managers/cursorManager';
 import { DOMCursorManager } from '../managers/domCursorManager';
 import { JoystickManager } from '../managers/joystickManager';
+import { ConversationBox } from '../components/ConversationBox';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -65,6 +66,8 @@ export class GameScene extends Phaser.Scene {
   private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
   private tutorialStepper: TutorialStepper | null = null; // Tutorial stepper for new players
   private fishCatchLightEffect: Phaser.GameObjects.Container | null = null; // Light effect container for fish catch
+  private conversationBox: ConversationBox | null = null; // Conversation box for player guidance
+  private idleTimer: Phaser.Time.TimerEvent | null = null; // Timer to track idle state
 
   constructor() {
     super({ key: 'GameScene' });
@@ -333,8 +336,21 @@ export class GameScene extends Phaser.Scene {
     // Initialize tutorial stepper
     this.tutorialStepper = new TutorialStepper(this);
 
+    // Initialize conversation box
+    this.conversationBox = new ConversationBox(this);
+
     // Check if this is a new player and show tutorial
     this.checkAndShowTutorial();
+
+    // Show conversation box immediately for new game, then start idle detection
+    this.showInitialConversation();
+
+    // Start idle detection after a delay to allow tutorial to show first
+    this.time.delayedCall(3000, () => {
+      this.startIdleDetection();
+    });
+
+
   }
 
   /**
@@ -354,6 +370,78 @@ export class GameScene extends Phaser.Scene {
           });
         }
       });
+    }
+  }
+
+  /**
+   * Start idle detection to show conversation box when player is inactive
+   */
+  private startIdleDetection(): void {
+    // Only start idle detection if not in tutorial mode
+    if (this.tutorialStepper && this.tutorialStepper.getIsActive()) {
+      return;
+    }
+
+    // Start idle timer - show conversation after 5 seconds of inactivity
+    this.resetIdleTimer();
+  }
+
+  /**
+   * Reset the idle timer
+   */
+  private resetIdleTimer(): void {
+    // Clear existing timer
+    if (this.idleTimer) {
+      this.idleTimer.remove();
+      this.idleTimer = null;
+    }
+
+    // Hide conversation box if it's showing
+    if (this.conversationBox && this.conversationBox.getIsVisible()) {
+      this.conversationBox.hide();
+    }
+
+    // Only start timer if fishing is idle and not in tutorial
+    if (this.fishingState === 'idle' && (!this.tutorialStepper || !this.tutorialStepper.getIsActive())) {
+      this.idleTimer = this.time.delayedCall(5000, () => {
+        this.showIdleConversation();
+      });
+    }
+  }
+
+  /**
+   * Show conversation box immediately when game starts
+   */
+  private showInitialConversation(): void {
+    // Show conversation box immediately for new players
+    this.time.delayedCall(500, () => {
+      if (this.conversationBox && this.character) {
+        this.conversationBox.show(
+          this.character.x,
+          this.character.y,
+          'Press SPACEBAR to throw your bait and start fishing!',
+          4000 // Show for 4 seconds then auto-hide
+        );
+      }
+    });
+  }
+
+  /**
+   * Show conversation box when player is idle
+   */
+  private showIdleConversation(): void {
+    if (this.conversationBox && this.character && this.fishingState === 'idle') {
+      // Only show if not in tutorial mode
+      if (this.tutorialStepper && this.tutorialStepper.getIsActive()) {
+        return;
+      }
+
+      this.conversationBox.show(
+        this.character.x,
+        this.character.y,
+        'Press SPACEBAR to throw your bait and start fishing!',
+        0 // Show indefinitely until player acts
+      );
     }
   }
 
@@ -395,6 +483,11 @@ export class GameScene extends Phaser.Scene {
       this.joystickManager.update();
     }
 
+    // Update conversation box position if visible
+    if (this.conversationBox && this.conversationBox.getIsVisible() && this.character) {
+      this.conversationBox.updatePosition(this.character.x, this.character.y);
+    }
+
     // Debug: Check if cursors are active
     if (this.time.now % 1000 < 16) { // Log every second (approximately)
       // console.log('Phaser cursor active:', CursorManager.isActive());
@@ -434,6 +527,8 @@ export class GameScene extends Phaser.Scene {
         if (this.tutorialStepper) {
           this.tutorialStepper.handleAction('move');
         }
+        // Reset idle timer on movement
+        this.resetIdleTimer();
       } else if (this.cursors.right.isDown || (keyD && keyD.isDown)) {
         this.player.setVelocityX(boatSpeed);
         keyboardMovement = true;
@@ -441,6 +536,8 @@ export class GameScene extends Phaser.Scene {
         if (this.tutorialStepper) {
           this.tutorialStepper.handleAction('move');
         }
+        // Reset idle timer on movement
+        this.resetIdleTimer();
       }
 
       // Handle vertical movement
@@ -451,6 +548,8 @@ export class GameScene extends Phaser.Scene {
         if (this.tutorialStepper) {
           this.tutorialStepper.handleAction('move');
         }
+        // Reset idle timer on movement
+        this.resetIdleTimer();
       } else if (this.cursors.down.isDown || (keyS && keyS.isDown)) {
         this.player.setVelocityY(boatSpeed);
         keyboardMovement = true;
@@ -458,6 +557,8 @@ export class GameScene extends Phaser.Scene {
         if (this.tutorialStepper) {
           this.tutorialStepper.handleAction('move');
         }
+        // Reset idle timer on movement
+        this.resetIdleTimer();
       }
 
       // No joystick movement anymore - mobile users use WASD or mouse
@@ -579,6 +680,8 @@ export class GameScene extends Phaser.Scene {
     if ((Phaser.Input.Keyboard.JustDown(this.spaceKey) || this.rightClickJustPressed) && this.fishingState === 'idle') {
       this.startFishing();
       this.rightClickJustPressed = false; // Reset flag after use
+      // Reset idle timer when starting to fish
+      this.resetIdleTimer();
     }
   }
 
@@ -808,7 +911,7 @@ export class GameScene extends Phaser.Scene {
     this.showCatchButton();
 
     // Player needs to press space or click button to catch the fish
-    const catchWindow = this.time.delayedCall(2000, () => {
+    const catchWindow = this.time.delayedCall(4000, () => {
       // If player didn't press space or click button in time, fish gets away
       if (this.fishingState === 'catching') {
         this.fishGotAway();
@@ -2230,6 +2333,18 @@ export class GameScene extends Phaser.Scene {
       this.tutorialStepper.stop();
       this.tutorialStepper = null;
     }
+
+    // Clean up conversation box
+    if (this.conversationBox) {
+      this.conversationBox.destroy();
+      this.conversationBox = null;
+    }
+
+    // Clean up idle timer
+    if (this.idleTimer) {
+      this.idleTimer.remove();
+      this.idleTimer = null;
+    }
   }
 
   /**
@@ -2904,7 +3019,7 @@ export class GameScene extends Phaser.Scene {
 
     // Create fish sprite using FishFactory
     const fishSprite = FishFactory.createFish(this, 0, -10, fishType);
-    fishSprite.setScale(4);
+    fishSprite.setScale(0.5);
 
     // Create fish name
     const fishName = this.formatFishName(fishType);
@@ -3298,7 +3413,7 @@ export class GameScene extends Phaser.Scene {
     // Add fish to the box using BoxFactory with click callback
     const wasAdded = BoxFactory.addFish(this, fishKey, (fishIndex: number) => {
       this.onFishClicked(fishIndex);
-    });
+    }, fishType);
 
     if (wasAdded) {
 
@@ -3328,7 +3443,7 @@ export class GameScene extends Phaser.Scene {
 
   /**
    * Generate the texture key for a fish (matches FishFactory logic)
-   * For shark pattern fish, uses inventory version for box display
+   * Uses inventory version with _0002 frame for all fish in box display
    * @param fishType The fish type
    * @returns The texture key to use for loading the fish image
    */
@@ -3450,7 +3565,7 @@ export class GameScene extends Phaser.Scene {
 
     // Create the caught fish sprite using FishFactory
     const caughtFish = FishFactory.createFish(this, 0, 0, fishType);
-    caughtFish.setScale(2.5); // Smaller scale for more subtle effect
+    caughtFish.setScale(0.5); // Updated to 0.5
     caughtFish.setAlpha(0);
     this.fishCatchLightEffect.add(caughtFish);
 

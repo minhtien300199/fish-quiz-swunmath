@@ -35,22 +35,22 @@ export enum FishSizeCategory {
 }
 
 export class FishFactory {
-  // Default fish properties by size category
+  // Default fish properties by size category - reduced scale values for smaller fish appearance
   private static readonly fishProperties: Record<FishSizeCategory, FishProperties> = {
     [FishSizeCategory.SMALL]: {
-      scale: 2.0,
+      scale: 0.5, // Updated to 0.5
       depth: 5,
       frameRate: 8,
       animationLoops: true
     },
     [FishSizeCategory.MEDIUM]: {
-      scale: 2.4,
+      scale: 0.5, // Updated to 0.5
       depth: 6,
       frameRate: 7,
       animationLoops: true
     },
     [FishSizeCategory.LARGE]: {
-      scale: 3.0,
+      scale: 0.5, // Updated to 0.5
       depth: 7,
       frameRate: 6,
       animationLoops: true

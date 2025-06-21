@@ -224,7 +224,7 @@ export class WinScene extends Phaser.Scene {
 
       // Create fish image
       const fishImage = this.add.image(fishX, fishY, `fish-${fishType}`);
-      fishImage.setScale(3); // Scale up the fish for visibility
+      fishImage.setScale(0.5); // Updated to 0.5
       fishImage.setOrigin(0.5);
 
       // Add a subtle glow effect for the caught fish

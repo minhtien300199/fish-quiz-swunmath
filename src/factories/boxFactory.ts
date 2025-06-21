@@ -1,5 +1,7 @@
 import 'phaser';
 import { MusicManager } from '../managers/musicManager';
+import { FishFactory, FishSizeCategory } from './fishFactory';
+import { FishType } from '../const/fishType';
 
 // Box states
 export enum BoxState {
@@ -234,9 +236,10 @@ export class BoxFactory {
  * @param scene The scene containing the box
  * @param fishTexture The texture key of the fish to add
  * @param onFishClick Optional callback when fish is clicked
+ * @param fishType Optional fish type for proper scaling
  * @returns True if fish was added successfully, false if box is full
  */
-    public static addFish(scene: Phaser.Scene, fishTexture: string, onFishClick?: (fishIndex: number) => void): boolean {
+    public static addFish(scene: Phaser.Scene, fishTexture: string, onFishClick?: (fishIndex: number) => void, fishType?: FishType): boolean {
         // Find first empty slot
         for (let row = 0; row < this.boxProperties.gridSize; row++) {
             for (let col = 0; col < this.boxProperties.gridSize; col++) {
@@ -252,7 +255,26 @@ export class BoxFactory {
 
                     // Create fish sprite with appropriate scale for box tiles
                     const fishSprite = scene.add.image(slotX, slotY, fishTexture);
-                    fishSprite.setScale(4); // Scale to fit nicely in 16x16 tile slots
+
+                    // Determine scale based on fish size category
+                    let fishScale = 0.5; // Default scale for unknown fish
+                    if (fishType) {
+                        const sizeCategory = FishFactory.getFishSizeCategory(fishType);
+                        switch (sizeCategory) {
+                            case FishSizeCategory.LARGE:
+                                fishScale = 0.8; // Larger scale for big fish like sharks
+                                break;
+                            case FishSizeCategory.MEDIUM:
+                                fishScale = 0.65; // Medium scale for medium fish
+                                break;
+                            case FishSizeCategory.SMALL:
+                            default:
+                                fishScale = 0.5; // Small scale for small fish
+                                break;
+                        }
+                    }
+
+                    fishSprite.setScale(fishScale);
                     fishSprite.setOrigin(0.5, 0.5);
                     fishSprite.setDepth(2); // Middle layer: above box base (1) but below cap (3)
 

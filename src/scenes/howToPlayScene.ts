@@ -89,10 +89,10 @@ export class HowToPlayScene extends Phaser.Scene {
     });
 
     // Add decorative fish images
-    this.add.image(panel.x - panel.width / 2 + 80, panel.y - panel.height / 2 + 80, 'fish-clown_fish').setScale(1.5);
-    this.add.image(panel.x + panel.width / 2 - 80, panel.y - panel.height / 2 + 80, 'fish-rainbow_fish').setScale(1.5);
-    this.add.image(panel.x - panel.width / 2 + 80, panel.y + panel.height / 2 - 80, 'fish-bass').setScale(1.5);
-    this.add.image(panel.x + panel.width / 2 - 80, panel.y + panel.height / 2 - 80, 'fish-puffer_fish').setScale(1.5);
+    this.add.image(panel.x - panel.width / 2 + 80, panel.y - panel.height / 2 + 80, 'fish-clown_fish').setScale(0.5);
+    this.add.image(panel.x + panel.width / 2 - 80, panel.y - panel.height / 2 + 80, 'fish-rainbow_fish').setScale(0.5);
+    this.add.image(panel.x - panel.width / 2 + 80, panel.y + panel.height / 2 - 80, 'fish-bass').setScale(0.5);
+    this.add.image(panel.x + panel.width / 2 - 80, panel.y + panel.height / 2 - 80, 'fish-puffer_fish').setScale(0.5);
 
     // Add back button
     this.createButton(

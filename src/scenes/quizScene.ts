@@ -180,14 +180,14 @@ export class QuizScene extends Phaser.Scene {
     // Scale the fish based on its size category
     switch (sizeCategory) {
       case FishSizeCategory.LARGE:
-        this.fishSprite.setScale(6.0);
+        this.fishSprite.setScale(1);
         break;
       case FishSizeCategory.MEDIUM:
-        this.fishSprite.setScale(5.0);
+        this.fishSprite.setScale(1);
         break;
       case FishSizeCategory.SMALL:
       default:
-        this.fishSprite.setScale(4.0);
+        this.fishSprite.setScale(1);
         break;
     }
 
