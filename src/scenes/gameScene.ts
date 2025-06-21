@@ -37,7 +37,7 @@ export class GameScene extends Phaser.Scene {
   private fishCaught: number = 0;
   private fishCaughtText!: Phaser.GameObjects.Text;
   private progressText!: Phaser.GameObjects.Text;
-  private coordsText!: Phaser.GameObjects.Text;
+
   private gameState: GameState = {
     lives: 3,
     fishCaught: 0,
@@ -1631,19 +1631,7 @@ export class GameScene extends Phaser.Scene {
       }
     );
 
-    // Create coordinates display
-    this.coordsText = this.add.text(
-      20,
-      this.pointsText.y + this.pointsText.height + 10,
-      `X: 0, Y: 0`,
-      {
-        fontSize: '24px',
-        color: '#ffff00',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 5
-      }
-    );
+    // Coordinates display removed per user request
 
     // Create menu button in the top right corner
     const menuButtonSize = 50;
@@ -1776,7 +1764,7 @@ export class GameScene extends Phaser.Scene {
     // Add all UI elements to the container
     uiContainer.add([
       bg, this.livesText, ...this.livesIcons, this.fishCaughtText,
-      this.pointsText, this.coordsText, menuButton, menuLine1, menuLine2, menuLine3,
+      this.pointsText, menuButton, menuLine1, menuLine2, menuLine3,
       musicButton, musicIcon, soundButton, soundIcon
     ]);
 
