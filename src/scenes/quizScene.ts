@@ -245,28 +245,27 @@ export class QuizScene extends Phaser.Scene {
       }
     ).setOrigin(1, 0.5); // Right-align the text
 
-    // Add options - position them in the lower part of the paper
-    const firstButtonY = this.cameras.main.height * 0.6; // Move down to fit within the taller paper
+    // Add options - position them in a 2x2 grid in the lower part of the paper
+    const firstButtonY = this.cameras.main.height * 0.55; // Move down to fit within the taller paper
+    const gridSpacingX = 220; // Horizontal spacing between buttons
+    const gridSpacingY = 100; // Vertical spacing between buttons
+    
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
-      // Create button background with more spacing for better layout
-      const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
+      // Calculate position in 2x2 grid
+      const row = Math.floor(i / 2); // 0 for first row, 1 for second row
+      const col = i % 2; // 0 for left column, 1 for right column
+      
+      // Calculate button position
+      const buttonX = (this.cameras.main.width / 2) + ((col === 0) ? -gridSpacingX : gridSpacingX);
+      const buttonY = firstButtonY + (row * gridSpacingY);
+      
       console.log('choice', this.currentQuestion.choices[i]);
-      // Create a paper-style answer button
-      const button = this.add.rectangle(
-        this.cameras.main.width / 2,
-        buttonY,
-        300,
-        50,
-        0xf5f5f5 // Light color for paper-like appearance
-      )
-        .setStrokeStyle(2, 0x90caf9) // Blue border like notebook paper
-        .setInteractive();
-
+      
       // Get choice and parse HTML content if needed
       const choice = this.currentQuestion.choices[i];
       const choiceDiv = document.createElement('div');
       choiceDiv.innerHTML = choice.text;
-
+      
       // Process HTML content to create a formatted text representation
       let displayText = `${choice.key}. `;
       
@@ -286,17 +285,47 @@ export class QuizScene extends Phaser.Scene {
           }
         }
       });
+      
+      // Create temporary text to measure dimensions
+      const tempText = this.add.text(0, 0, displayText, {
+        fontSize: '22px',
+        color: '#000000',
+        fontStyle: 'bold',
+        wordWrap: { width: 400 } // Temporary wrap width for measurement
+      });
+      
+      // Calculate button dimensions based on text
+      const textWidth = tempText.width;
+      const textHeight = tempText.height;
+      
+      // Clean up temporary text
+      tempText.destroy();
+      
+      // Calculate button dimensions (add padding)
+      const buttonWidth = Math.max(400, textWidth + 80); // Minimum 400px width
+      const buttonHeight = Math.max(90, textHeight + 50); // Minimum 90px height
+      
+      // Create a paper-style answer button with dynamic size
+      const button = this.add.rectangle(
+        buttonX,
+        buttonY,
+        buttonWidth,
+        buttonHeight,
+        0xf5f5f5 // Light color for paper-like appearance
+      )
+        .setStrokeStyle(2, 0x90caf9) // Blue border like notebook paper
+        .setInteractive();
 
       // Create option text
       const optionText = this.add.text(
-        this.cameras.main.width / 2,
+        buttonX,
         buttonY,
         displayText,
         {
-          fontSize: '22px',
+          fontSize: '24px', // Larger font size
           color: '#000000', // Black text for better readability on light background
           fontStyle: 'bold',
-          wordWrap: { width: 280 } // Wrap text to fit within button
+          wordWrap: { width: buttonWidth - 60 } // Wrap text to fit within button
         }
       ).setOrigin(0.5).setDepth(2);
 
@@ -311,10 +340,12 @@ export class QuizScene extends Phaser.Scene {
             this.loadBase64Image(src, `choice-${i}-img-${imgIndex}`, (textureKey) => {
               // Position image within the button area
               const imageY = buttonY; // Center vertically within button
-              const imageX = (this.cameras.main.width / 2) + 100; // Position to the right within button
+              const imageX = buttonX + (buttonWidth / 2) - 50; // Position to the right within button
               
               const choiceImage = this.add.image(imageX, imageY, textureKey);
-              choiceImage.setScale(1); // Scale down the image to fit within button
+              // Scale image to fit within button height
+              const maxImageHeight = buttonHeight * 0.7;
+              choiceImage.setScale(Math.min(1.2, maxImageHeight / choiceImage.height));
               choiceImage.setDepth(3); // Ensure it appears above button
               
               // Store reference for cleanup
