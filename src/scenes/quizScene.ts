@@ -60,7 +60,7 @@ export class QuizScene extends Phaser.Scene {
   }
 
   create(): void {
-    console.log('QuizScene: Creating scene...');
+    //console.log('QuizScene: Creating scene...');
 
     // Ensure clean state before creating new elements
     this.resetScene();
@@ -87,7 +87,7 @@ export class QuizScene extends Phaser.Scene {
     // Initialize cursor management for this scene
     CursorManager.createCursor(this);
 
-    console.log('QuizScene: Scene creation completed');
+    //console.log('QuizScene: Scene creation completed');
   }
 
   private createPaperBackground(): void {
@@ -267,7 +267,7 @@ export class QuizScene extends Phaser.Scene {
       const buttonX = (this.cameras.main.width / 2) + ((col === 0) ? -gridSpacingX : gridSpacingX);
       const buttonY = firstButtonY + (row * gridSpacingY);
 
-      console.log('choice', this.currentQuestion.choices[i]);
+      //console.log('choice', this.currentQuestion.choices[i]);
 
       // Get choice and parse HTML content if needed
       const choice = this.currentQuestion.choices[i];
@@ -482,20 +482,20 @@ export class QuizScene extends Phaser.Scene {
 
     // Handle different question types
     if (this.currentQuestion.questionType === 'MC') {
-      console.log('question is MC');
-      console.log('Before - selectedAnswers: ', Array.from(this.selectedAnswers));
+      //console.log('question is MC');
+      //console.log('Before - selectedAnswers: ', Array.from(this.selectedAnswers));
 
       // Clear all selections first
       this.selectedAnswers.clear();
 
       // Add only the current selection
       this.selectedAnswers.add(selectedKey);
-      console.log('After - selectedAnswers: ', Array.from(this.selectedAnswers));
+      //console.log('After - selectedAnswers: ', Array.from(this.selectedAnswers));
 
       // Update ALL button styles based on current selectedAnswers state
       this.updateAllButtonStyles();
     } else {
-      console.log('question is MS');
+      //console.log('question is MS');
       // Multiple selection (MS) - toggle selection normally
       if (this.selectedAnswers.has(selectedKey)) {
         // Deselect
@@ -523,7 +523,7 @@ export class QuizScene extends Phaser.Scene {
  * This ensures visual consistency across all buttons
  */
   private updateAllButtonStyles(): void {
-    console.log('updateAllButtonStyles called, selectedAnswers:', Array.from(this.selectedAnswers));
+    //console.log('updateAllButtonStyles called, selectedAnswers:', Array.from(this.selectedAnswers));
 
     this.optionButtons.forEach((btn, index) => {
       if (index < this.currentQuestion.choices.length) {
@@ -533,11 +533,11 @@ export class QuizScene extends Phaser.Scene {
         if (isSelected) {
           btn.setFillStyle(0x2e7d32); // Darker green for selected
           btn.setStrokeStyle(3, 0x1b5e20); // Darker green border
-          console.log(`Button ${index} (key: ${key}) set to SELECTED`);
+          //console.log(`Button ${index} (key: ${key}) set to SELECTED`);
         } else {
           btn.setFillStyle(0xf5f5f5); // Light color (unselected)
           btn.setStrokeStyle(2, 0x90caf9); // Normal border
-          console.log(`Button ${index} (key: ${key}) set to UNSELECTED`);
+          //console.log(`Button ${index} (key: ${key}) set to UNSELECTED`);
         }
       }
     });
@@ -834,7 +834,7 @@ export class QuizScene extends Phaser.Scene {
 
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
-      console.log('QuizScene: Preparing to return to GameScene...');
+      //console.log('QuizScene: Preparing to return to GameScene...');
 
       // Prepare data for GameScene
       const gameData = {
@@ -968,7 +968,7 @@ export class QuizScene extends Phaser.Scene {
    * Called when scene is destroyed or needs to be reset
    */
   private cleanup(): void {
-    console.log('QuizScene: Starting cleanup...');
+    //console.log('QuizScene: Starting cleanup...');
 
     // Stop and remove timer
     if (this.timerEvent) {
@@ -1038,7 +1038,7 @@ export class QuizScene extends Phaser.Scene {
     // Clean up dynamically created textures
     this.cleanupDynamicTextures();
 
-    console.log('QuizScene: Cleanup completed');
+    //console.log('QuizScene: Cleanup completed');
   }
 
   /**
@@ -1062,14 +1062,14 @@ export class QuizScene extends Phaser.Scene {
       }
     });
 
-    console.log(`QuizScene: Removed ${texturesToRemove.length} dynamic textures`);
+    //console.log(`QuizScene: Removed ${texturesToRemove.length} dynamic textures`);
   }
 
   /**
    * Reset the scene state for fresh quiz session
    */
   private resetScene(): void {
-    console.log('QuizScene: Resetting scene state...');
+    //console.log('QuizScene: Resetting scene state...');
 
     // Reset timer
     this.timeRemaining = 15;
@@ -1081,7 +1081,7 @@ export class QuizScene extends Phaser.Scene {
     this.currentQuestion = null as any;
     this.completionData = null;
 
-    console.log('QuizScene: Scene state reset completed');
+    //console.log('QuizScene: Scene state reset completed');
   }
 
   /**
@@ -1089,7 +1089,7 @@ export class QuizScene extends Phaser.Scene {
    * This is the proper cleanup point for Phaser scenes
    */
   shutdown(): void {
-    console.log('QuizScene: Shutdown called');
+    //console.log('QuizScene: Shutdown called');
     this.cleanup();
   }
 }
