@@ -1,8 +1,21 @@
 const gameSdk =(function(){
-    let userId = null;
-    let standarId = null;
-    let lnpid = null;
-    let gameId = null;
+    // Initialize parameters from URL
+    const parseUrlParams = () => {
+        const urlParams = new URLSearchParams(window.location.search);
+        return {
+            userId: (urlParams.get('userId') || urlParams.get('UserId')) ?? null,
+            standarId: (urlParams.get('standarId') || urlParams.get('StandardId')) ?? null,
+            lnpid: (urlParams.get('lnpid') || urlParams.get('LnpId')) ?? null,
+            gameId: (urlParams.get('gameId') || urlParams.get('GameId')) ?? null
+        };
+    };
+    
+    // Get parameters from URL
+    const params = parseUrlParams();
+    let userId = params.userId;
+    let standarId = params.standarId;
+    let lnpid = params.lnpid;
+    let gameId = params.gameId;
     let url="http://localhost:5000/api/v1";
     return {
         setParamater(userIdPr,standarIdPr,lnpidPr,gameIdPr){
@@ -29,8 +42,12 @@ const gameSdk =(function(){
                         let apiData = JSON.parse(xhr.responseText);
                         if (cbOnLoad!=null) {
                             if (apiData && apiData.result) {
+                                let metaData=null;
+                                if (apiData.result.gameConfig){
+                                    metaData=JSON.parse(apiData.result.gameConfig);
+                                }
                                 let formatResponse={    
-                                    metaData:JSON.parse(apiData.result.gameConfig),
+                                    metaData:metaData,
                                     question:apiData.result.questions.map(x=>({id:x.id,question:x.questionText,correctAnswer:x.correctAnswer.split("").join(","),difficulty:apiData.result.difficultyConvert,questionType:x.questionType.code,choices:JSON.parse(x.answerOptions).answers.map(y=>({key:y.OptionLabel,text:y.OptionText}))}))
                                 }
                                 cbOnLoad(formatResponse);

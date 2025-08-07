@@ -1,5 +1,7 @@
 import { GameState } from '../types/gameState';
 import { CursorManager } from '../managers/cursorManager';
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 
 export class GameOverScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -96,7 +98,18 @@ export class GameOverScene extends Phaser.Scene {
 
     // Add click event
     playAgainButton.on('pointerdown', () => {
-      this.scene.start('GameScene');
+      // Call startGame API before starting the game scene
+      gameSdk.startGame(
+        (result: any) => {
+          console.log('Game started successfully:', result);
+          this.scene.start('GameScene');
+        },
+        () => {
+          console.error('Failed to start game');
+          // Start game scene anyway to prevent blocking the user
+          this.scene.start('GameScene');
+        }
+      );
     });
 
     // Add main menu button

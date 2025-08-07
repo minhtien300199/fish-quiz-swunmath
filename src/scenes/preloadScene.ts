@@ -4,7 +4,8 @@ import { FishType, getFishPath, fishSizes, FishVariantType, fishVariants, hasFis
 import { FishFactory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
 import { HourglassLoadingBar } from '../components/HourglassLoadingBar';
-
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 // Define a global variable to store the questions
 declare global {
   interface Window {
@@ -43,28 +44,47 @@ export class PreloadScene extends Phaser.Scene {
   }
 
   create(): void {
-    // Mock API fetch for question bank
-    this.fetchQuestionBank().then(() => {
-      this.scene.start('MenuScene');
-    });
+    // Log URL parameters from apiService
+    console.log('Game URL Parameters loaded from apiService');
+    
+    // Call getQuestion API instead of using mock data
+    this.fetchQuestionFromAPI();
   }
 
-  private async fetchQuestionBank(): Promise<void> {
-    // Simulate API delay
-    return new Promise((resolve) => {
-
-
-      // Simulate network delay (1 second)
-      setTimeout(() => {
-        // Import question bank from local file
-        import('../datas/quesionBank').then(module => {
-          // Store questions in global variable for access across scenes
-          window.QUIZ_QUESTIONS = module.questionBank;
-
-          resolve();
-        });
-      }, 1000);
-    });
+  private fetchQuestionFromAPI(): void {
+    // Show loading message
+    if (this.hourglassLoadingBar) {
+      this.hourglassLoadingBar.show('Fetching questions from server...');
+    }
+    
+    // Call getQuestion API with callbacks
+    gameSdk.getQuestion(
+      // Progress callback
+      (event: ProgressEvent) => {
+        if (this.hourglassLoadingBar && event.lengthComputable) {
+          const progress = event.loaded / event.total;
+          this.hourglassLoadingBar.updateProgress(progress, `Loading questions... ${Math.round(progress * 100)}%`);
+        }
+      },
+      // Success callback
+      (data: any) => {
+        console.log('Questions loaded successfully:', data);
+        
+        // Store questions in global variable for access across scenes
+        window.QUIZ_QUESTIONS = data.question || [];
+        
+        // Start the menu scene
+        this.scene.start('MenuScene');
+      },
+      // Error callback
+      () => {
+        console.error('Failed to load questions from API');
+        
+        // Fallback to local question bank
+        console.log('Falling back to local question bank');
+        // this.fetchLocalQuestionBank();
+      }
+    );
   }
 
 

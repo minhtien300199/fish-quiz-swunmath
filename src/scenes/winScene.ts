@@ -1,6 +1,8 @@
 import { GameState } from '../types/gameState';
 import { FishType, getFishPath } from '../const/fishType';
 import { CursorManager } from '../managers/cursorManager';
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 
 export class WinScene extends Phaser.Scene {
   private gameState!: GameState;
@@ -141,8 +143,19 @@ export class WinScene extends Phaser.Scene {
 
     // Add restart button click event
     restartButton.on('pointerdown', () => {
-      // Restart the game with a fresh state
-      this.scene.start('GameScene', { reset: true });
+      // Call startGame API before restarting the game
+      gameSdk.startGame(
+        (result: any) => {
+          console.log('Game started successfully:', result);
+          // Restart the game with a fresh state
+          this.scene.start('GameScene', { reset: true });
+        },
+        () => {
+          console.error('Failed to start game');
+          // Start game scene anyway to prevent blocking the user
+          this.scene.start('GameScene', { reset: true });
+        }
+      );
     });
 
     // Add a main menu button (moved up)

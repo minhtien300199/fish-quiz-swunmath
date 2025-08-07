@@ -2,6 +2,8 @@ import { MusicManager } from '../managers/musicManager';
 import { LeaderboardManager, LeaderboardEntry } from '../managers/leaderboardManager';
 import { CursorManager } from '../managers/cursorManager';
 import { JoystickManager } from '../managers/joystickManager';
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 
 export class MenuScene extends Phaser.Scene {
   private joystickManager: JoystickManager | null = null;
@@ -45,7 +47,20 @@ export class MenuScene extends Phaser.Scene {
       centerY + startOffset,
       0x27ae60, // Green for New Game
       'New Game',
-      () => this.scene.start('GameScene', { reset: true })
+      () => {
+        // Call startGame API before starting the game scene
+        gameSdk.startGame(
+          (result: any) => {
+            console.log('Game started successfully:', result);
+            this.scene.start('GameScene', { reset: true });
+          },
+          () => {
+            console.error('Failed to start game');
+            // Start game scene anyway to prevent blocking the user
+            this.scene.start('GameScene', { reset: true });
+          }
+        );
+      }
     );
 
     this.createButton(
