@@ -9,6 +9,7 @@ interface QuizQuestion {
   choices: { key: string; text: string }[];
   correctAnswer: string;
   difficulty: number;
+  questionType: string; // 'MC' for multiple choice, 'MS' for multiple selection
 }
 
 export class QuizScene extends Phaser.Scene {
@@ -19,6 +20,7 @@ export class QuizScene extends Phaser.Scene {
   private questionText!: Phaser.GameObjects.Text;
   private optionTexts: Phaser.GameObjects.Text[] = [];
   private optionButtons: Phaser.GameObjects.Rectangle[] = [];
+  private choiceImages: Phaser.GameObjects.Image[] = []; // Store choice images for cleanup
   private timerText!: Phaser.GameObjects.Text;
   private timerEvent!: Phaser.Time.TimerEvent;
   private timeRemaining: number = 15;
@@ -152,7 +154,8 @@ export class QuizScene extends Phaser.Scene {
             { key: 'D', text: '16' }
           ],
           correctAnswer: 'B',
-          difficulty: 0
+          difficulty: 0,
+          questionType: 'MC' // Multiple choice
         },
         {
           question: 'What is 12 - 5?',
@@ -163,13 +166,17 @@ export class QuizScene extends Phaser.Scene {
             { key: 'D', text: '8' }
           ],
           correctAnswer: 'C',
-          difficulty: 0
+          difficulty: 0,
+          questionType: 'MC' // Multiple choice
         }
       ];
     }
   }
 
   private createQuizUI(): void {
+    // Clean up any existing choice images
+    this.cleanupChoiceImages();
+    
     // Additional safety check for currentFish
     if (!this.currentFish) {
       console.error('QuizScene.createQuizUI: currentFish is undefined, using default bass');
@@ -243,7 +250,7 @@ export class QuizScene extends Phaser.Scene {
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Create button background with more spacing for better layout
       const buttonY = firstButtonY + (i * 70); // Increased spacing between buttons
-
+      console.log('choice', this.currentQuestion.choices[i]);
       // Create a paper-style answer button
       const button = this.add.rectangle(
         this.cameras.main.width / 2,
@@ -259,19 +266,63 @@ export class QuizScene extends Phaser.Scene {
       const choice = this.currentQuestion.choices[i];
       const choiceDiv = document.createElement('div');
       choiceDiv.innerHTML = choice.text;
-      const plainChoiceText = choiceDiv.textContent || choiceDiv.innerText || choice.text;
+
+      // Process HTML content to create a formatted text representation
+      let displayText = `${choice.key}. `;
+      
+      // Process child nodes to preserve some formatting
+      Array.from(choiceDiv.childNodes).forEach(node => {
+        if (node.nodeType === Node.TEXT_NODE) {
+          // Add text content
+          displayText += node.textContent || '';
+        } else if (node.nodeType === Node.ELEMENT_NODE) {
+          const element = node as Element;
+          if (element.tagName.toLowerCase() === 'img') {
+            // For images, we'll indicate there's an image but the actual image will be displayed separately
+            displayText += ' [Image] ';
+          } else {
+            // For other elements, add their text content
+            displayText += element.textContent || '';
+          }
+        }
+      });
 
       // Create option text
       const optionText = this.add.text(
         this.cameras.main.width / 2,
         buttonY,
-        `${choice.key}. ${plainChoiceText}`,
+        displayText,
         {
           fontSize: '22px',
           color: '#000000', // Black text for better readability on light background
-          fontStyle: 'bold'
+          fontStyle: 'bold',
+          wordWrap: { width: 280 } // Wrap text to fit within button
         }
       ).setOrigin(0.5).setDepth(2);
+
+      // Check for images in the choice and process them
+      const choiceImages = choiceDiv.querySelectorAll('img');
+      if (choiceImages.length > 0) {
+        // Process each image
+        choiceImages.forEach((img, imgIndex) => {
+          const src = img.getAttribute('src');
+          if (src && src.startsWith('data:image')) {
+            // Load base64 image
+            this.loadBase64Image(src, `choice-${i}-img-${imgIndex}`, (textureKey) => {
+              // Position image within the button area
+              const imageY = buttonY; // Center vertically within button
+              const imageX = (this.cameras.main.width / 2) + 100; // Position to the right within button
+              
+              const choiceImage = this.add.image(imageX, imageY, textureKey);
+              choiceImage.setScale(1); // Scale down the image to fit within button
+              choiceImage.setDepth(3); // Ensure it appears above button
+              
+              // Store reference for cleanup
+              this.choiceImages.push(choiceImage);
+            });
+          }
+        });
+      }
 
       // Add hover effect
       button.on('pointerover', () => {
@@ -375,17 +426,49 @@ export class QuizScene extends Phaser.Scene {
     const selectedKey = this.currentQuestion.choices[selectedIndex].key;
     const button = this.optionButtons[selectedIndex];
     
-    // Toggle selection
-    if (this.selectedAnswers.has(selectedKey)) {
-      // Deselect
-      this.selectedAnswers.delete(selectedKey);
-      button.setFillStyle(0xf5f5f5); // Light color (unselected)
-      button.setStrokeStyle(2, 0x90caf9); // Normal border
-    } else {
-      // Select
+    // Handle different question types
+    if (this.currentQuestion.questionType === 'MC') {
+      // Single choice - deselect all other options first
+      this.selectedAnswers.forEach(key => {
+        const index = this.currentQuestion.choices.findIndex(choice => choice.key === key);
+        if (index !== -1) {
+          const otherButton = this.optionButtons[index];
+          otherButton.setFillStyle(0xf5f5f5); // Light color (unselected)
+          otherButton.setStrokeStyle(2, 0x90caf9); // Normal border
+        }
+      });
+      
+      // Clear all selections and select only the current one
+      this.selectedAnswers.clear();
       this.selectedAnswers.add(selectedKey);
-      button.setFillStyle(0x2e7d32); // Darker green for better contrast
-      button.setStrokeStyle(3, 0x1b5e20); // Darker green border
+      
+      // Update all button styles
+      this.optionButtons.forEach((btn, index) => {
+        // Ensure we don't go out of bounds
+        if (index < this.currentQuestion.choices.length) {
+          const key = this.currentQuestion.choices[index].key;
+          if (key === selectedKey) {
+            btn.setFillStyle(0x2e7d32); // Darker green for selected
+            btn.setStrokeStyle(3, 0x1b5e20); // Darker green border
+          } else {
+            btn.setFillStyle(0xf5f5f5); // Light color (unselected)
+            btn.setStrokeStyle(2, 0x90caf9); // Normal border
+          }
+        }
+      });
+    } else {
+      // Multiple selection (MS) - toggle selection normally
+      if (this.selectedAnswers.has(selectedKey)) {
+        // Deselect
+        this.selectedAnswers.delete(selectedKey);
+        button.setFillStyle(0xf5f5f5); // Light color (unselected)
+        button.setStrokeStyle(2, 0x90caf9); // Normal border
+      } else {
+        // Select
+        this.selectedAnswers.add(selectedKey);
+        button.setFillStyle(0x2e7d32); // Darker green for better contrast
+        button.setStrokeStyle(3, 0x1b5e20); // Darker green border
+      }
     }
 
     // Update submit button state
@@ -393,9 +476,17 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private updateSubmitButton(): void {
-    const hasSelections = this.selectedAnswers.size > 0;
+    let shouldEnable = false;
     
-    if (hasSelections) {
+    if (this.currentQuestion.questionType === 'MC') {
+      // For single choice, enable submit button when exactly one answer is selected
+      shouldEnable = this.selectedAnswers.size === 1;
+    } else {
+      // For multiple selection, enable submit button when at least one answer is selected
+      shouldEnable = this.selectedAnswers.size > 0;
+    }
+    
+    if (shouldEnable) {
       this.submitButton.setFillStyle(0x2196f3); // Blue (enabled)
       this.submitButton.setStrokeStyle(3, 0x1976d2);
       this.submitButtonText.setStyle({ color: '#ffffff' });
@@ -414,12 +505,19 @@ export class QuizScene extends Phaser.Scene {
     // Stop the timer
     this.timerEvent.remove();
 
-    // Check if the answer is correct
-    // User must select all correct answers and no incorrect ones
+    // Check if the answer is correct based on question type
+    let isCorrect = false;
     const selectedArray = Array.from(this.selectedAnswers).sort();
     const correctArray = this.correctAnswerKeys.sort();
-    const isCorrect = selectedArray.length === correctArray.length && 
-                     selectedArray.every(key => correctArray.includes(key));
+    
+    if (this.currentQuestion.questionType === 'MC') {
+      // For single choice, user must select exactly one correct answer
+      isCorrect = selectedArray.length === 1 && correctArray.includes(selectedArray[0]);
+    } else {
+      // For multiple selection, user must select all correct answers and no incorrect ones
+      isCorrect = selectedArray.length === correctArray.length && 
+                  selectedArray.every(key => correctArray.includes(key));
+    }
 
     // Calculate time bonus - how much time is left
     const timeBonus = this.timeRemaining;
@@ -450,6 +548,7 @@ export class QuizScene extends Phaser.Scene {
       const src = img.getAttribute('src');
 
       if (src && src.startsWith('data:image')) {
+        debugger;
         hasImage = true;
         // Create a temporary image element to load the base64 image
         const tempImg = new Image();
@@ -690,5 +789,49 @@ export class QuizScene extends Phaser.Scene {
       .split(' ')
       .map(word => word.charAt(0).toUpperCase() + word.slice(1)) // Capitalize first letter of each word
       .join(' ');
+  }
+
+  /**
+   * Load a base64 image and create a texture from it
+   * @param base64Data The base64 image data
+   * @param key The texture key to use
+   * @param callback Callback function to execute when image is loaded
+   */
+  private loadBase64Image(base64Data: string, key: string, callback: (textureKey: string) => void): void {
+    // Check if texture already exists
+    if (this.textures.exists(key)) {
+      callback(key);
+      return;
+    }
+
+    // Create a temporary image element to load the base64 image
+    const tempImg = new Image();
+    tempImg.onload = () => {
+      // Create a canvas to convert the image to a texture
+      const canvas = document.createElement('canvas');
+      canvas.width = tempImg.width;
+      canvas.height = tempImg.height;
+      const ctx = canvas.getContext('2d');
+      if (ctx) {
+        ctx.drawImage(tempImg, 0, 0);
+        // Create a texture from the canvas
+        this.textures.addCanvas(key, canvas);
+        callback(key);
+      }
+    };
+    tempImg.src = base64Data;
+  }
+
+  /**
+   * Clean up choice images to prevent memory leaks
+   */
+  private cleanupChoiceImages(): void {
+    // Destroy choice images
+    this.choiceImages.forEach(image => {
+      if (image && image.scene) {
+        image.destroy();
+      }
+    });
+    this.choiceImages = [];
   }
 }
