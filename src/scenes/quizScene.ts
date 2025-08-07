@@ -27,6 +27,10 @@ export class QuizScene extends Phaser.Scene {
   private fishSprite!: Phaser.GameObjects.Image;
   private fishNameText!: Phaser.GameObjects.Text;
   private completionData: CompletionData | null = null;
+  private selectedAnswers: Set<string> = new Set(); // Track selected answer keys
+  private submitButton!: Phaser.GameObjects.Rectangle;
+  private submitButtonText!: Phaser.GameObjects.Text;
+  private correctAnswerKeys: string[] = []; // Parsed correct answers
 
   constructor() {
     super({ key: 'QuizScene' });
@@ -59,6 +63,12 @@ export class QuizScene extends Phaser.Scene {
 
     // Select a random question
     this.currentQuestion = this.questions[Phaser.Math.Between(0, this.questions.length - 1)];
+
+    // Parse correct answers (support comma-separated values)
+    this.correctAnswerKeys = this.currentQuestion.correctAnswer.split(',').map(key => key.trim());
+
+    // Reset selected answers
+    this.selectedAnswers.clear();
 
     // Create UI with paper background
     this.createPaperBackground();
@@ -271,19 +281,77 @@ export class QuizScene extends Phaser.Scene {
       });
 
       button.on('pointerout', () => {
-        button.setFillStyle(0xf5f5f5); // Back to light color
-        button.setStrokeStyle(2, 0x90caf9); // Normal border
-        optionText.setStyle({ fontSize: '22px', color: '#000000', fontStyle: 'bold' }); // Normal text
+        // Check if this answer is currently selected
+        const selectedKey = this.currentQuestion.choices[i].key;
+        const isSelected = this.selectedAnswers.has(selectedKey);
+        
+        if (isSelected) {
+          // Keep selected style
+          button.setFillStyle(0x2e7d32); // Dark green for selected
+          button.setStrokeStyle(3, 0x1b5e20); // Darker green border
+        } else {
+          // Reset to default style
+          button.setFillStyle(0xf5f5f5); // Light color (unselected)
+          button.setStrokeStyle(2, 0x90caf9); // Normal border
+        }
+        
+        // Only reset font size, not color
+        optionText.setStyle({ fontSize: '22px' });
       });
 
       // Add click event
       button.on('pointerdown', () => {
-        this.checkAnswer(i);
+        this.toggleAnswer(i);
       });
 
       this.optionButtons.push(button);
       this.optionTexts.push(optionText);
     }
+
+    // Add submit button below all options
+    const submitButtonY = firstButtonY + (this.currentQuestion.choices.length * 70) + 30;
+    
+    this.submitButton = this.add.rectangle(
+      this.cameras.main.width / 2,
+      submitButtonY,
+      200,
+      50,
+      0xcccccc // Gray (disabled initially)
+    )
+      .setStrokeStyle(2, 0x999999)
+      .setDepth(1);
+
+    this.submitButtonText = this.add.text(
+      this.cameras.main.width / 2,
+      submitButtonY,
+      'Submit Answer',
+      {
+        fontSize: '20px',
+        color: '#666666',
+        fontStyle: 'bold'
+      }
+    ).setOrigin(0.5).setDepth(2);
+
+    // Initially disabled
+    this.submitButton.disableInteractive();
+
+    // Add hover effects for submit button
+    this.submitButton.on('pointerover', () => {
+      if (this.selectedAnswers.size > 0) {
+        this.submitButton.setFillStyle(0x1976d2); // Darker blue on hover
+      }
+    });
+
+    this.submitButton.on('pointerout', () => {
+      if (this.selectedAnswers.size > 0) {
+        this.submitButton.setFillStyle(0x2196f3); // Back to normal blue
+      }
+    });
+
+    // Add click event for submit
+    this.submitButton.on('pointerdown', () => {
+      this.submitAnswer();
+    });
   }
 
   private startTimer(): void {
@@ -303,20 +371,64 @@ export class QuizScene extends Phaser.Scene {
     });
   }
 
-  private checkAnswer(selectedIndex: number): void {
+  private toggleAnswer(selectedIndex: number): void {
+    const selectedKey = this.currentQuestion.choices[selectedIndex].key;
+    const button = this.optionButtons[selectedIndex];
+    
+    // Toggle selection
+    if (this.selectedAnswers.has(selectedKey)) {
+      // Deselect
+      this.selectedAnswers.delete(selectedKey);
+      button.setFillStyle(0xf5f5f5); // Light color (unselected)
+      button.setStrokeStyle(2, 0x90caf9); // Normal border
+    } else {
+      // Select
+      this.selectedAnswers.add(selectedKey);
+      button.setFillStyle(0x2e7d32); // Darker green for better contrast
+      button.setStrokeStyle(3, 0x1b5e20); // Darker green border
+    }
+
+    // Update submit button state
+    this.updateSubmitButton();
+  }
+
+  private updateSubmitButton(): void {
+    const hasSelections = this.selectedAnswers.size > 0;
+    
+    if (hasSelections) {
+      this.submitButton.setFillStyle(0x2196f3); // Blue (enabled)
+      this.submitButton.setStrokeStyle(3, 0x1976d2);
+      this.submitButtonText.setStyle({ color: '#ffffff' });
+      this.submitButton.setInteractive();
+    } else {
+      this.submitButton.setFillStyle(0xcccccc); // Gray (disabled)
+      this.submitButton.setStrokeStyle(2, 0x999999);
+      this.submitButtonText.setStyle({ color: '#666666' });
+      this.submitButton.disableInteractive();
+    }
+  }
+
+  private submitAnswer(): void {
+    if (this.selectedAnswers.size === 0) return;
+
     // Stop the timer
     this.timerEvent.remove();
 
     // Check if the answer is correct
-    const selectedKey = this.currentQuestion.choices[selectedIndex].key;
-    const isCorrect = selectedKey === this.currentQuestion.correctAnswer;
+    // User must select all correct answers and no incorrect ones
+    const selectedArray = Array.from(this.selectedAnswers).sort();
+    const correctArray = this.correctAnswerKeys.sort();
+    const isCorrect = selectedArray.length === correctArray.length && 
+                     selectedArray.every(key => correctArray.includes(key));
 
     // Calculate time bonus - how much time is left
     const timeBonus = this.timeRemaining;
 
+    // Create user answer string for display
+    const userAnswer = selectedArray.join(', ');
 
     // Show result and pass time bonus and user answer
-    this.showResult(isCorrect, timeBonus, selectedKey);
+    this.showResult(isCorrect, timeBonus, userAnswer);
   }
 
   private displayQuestionContent(): void {
@@ -478,6 +590,11 @@ export class QuizScene extends Phaser.Scene {
       }
     });
 
+    // Disable submit button
+    if (this.submitButton && this.submitButton.input) {
+      this.submitButton.disableInteractive();
+    }
+
     // Update fish state based on result
     if (this.fishSprite) {
       FishFactory.updateFishAnimation(
@@ -486,28 +603,65 @@ export class QuizScene extends Phaser.Scene {
       );
     }
 
-    // Find the index of the correct answer
-    const correctAnswerIndex = this.currentQuestion.choices.findIndex(
-      choice => choice.key === this.currentQuestion.correctAnswer
-    );
+    // Highlight all correct answers
+    this.correctAnswerKeys.forEach(correctKey => {
+      const correctAnswerIndex = this.currentQuestion.choices.findIndex(
+        choice => choice.key === correctKey
+      );
+      
+      if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
+        this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00); // Green for correct
+        // Remove text style change to avoid Phaser errors
+      }
+    });
 
-    // Highlight correct answer if found
-    if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
-      this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00);
-    }
+    // Highlight user's incorrect selections in red
+    this.selectedAnswers.forEach(selectedKey => {
+      if (!this.correctAnswerKeys.includes(selectedKey)) {
+        const incorrectIndex = this.currentQuestion.choices.findIndex(
+          choice => choice.key === selectedKey
+        );
+        
+        if (incorrectIndex >= 0 && incorrectIndex < this.optionButtons.length) {
+          this.optionButtons[incorrectIndex].setFillStyle(0xff0000); // Red for incorrect
+          // Remove text style change to avoid Phaser errors
+        }
+      }
+    });
 
-    // Show result text
+    // Show result text - position it more prominently
     const resultText = this.add.text(
       this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 250,
-      isCorrect ? 'Correct! You caught the fish!' : 'Wrong! The fish got away!',
+      this.cameras.main.height / 2 - 50, // More visible position
+      isCorrect ? 'CORRECT! You caught the fish!' : 'WRONG! The fish got away!',
       {
-        fontSize: '32px',
+        fontSize: '36px',
         color: isCorrect ? '#00ff00' : '#ff0000',
         stroke: '#000000',
-        strokeThickness: 4
+        strokeThickness: 4,
+        fontStyle: 'bold'
       }
-    ).setOrigin(0.5);
+    ).setOrigin(0.5).setDepth(10); // Higher depth to ensure visibility
+    
+    // Add explanation text for incorrect answers
+    if (!isCorrect) {
+      // Create a string showing the correct answers
+      const correctAnswersText = 'Correct answer' + 
+        (this.correctAnswerKeys.length > 1 ? 's' : '') + 
+        ': ' + this.correctAnswerKeys.join(', ');
+      
+      const explanationText = this.add.text(
+        this.cameras.main.width / 2,
+        this.cameras.main.height / 2, // Just below the result text
+        correctAnswersText,
+        {
+          fontSize: '28px',
+          color: '#ffffff',
+          stroke: '#000000',
+          strokeThickness: 3
+        }
+      ).setOrigin(0.5).setDepth(10);
+    }
 
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
