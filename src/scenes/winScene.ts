@@ -147,6 +147,11 @@ export class WinScene extends Phaser.Scene {
       gameSdk.startGame(
         (result: any) => {
           console.log('Game started successfully:', result);
+          // Store the GameAttemptId for question submissions
+          if (result && result.id) {
+            window.GAME_ATTEMPT_ID = result.id;
+            console.log('GameAttemptId stored:', result.id);
+          }
           // Restart the game with a fresh state
           this.scene.start('GameScene', { reset: true });
         },

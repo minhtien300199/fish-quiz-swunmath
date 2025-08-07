@@ -4,6 +4,7 @@ import { CursorManager } from '../managers/cursorManager';
 import { JoystickManager } from '../managers/joystickManager';
 // @ts-ignore
 import gameSdk from '../service/apiService.js';
+import { GameAttempRecord } from 'types/quiz.model';
 
 export class MenuScene extends Phaser.Scene {
   private joystickManager: JoystickManager | null = null;
@@ -52,6 +53,12 @@ export class MenuScene extends Phaser.Scene {
         gameSdk.startGame(
           (result: any) => {
             console.log('Game started successfully:', result);
+            let startInstanceData: GameAttempRecord = result;
+            // Store the GameAttemptId for question submissions
+            if (result && result.id) {
+              window.GAME_ATTEMPT_ID = result.id;
+              console.log('GameAttemptId stored:', result.id);
+            }
             this.scene.start('GameScene', { reset: true });
           },
           () => {

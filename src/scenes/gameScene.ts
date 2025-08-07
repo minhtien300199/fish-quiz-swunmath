@@ -14,6 +14,8 @@ import { BoxFactory, BoxState } from '../factories/boxFactory';
 import { FishQuizModal, FishQuizData } from '../components/FishQuizModal';
 import { TutorialStepper } from '../components/TutorialStepper';
 import { CursorManager } from '../managers/cursorManager';
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
 
@@ -47,6 +49,7 @@ export class GameScene extends Phaser.Scene {
   private completionData: CompletionData | null = null;
   private points: number = 0;
   private pointsText!: Phaser.GameObjects.Text;
+  private gameStartTime: number = 0; // Track overall game time
   private currentBoatType: BoatType = BoatType.BLUE;
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
   private shouldReset: boolean = false;
@@ -156,6 +159,9 @@ export class GameScene extends Phaser.Scene {
     // Always reset these states regardless
     this.fishingState = 'idle';
     this.currentFish = null;
+
+    // Initialize game start time for overall time tracking
+    this.gameStartTime = Date.now();
 
     // Load the tilemap from the JSON file
     const map = this.make.tilemap({ key: 'map' });
@@ -997,7 +1003,7 @@ export class GameScene extends Phaser.Scene {
             // Listen for quiz completion
             this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
               if (data && data.success) {
-                // Show fish celebration first, then continue with other logic
+                // Correct answer: Show celebration and handle success
                 if (this.currentFish) {
                   this.showFishCelebration(this.currentFish, () => {
                     // Continue with success logic after celebration
@@ -1008,15 +1014,8 @@ export class GameScene extends Phaser.Scene {
                   this.handleQuizSuccess(data);
                 }
               } else {
-                this.lives--;
-                this.gameState.lives = this.lives;
-
-                if (this.lives <= 0) {
-                  this.gameOver();
-                }
-
-                // Clean up fishing
-                this.cleanUpFishing();
+                // Incorrect answer: Still increment progress but with different handling
+                this.handleQuizAttempt(data, false);
               }
             });
           });
@@ -2052,7 +2051,40 @@ export class GameScene extends Phaser.Scene {
     // Always save score to leaderboard when game ends (win or lose)
     this.saveScoreToLeaderboard();
 
-    this.scene.start('GameOverScene', { gameState: this.gameState });
+    // Call completeGame API before transitioning to game over scene
+    this.completeGameSession(() => {
+      this.scene.start('GameOverScene', { gameState: this.gameState });
+    });
+  }
+
+  /**
+   * Call completeGame API before ending the game
+   */
+  private completeGameSession(callback: () => void): void {
+    // Calculate total time spent in seconds
+    const totalTimeMs = Date.now() - this.gameStartTime;
+    const timeSpentSeconds = Math.round(totalTimeMs / 1000);
+
+    const payload = {
+      gameAttemptId: window.GAME_ATTEMPT_ID || '',
+      timeSpentSeconds: timeSpentSeconds,
+      totalScore: this.points
+    };
+
+    console.log('Completing game session:', payload);
+
+    // Call the completeGame API
+    gameSdk.completeGame(
+      payload,
+      (result: any) => {
+        console.log('Game completed successfully:', result);
+        callback(); // Proceed to win/lose scene
+      },
+      () => {
+        console.error('Failed to complete game');
+        callback(); // Proceed anyway to prevent blocking the user
+      }
+    );
   }
 
   /**
@@ -2072,13 +2104,16 @@ export class GameScene extends Phaser.Scene {
     this.fishingState = 'idle';
     this.currentFish = null;
 
-    // Play a victory sound if available
-    // this.sound.play('victory');
+    // Call completeGame API before transitioning to win scene
+    this.completeGameSession(() => {
+      // Play a victory sound if available
+      // this.sound.play('victory');
 
-    // Transition to the win scene
-    this.scene.start('WinScene', {
-      gameState: this.gameState,
-      completionTitle: this.completionData?.title || 'Easy'
+      // Transition to the win scene
+      this.scene.start('WinScene', {
+        gameState: this.gameState,
+        completionTitle: this.completionData?.title || 'Easy'
+      });
     });
   }
 
@@ -3342,6 +3377,114 @@ export class GameScene extends Phaser.Scene {
 
     // Clean up fishing
     this.cleanUpFishing();
+  }
+
+  /**
+   * Handle quiz attempt (both correct and incorrect answers)
+   * Progress always increases, but rewards differ based on correctness
+   */
+  private handleQuizAttempt(data: any, isCorrect: boolean): void {
+    // Store quiz data if provided
+    if (data.quizData) {
+      this.fishQuizDataList.push(data.quizData);
+    }
+
+    // ALWAYS increment fish caught counter (this is the key change)
+    this.fishCaught++;
+    console.log(`Quiz attempt completed. Progress: ${this.fishCaught}. Answer was ${isCorrect ? 'correct' : 'incorrect'}`);
+
+    if (isCorrect) {
+      // For correct answers, add fish to collection and award full points
+      let isNewFish = false;
+      if (this.currentFish) {
+        isNewFish = FishCollectionManager.addCaughtFish(this.currentFish);
+
+        // Add fish to current run tracking
+        this.gameState.currentRunFish.push(this.currentFish.toString());
+
+        // Update game state with current caught fish types
+        this.gameState.caughtFishTypes = FishCollectionManager.getCaughtFishTypes();
+
+        // Add the caught fish to the storage box
+        this.addFishToBox(this.currentFish);
+
+        // Show new fish discovery notification if it's a new catch
+        if (isNewFish) {
+          this.showNewFishNotification(this.currentFish);
+        }
+      }
+
+      // Award full points for correct answers
+      const fishType: 'small' | 'medium' | 'rare' = 'medium'; // Default for correct answers
+      const pointsAwarded = pointRules[fishType];
+      this.points += pointsAwarded;
+
+      // Check for time bonus
+      if (data.timeBonus && data.timeBonus > 0) {
+        const bonusPoints = data.timeBonus * 10;
+        this.points += bonusPoints;
+        this.showBonusPointsNotification(bonusPoints);
+      }
+
+      this.showPointsNotification(pointsAwarded, fishType);
+    } else {
+      // For incorrect answers, give minimal points but still count progress
+      const minimalPoints = pointRules['small']; // Minimal points for wrong answers
+      this.points += Math.floor(minimalPoints / 2); // Half points for incorrect answers
+
+      // Decrease lives for wrong answers
+      this.lives--;
+      this.gameState.lives = this.lives;
+
+      // Show different notification for wrong answer
+      this.showIncorrectAnswerNotification();
+
+      // Check for game over
+      if (this.lives <= 0) {
+        this.gameOver();
+        return; // Don't continue if game is over
+      }
+    }
+
+    // Update game state
+    this.gameState.fishCaught = this.fishCaught;
+    this.gameState.score = this.points;
+
+    // Reset fishing state to idle
+    this.fishingState = 'idle';
+
+    // Clean up fishing elements
+    this.cleanUpFishing();
+  }
+
+  /**
+   * Show notification for incorrect answers
+   */
+  private showIncorrectAnswerNotification(): void {
+    const notificationText = this.add.text(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2 - 100,
+      'Wrong Answer!\nProgress still counts!',
+      {
+        fontSize: '32px',
+        color: '#ff6600',
+        stroke: '#000000',
+        strokeThickness: 3,
+        fontStyle: 'bold',
+        align: 'center'
+      }
+    ).setOrigin(0.5).setDepth(100);
+
+    // Fade out after 2 seconds
+    this.tweens.add({
+      targets: notificationText,
+      alpha: 0,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => {
+        notificationText.destroy();
+      }
+    });
   }
 
   /**

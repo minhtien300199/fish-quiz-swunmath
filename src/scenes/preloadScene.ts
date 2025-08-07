@@ -6,10 +6,13 @@ import { CursorManager } from '../managers/cursorManager';
 import { HourglassLoadingBar } from '../components/HourglassLoadingBar';
 // @ts-ignore
 import gameSdk from '../service/apiService.js';
-// Define a global variable to store the questions
+import { QuizQuestion } from "types/quiz.model";
+// Define global variables to store the questions and total count
 declare global {
   interface Window {
     QUIZ_QUESTIONS: any[];
+    TOTAL_QUESTIONS: number;
+    GAME_ATTEMPT_ID: string;
   }
 }
 
@@ -46,7 +49,7 @@ export class PreloadScene extends Phaser.Scene {
   create(): void {
     // Log URL parameters from apiService
     console.log('Game URL Parameters loaded from apiService');
-    
+
     // Call getQuestion API instead of using mock data
     this.fetchQuestionFromAPI();
   }
@@ -56,7 +59,7 @@ export class PreloadScene extends Phaser.Scene {
     if (this.hourglassLoadingBar) {
       this.hourglassLoadingBar.show('Fetching questions from server...');
     }
-    
+
     // Call getQuestion API with callbacks
     gameSdk.getQuestion(
       // Progress callback
@@ -69,20 +72,32 @@ export class PreloadScene extends Phaser.Scene {
       // Success callback
       (data: any) => {
         console.log('Questions loaded successfully:', data);
-        
+        let quizQuestions: QuizQuestion = data.question || null;
         // Store questions in global variable for access across scenes
         window.QUIZ_QUESTIONS = data.question || [];
-        
+
+        // Store the total number of questions for completion logic
+        window.TOTAL_QUESTIONS = (data.question || []).length;
+
+        console.log('data', data);
+        console.log(`Loaded ${window.TOTAL_QUESTIONS} questions from API`);
+
         // Start the menu scene
         this.scene.start('MenuScene');
       },
       // Error callback
       () => {
         console.error('Failed to load questions from API');
-        
+
         // Fallback to local question bank
         console.log('Falling back to local question bank');
-        // this.fetchLocalQuestionBank();
+
+        // Set fallback values
+        window.QUIZ_QUESTIONS = [];
+        window.TOTAL_QUESTIONS = 0;
+
+        // Start the menu scene even if API fails
+        this.scene.start('MenuScene');
       }
     );
   }

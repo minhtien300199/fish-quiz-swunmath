@@ -102,6 +102,11 @@ export class GameOverScene extends Phaser.Scene {
       gameSdk.startGame(
         (result: any) => {
           console.log('Game started successfully:', result);
+          // Store the GameAttemptId for question submissions
+          if (result && result.id) {
+            window.GAME_ATTEMPT_ID = result.id;
+            console.log('GameAttemptId stored:', result.id);
+          }
           this.scene.start('GameScene');
         },
         () => {

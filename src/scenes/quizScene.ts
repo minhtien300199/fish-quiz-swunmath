@@ -3,8 +3,11 @@ import { CompletionData, fetchCompletionData } from '../datas/completion';
 import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fishType';
 import { FishFactory, FishState, FishSizeCategory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
+// @ts-ignore
+import gameSdk from '../service/apiService.js';
 
 interface QuizQuestion {
+  id?: string; // Question ID from backend API
   question: string;
   choices: { key: string; text: string }[];
   correctAnswer: string;
@@ -33,6 +36,7 @@ export class QuizScene extends Phaser.Scene {
   private submitButton!: Phaser.GameObjects.Rectangle;
   private submitButtonText!: Phaser.GameObjects.Text;
   private correctAnswerKeys: string[] = []; // Parsed correct answers
+  private questionStartTime: number = 0; // Track when question started
 
   constructor() {
     super({ key: 'QuizScene' });
@@ -83,6 +87,9 @@ export class QuizScene extends Phaser.Scene {
 
     // Start timer
     this.startTimer();
+
+    // Record when the question started for time tracking
+    this.questionStartTime = Date.now();
 
     // Initialize cursor management for this scene
     CursorManager.createCursor(this);
@@ -146,8 +153,8 @@ export class QuizScene extends Phaser.Scene {
   private createQuizQuestions(): void {
     // Use questions from the mock API (global variable)
     if (window.QUIZ_QUESTIONS && window.QUIZ_QUESTIONS.length > 0) {
-
       this.questions = window.QUIZ_QUESTIONS;
+      console.log(`Loaded ${this.questions.length} questions from API for quiz`);
     } else {
       // Fallback to default questions if API data is not available
       console.warn('API questions not available, using fallback questions');
@@ -177,6 +184,11 @@ export class QuizScene extends Phaser.Scene {
           questionType: 'MC' // Multiple choice
         }
       ];
+
+      // Update the global total if we're using fallback
+      if (!(window as any).TOTAL_QUESTIONS) {
+        (window as any).TOTAL_QUESTIONS = this.questions.length;
+      }
     }
   }
 
@@ -468,7 +480,13 @@ export class QuizScene extends Phaser.Scene {
         if (this.timeRemaining <= 0) {
           // Time's up, player loses
           this.timerEvent.remove();
-          this.showResult(false);
+
+          // Calculate time spent and save timeout attempt
+          const timeSpentMs = Date.now() - this.questionStartTime;
+          const timeSpentSeconds = Math.round(timeSpentMs / 1000);
+
+          // No answer selected for timeout
+          this.saveQuestionAttempt(timeSpentSeconds, '', false, 0);
         }
       },
       callbackScope: this,
@@ -576,6 +594,10 @@ export class QuizScene extends Phaser.Scene {
     // Stop the timer
     this.timerEvent.remove();
 
+    // Calculate time spent on this question (in seconds)
+    const timeSpentMs = Date.now() - this.questionStartTime;
+    const timeSpentSeconds = Math.round(timeSpentMs / 1000);
+
     // Check if the answer is correct based on question type
     let isCorrect = false;
     const selectedArray = Array.from(this.selectedAnswers).sort();
@@ -594,10 +616,40 @@ export class QuizScene extends Phaser.Scene {
     const timeBonus = this.timeRemaining;
 
     // Create user answer string for display
-    const userAnswer = selectedArray.join(', ');
+    const userAnswer = selectedArray.join(','); // Use comma without space for API
 
-    // Show result and pass time bonus and user answer
-    this.showResult(isCorrect, timeBonus, userAnswer);
+    // Call API to save question attempt before showing results
+    this.saveQuestionAttempt(timeSpentSeconds, userAnswer, isCorrect, timeBonus);
+  }
+
+  /**
+   * Save question attempt to the backend API
+   */
+  private saveQuestionAttempt(timeSpent: number, submitAnswer: string, isCorrect: boolean, timeBonus: number): void {
+    // Prepare payload for API
+    const payload = {
+      GameAttemptId: window.GAME_ATTEMPT_ID || '',
+      questionId: this.currentQuestion.id || '', // Assuming questions have an id field
+      timespent: timeSpent,
+      submittedAnswer: submitAnswer
+    };
+
+    console.log('Saving question attempt:', payload);
+
+    // Call the postQuestion API
+    gameSdk.postQuestiion(
+      payload,
+      (result: any) => {
+        console.log('Question saved successfully:', result);
+        // Show result after successful API call
+        this.showResult(isCorrect, timeBonus, submitAnswer);
+      },
+      () => {
+        console.error('Failed to save question');
+        // Show result even if API fails to prevent blocking the user
+        this.showResult(isCorrect, timeBonus, submitAnswer);
+      }
+    );
   }
 
   private displayQuestionContent(): void {
