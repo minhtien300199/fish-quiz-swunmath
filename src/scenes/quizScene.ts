@@ -60,6 +60,11 @@ export class QuizScene extends Phaser.Scene {
   }
 
   create(): void {
+    console.log('QuizScene: Creating scene...');
+
+    // Ensure clean state before creating new elements
+    this.resetScene();
+
     // Create quiz questions
     this.createQuizQuestions();
 
@@ -81,6 +86,8 @@ export class QuizScene extends Phaser.Scene {
 
     // Initialize cursor management for this scene
     CursorManager.createCursor(this);
+
+    console.log('QuizScene: Scene creation completed');
   }
 
   private createPaperBackground(): void {
@@ -174,9 +181,10 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private createQuizUI(): void {
-    // Clean up any existing choice images
+    // Clean up any existing choice images and UI elements
     this.cleanupChoiceImages();
-    
+    this.cleanupUIElements();
+
     // Additional safety check for currentFish
     if (!this.currentFish) {
       console.error('QuizScene.createQuizUI: currentFish is undefined, using default bass');
@@ -249,26 +257,26 @@ export class QuizScene extends Phaser.Scene {
     const firstButtonY = this.cameras.main.height * 0.55; // Move down to fit within the taller paper
     const gridSpacingX = 220; // Horizontal spacing between buttons
     const gridSpacingY = 100; // Vertical spacing between buttons
-    
+
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Calculate position in 2x2 grid
       const row = Math.floor(i / 2); // 0 for first row, 1 for second row
       const col = i % 2; // 0 for left column, 1 for right column
-      
+
       // Calculate button position
       const buttonX = (this.cameras.main.width / 2) + ((col === 0) ? -gridSpacingX : gridSpacingX);
       const buttonY = firstButtonY + (row * gridSpacingY);
-      
+
       console.log('choice', this.currentQuestion.choices[i]);
-      
+
       // Get choice and parse HTML content if needed
       const choice = this.currentQuestion.choices[i];
       const choiceDiv = document.createElement('div');
       choiceDiv.innerHTML = choice.text;
-      
+
       // Process HTML content to create a formatted text representation
       let displayText = `${choice.key}. `;
-      
+
       // Process child nodes to preserve some formatting
       Array.from(choiceDiv.childNodes).forEach(node => {
         if (node.nodeType === Node.TEXT_NODE) {
@@ -285,7 +293,7 @@ export class QuizScene extends Phaser.Scene {
           }
         }
       });
-      
+
       // Create temporary text to measure dimensions
       const tempText = this.add.text(0, 0, displayText, {
         fontSize: '22px',
@@ -293,18 +301,18 @@ export class QuizScene extends Phaser.Scene {
         fontStyle: 'bold',
         wordWrap: { width: 400 } // Temporary wrap width for measurement
       });
-      
+
       // Calculate button dimensions based on text
       const textWidth = tempText.width;
       const textHeight = tempText.height;
-      
+
       // Clean up temporary text
       tempText.destroy();
-      
+
       // Calculate button dimensions (add padding)
       const buttonWidth = Math.max(400, textWidth + 80); // Minimum 400px width
       const buttonHeight = Math.max(90, textHeight + 50); // Minimum 90px height
-      
+
       // Create a paper-style answer button with dynamic size
       const button = this.add.rectangle(
         buttonX,
@@ -341,13 +349,13 @@ export class QuizScene extends Phaser.Scene {
               // Position image within the button area
               const imageY = buttonY; // Center vertically within button
               const imageX = buttonX + (buttonWidth / 2) - 50; // Position to the right within button
-              
+
               const choiceImage = this.add.image(imageX, imageY, textureKey);
               // Scale image to fit within button height
               const maxImageHeight = buttonHeight * 0.7;
               choiceImage.setScale(Math.min(1.2, maxImageHeight / choiceImage.height));
               choiceImage.setDepth(3); // Ensure it appears above button
-              
+
               // Store reference for cleanup
               this.choiceImages.push(choiceImage);
             });
@@ -355,35 +363,50 @@ export class QuizScene extends Phaser.Scene {
         });
       }
 
+      // Store button index for event handlers
+      button.setData('buttonIndex', i);
+      optionText.setData('buttonIndex', i);
+
       // Add hover effect
       button.on('pointerover', () => {
-        button.setFillStyle(0xe3f2fd); // Light blue highlight
-        button.setStrokeStyle(3, 0x2196f3); // Thicker blue border
-        optionText.setStyle({ fontSize: '23px' }); // Slightly larger text
+        const buttonIndex = button.getData('buttonIndex');
+        const currentKey = this.currentQuestion.choices[buttonIndex].key;
+        const isCurrentlySelected = this.selectedAnswers.has(currentKey);
+
+        if (isCurrentlySelected) {
+          // For selected buttons, show a darker green hover effect
+          button.setFillStyle(0x1b5e20); // Even darker green for selected hover
+          button.setStrokeStyle(3, 0x0d4f17); // Very dark green border
+        } else {
+          // For unselected buttons, show blue hover effect
+          button.setFillStyle(0xe3f2fd); // Light blue highlight
+          button.setStrokeStyle(3, 0x2196f3); // Thicker blue border
+        }
+
+        // Find the corresponding text element and increase font size
+        const textIndex = optionText.getData('buttonIndex');
+        if (textIndex === buttonIndex) {
+          optionText.setStyle({ fontSize: '23px' });
+        }
       });
 
       button.on('pointerout', () => {
-        // Check if this answer is currently selected
-        const selectedKey = this.currentQuestion.choices[i].key;
-        const isSelected = this.selectedAnswers.has(selectedKey);
-        
-        if (isSelected) {
-          // Keep selected style
-          button.setFillStyle(0x2e7d32); // Dark green for selected
-          button.setStrokeStyle(3, 0x1b5e20); // Darker green border
-        } else {
-          // Reset to default style
-          button.setFillStyle(0xf5f5f5); // Light color (unselected)
-          button.setStrokeStyle(2, 0x90caf9); // Normal border
-        }
-        
-        // Only reset font size, not color
-        optionText.setStyle({ fontSize: '22px' });
+        // Use the centralized button style update method
+        // This ensures consistency with the current selection state
+        this.updateAllButtonStyles();
+
+        // Reset font size for all option texts
+        this.optionTexts.forEach(text => {
+          if (text && text.scene) {
+            text.setStyle({ fontSize: '22px' });
+          }
+        });
       });
 
       // Add click event
       button.on('pointerdown', () => {
-        this.toggleAnswer(i);
+        const buttonIndex = button.getData('buttonIndex');
+        this.toggleAnswer(buttonIndex);
       });
 
       this.optionButtons.push(button);
@@ -392,7 +415,7 @@ export class QuizScene extends Phaser.Scene {
 
     // Add submit button below all options
     const submitButtonY = firstButtonY + (this.currentQuestion.choices.length * 70) + 30;
-    
+
     this.submitButton = this.add.rectangle(
       this.cameras.main.width / 2,
       submitButtonY,
@@ -456,59 +479,76 @@ export class QuizScene extends Phaser.Scene {
   private toggleAnswer(selectedIndex: number): void {
     const selectedKey = this.currentQuestion.choices[selectedIndex].key;
     const button = this.optionButtons[selectedIndex];
-    
+
     // Handle different question types
     if (this.currentQuestion.questionType === 'MC') {
-      // Single choice - deselect all other options first
-      this.selectedAnswers.forEach(key => {
-        const index = this.currentQuestion.choices.findIndex(choice => choice.key === key);
-        if (index !== -1) {
-          const otherButton = this.optionButtons[index];
-          otherButton.setFillStyle(0xf5f5f5); // Light color (unselected)
-          otherButton.setStrokeStyle(2, 0x90caf9); // Normal border
-        }
-      });
-      
-      // Clear all selections and select only the current one
+      console.log('question is MC');
+      console.log('Before - selectedAnswers: ', Array.from(this.selectedAnswers));
+
+      // Clear all selections first
       this.selectedAnswers.clear();
+
+      // Add only the current selection
       this.selectedAnswers.add(selectedKey);
-      
-      // Update all button styles
-      this.optionButtons.forEach((btn, index) => {
-        // Ensure we don't go out of bounds
-        if (index < this.currentQuestion.choices.length) {
-          const key = this.currentQuestion.choices[index].key;
-          if (key === selectedKey) {
-            btn.setFillStyle(0x2e7d32); // Darker green for selected
-            btn.setStrokeStyle(3, 0x1b5e20); // Darker green border
-          } else {
-            btn.setFillStyle(0xf5f5f5); // Light color (unselected)
-            btn.setStrokeStyle(2, 0x90caf9); // Normal border
-          }
-        }
-      });
+      console.log('After - selectedAnswers: ', Array.from(this.selectedAnswers));
+
+      // Update ALL button styles based on current selectedAnswers state
+      this.updateAllButtonStyles();
     } else {
+      console.log('question is MS');
       // Multiple selection (MS) - toggle selection normally
       if (this.selectedAnswers.has(selectedKey)) {
         // Deselect
         this.selectedAnswers.delete(selectedKey);
-        button.setFillStyle(0xf5f5f5); // Light color (unselected)
-        button.setStrokeStyle(2, 0x90caf9); // Normal border
       } else {
         // Select
         this.selectedAnswers.add(selectedKey);
-        button.setFillStyle(0x2e7d32); // Darker green for better contrast
-        button.setStrokeStyle(3, 0x1b5e20); // Darker green border
       }
+
+      // Update ALL button styles based on current selectedAnswers state
+      this.updateAllButtonStyles();
     }
+
+    // Force immediate visual update
+    this.time.delayedCall(10, () => {
+      this.updateAllButtonStyles();
+    });
 
     // Update submit button state
     this.updateSubmitButton();
   }
 
+  /**
+ * Update all button styles based on current selectedAnswers state
+ * This ensures visual consistency across all buttons
+ */
+  private updateAllButtonStyles(): void {
+    console.log('updateAllButtonStyles called, selectedAnswers:', Array.from(this.selectedAnswers));
+
+    this.optionButtons.forEach((btn, index) => {
+      if (index < this.currentQuestion.choices.length) {
+        const key = this.currentQuestion.choices[index].key;
+        const isSelected = this.selectedAnswers.has(key);
+
+        if (isSelected) {
+          btn.setFillStyle(0x2e7d32); // Darker green for selected
+          btn.setStrokeStyle(3, 0x1b5e20); // Darker green border
+          console.log(`Button ${index} (key: ${key}) set to SELECTED`);
+        } else {
+          btn.setFillStyle(0xf5f5f5); // Light color (unselected)
+          btn.setStrokeStyle(2, 0x90caf9); // Normal border
+          console.log(`Button ${index} (key: ${key}) set to UNSELECTED`);
+        }
+      }
+    });
+
+    // Force a render update by triggering scene events
+    this.events.emit('update-buttons');
+  }
+
   private updateSubmitButton(): void {
     let shouldEnable = false;
-    
+
     if (this.currentQuestion.questionType === 'MC') {
       // For single choice, enable submit button when exactly one answer is selected
       shouldEnable = this.selectedAnswers.size === 1;
@@ -516,7 +556,7 @@ export class QuizScene extends Phaser.Scene {
       // For multiple selection, enable submit button when at least one answer is selected
       shouldEnable = this.selectedAnswers.size > 0;
     }
-    
+
     if (shouldEnable) {
       this.submitButton.setFillStyle(0x2196f3); // Blue (enabled)
       this.submitButton.setStrokeStyle(3, 0x1976d2);
@@ -540,14 +580,14 @@ export class QuizScene extends Phaser.Scene {
     let isCorrect = false;
     const selectedArray = Array.from(this.selectedAnswers).sort();
     const correctArray = this.correctAnswerKeys.sort();
-    
+
     if (this.currentQuestion.questionType === 'MC') {
       // For single choice, user must select exactly one correct answer
       isCorrect = selectedArray.length === 1 && correctArray.includes(selectedArray[0]);
     } else {
       // For multiple selection, user must select all correct answers and no incorrect ones
-      isCorrect = selectedArray.length === correctArray.length && 
-                  selectedArray.every(key => correctArray.includes(key));
+      isCorrect = selectedArray.length === correctArray.length &&
+        selectedArray.every(key => correctArray.includes(key));
     }
 
     // Calculate time bonus - how much time is left
@@ -579,7 +619,6 @@ export class QuizScene extends Phaser.Scene {
       const src = img.getAttribute('src');
 
       if (src && src.startsWith('data:image')) {
-        debugger;
         hasImage = true;
         // Create a temporary image element to load the base64 image
         const tempImg = new Image();
@@ -738,7 +777,7 @@ export class QuizScene extends Phaser.Scene {
       const correctAnswerIndex = this.currentQuestion.choices.findIndex(
         choice => choice.key === correctKey
       );
-      
+
       if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
         this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00); // Green for correct
         // Remove text style change to avoid Phaser errors
@@ -751,7 +790,7 @@ export class QuizScene extends Phaser.Scene {
         const incorrectIndex = this.currentQuestion.choices.findIndex(
           choice => choice.key === selectedKey
         );
-        
+
         if (incorrectIndex >= 0 && incorrectIndex < this.optionButtons.length) {
           this.optionButtons[incorrectIndex].setFillStyle(0xff0000); // Red for incorrect
           // Remove text style change to avoid Phaser errors
@@ -772,14 +811,14 @@ export class QuizScene extends Phaser.Scene {
         fontStyle: 'bold'
       }
     ).setOrigin(0.5).setDepth(10); // Higher depth to ensure visibility
-    
+
     // Add explanation text for incorrect answers
     if (!isCorrect) {
       // Create a string showing the correct answers
-      const correctAnswersText = 'Correct answer' + 
-        (this.correctAnswerKeys.length > 1 ? 's' : '') + 
+      const correctAnswersText = 'Correct answer' +
+        (this.correctAnswerKeys.length > 1 ? 's' : '') +
         ': ' + this.correctAnswerKeys.join(', ');
-      
+
       const explanationText = this.add.text(
         this.cameras.main.width / 2,
         this.cameras.main.height / 2, // Just below the result text
@@ -795,7 +834,10 @@ export class QuizScene extends Phaser.Scene {
 
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
-      this.scene.resume('GameScene', {
+      console.log('QuizScene: Preparing to return to GameScene...');
+
+      // Prepare data for GameScene
+      const gameData = {
         success: isCorrect,
         timeBonus: timeBonus,
         quizData: {
@@ -807,7 +849,12 @@ export class QuizScene extends Phaser.Scene {
           isCorrect: isCorrect,
           timeBonus: timeBonus
         }
-      });
+      };
+
+      // Resume GameScene with data
+      this.scene.resume('GameScene', gameData);
+
+      // Stop this scene (this will trigger shutdown/cleanup)
       this.scene.stop();
     });
   }
@@ -864,5 +911,185 @@ export class QuizScene extends Phaser.Scene {
       }
     });
     this.choiceImages = [];
+  }
+
+  /**
+   * Clean up existing UI elements before creating new ones
+   * This prevents event handler conflicts and ensures clean state
+   */
+  private cleanupUIElements(): void {
+    // Clean up existing option buttons
+    this.optionButtons.forEach(button => {
+      if (button && button.scene) {
+        button.removeAllListeners();
+        button.destroy();
+      }
+    });
+    this.optionButtons = [];
+
+    // Clean up existing option texts
+    this.optionTexts.forEach(text => {
+      if (text && text.scene) {
+        text.destroy();
+      }
+    });
+    this.optionTexts = [];
+
+    // Clean up other UI elements that might exist from previous questions
+    if (this.submitButton && this.submitButton.scene) {
+      this.submitButton.removeAllListeners();
+      this.submitButton.destroy();
+      this.submitButton = null as any;
+    }
+
+    if (this.submitButtonText && this.submitButtonText.scene) {
+      this.submitButtonText.destroy();
+      this.submitButtonText = null as any;
+    }
+
+    if (this.questionText && this.questionText.scene) {
+      this.questionText.destroy();
+      this.questionText = null as any;
+    }
+
+    if (this.fishNameText && this.fishNameText.scene) {
+      this.fishNameText.destroy();
+      this.fishNameText = null as any;
+    }
+
+    if (this.fishSprite && this.fishSprite.scene) {
+      this.fishSprite.destroy();
+      this.fishSprite = null as any;
+    }
+  }
+
+  /**
+   * Comprehensive cleanup of all quiz scene resources
+   * Called when scene is destroyed or needs to be reset
+   */
+  private cleanup(): void {
+    console.log('QuizScene: Starting cleanup...');
+
+    // Stop and remove timer
+    if (this.timerEvent) {
+      this.timerEvent.remove();
+      this.timerEvent = null as any;
+    }
+
+    // Clean up choice images
+    this.cleanupChoiceImages();
+
+    // Destroy all UI elements
+    if (this.questionText) {
+      this.questionText.destroy();
+      this.questionText = null as any;
+    }
+
+    if (this.fishSprite) {
+      this.fishSprite.destroy();
+      this.fishSprite = null as any;
+    }
+
+    if (this.fishNameText) {
+      this.fishNameText.destroy();
+      this.fishNameText = null as any;
+    }
+
+    if (this.timerText) {
+      this.timerText.destroy();
+      this.timerText = null as any;
+    }
+
+    if (this.paperBg) {
+      this.paperBg.destroy();
+      this.paperBg = null as any;
+    }
+
+    if (this.submitButton) {
+      this.submitButton.destroy();
+      this.submitButton = null as any;
+    }
+
+    if (this.submitButtonText) {
+      this.submitButtonText.destroy();
+      this.submitButtonText = null as any;
+    }
+
+    // Clean up option buttons and texts
+    this.optionButtons.forEach(button => {
+      if (button && button.scene) {
+        button.destroy();
+      }
+    });
+    this.optionButtons = [];
+
+    this.optionTexts.forEach(text => {
+      if (text && text.scene) {
+        text.destroy();
+      }
+    });
+    this.optionTexts = [];
+
+    // Clear data structures
+    this.selectedAnswers.clear();
+    this.correctAnswerKeys = [];
+    this.questions = [];
+
+    // Clean up dynamically created textures
+    this.cleanupDynamicTextures();
+
+    console.log('QuizScene: Cleanup completed');
+  }
+
+  /**
+   * Clean up dynamically created textures to prevent memory leaks
+   */
+  private cleanupDynamicTextures(): void {
+    const texturesToRemove: string[] = [];
+
+    // Find dynamically created textures by checking texture manager keys
+    const textureKeys = Object.keys(this.textures.list);
+    textureKeys.forEach((key: string) => {
+      if (key.startsWith('choice-') || key === 'question-image' || key === 'paper-bg') {
+        texturesToRemove.push(key);
+      }
+    });
+
+    // Remove them
+    texturesToRemove.forEach((key: string) => {
+      if (this.textures.exists(key)) {
+        this.textures.remove(key);
+      }
+    });
+
+    console.log(`QuizScene: Removed ${texturesToRemove.length} dynamic textures`);
+  }
+
+  /**
+   * Reset the scene state for fresh quiz session
+   */
+  private resetScene(): void {
+    console.log('QuizScene: Resetting scene state...');
+
+    // Reset timer
+    this.timeRemaining = 15;
+
+    // Reset data
+    this.selectedAnswers.clear();
+    this.correctAnswerKeys = [];
+    this.questions = [];
+    this.currentQuestion = null as any;
+    this.completionData = null;
+
+    console.log('QuizScene: Scene state reset completed');
+  }
+
+  /**
+   * Phaser lifecycle method - called when scene is shutdown
+   * This is the proper cleanup point for Phaser scenes
+   */
+  shutdown(): void {
+    console.log('QuizScene: Shutdown called');
+    this.cleanup();
   }
 }
