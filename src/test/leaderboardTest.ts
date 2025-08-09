@@ -40,7 +40,7 @@ export function displayLeaderboard(): void {
  * Clear all leaderboard entries
  */
 export function clearLeaderboard(): void {
-    LeaderboardManager.clearLeaderboard();
+    // LeaderboardManager.clearLeaderboard();
 }
 
 /**

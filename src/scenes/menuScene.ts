@@ -168,6 +168,13 @@ export class MenuScene extends Phaser.Scene {
     const panelHeight = 500;
     const leaderboardBg = this.add.rectangle(0, 0, panelWidth, panelHeight, 0x2c3e50, 0.95);
     leaderboardBg.setStrokeStyle(4, 0x3498db);
+    
+    // Add loading text that will be replaced when data loads
+    const loadingText = this.add.text(0, 0, 'Loading leaderboard data...', {
+      fontSize: '20px',
+      color: '#ffffff',
+      fontStyle: 'italic'
+    }).setOrigin(0.5);
 
     // Create title
     const title = this.add.text(0, -220, 'LEADERBOARD', {
@@ -177,7 +184,10 @@ export class MenuScene extends Phaser.Scene {
       stroke: '#000000',
       strokeThickness: 3
     }).setOrigin(0.5);
-
+    
+    // Force refresh leaderboard data from API
+    LeaderboardManager.refreshLeaderboard();
+    
     // Get leaderboard data
     const leaderboard = LeaderboardManager.getLeaderboard();
     const stats = LeaderboardManager.getStats();
@@ -230,125 +240,108 @@ export class MenuScene extends Phaser.Scene {
     // Create entries
     const entryElements: Phaser.GameObjects.GameObject[] = [];
 
-    if (leaderboard.length === 0) {
-      // Show empty state
-      const emptyText = this.add.text(0, -50,
-        'No scores yet!\nPlay the game to set your first high score!', {
-        fontSize: '20px',
-        color: '#95a5a6',
-        fontStyle: 'italic',
-        align: 'center'
-      }).setOrigin(0.5);
-      entryElements.push(emptyText);
-    } else {
-      // Display leaderboard entries
-      leaderboard.forEach((entry: LeaderboardEntry, index: number) => {
-        const entryY = -90 + (index * 35);
-
-        // Rank with medal icons for top 3
-        let rankText = `${index + 1}`;
-        let rankColor = '#ffffff';
-        if (index === 0) {
-          rankText = '🥇';
-          rankColor = '#f1c40f';
-        } else if (index === 1) {
-          rankText = '🥈';
-          rankColor = '#95a5a6';
-        } else if (index === 2) {
-          rankText = '🥉';
-          rankColor = '#cd7f32';
-        }
-
-        const rank = this.add.text(-250, entryY, rankText, {
-          fontSize: '16px',
-          color: rankColor,
-          fontStyle: 'bold'
+    // Function to display leaderboard entries
+    const displayLeaderboard = () => {
+      // Clear any existing entry elements
+      entryElements.forEach(element => element.destroy());
+      entryElements.length = 0;
+      
+      // Remove loading text if it exists
+      if (loadingText) loadingText.destroy();
+      
+      const currentLeaderboard = LeaderboardManager.getLeaderboard();
+      
+      if (currentLeaderboard.length === 0) {
+        // Show empty state
+        const emptyText = this.add.text(0, -50,
+          'No scores yet!\nPlay the game to set your first high score!', {
+          fontSize: '20px',
+          color: '#95a5a6',
+          fontStyle: 'italic',
+          align: 'center'
         }).setOrigin(0.5);
+        entryElements.push(emptyText);
+      } else {
+        // Display leaderboard entries
+        currentLeaderboard.forEach((entry: LeaderboardEntry, index: number) => {
+          const entryY = -90 + (index * 35);
 
-        // Player name (truncate if too long)
-        const displayName = entry.playerName.length > 12 ?
-          entry.playerName.substring(0, 12) + '...' : entry.playerName;
-        const name = this.add.text(-120, entryY, displayName, {
-          fontSize: '14px',
-          color: '#ecf0f1',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
+          // Rank with medal icons for top 3
+          let rankText = entry.rank ? `${entry.rank}` : `${index + 1}`;
+          let rankColor = '#ffffff';
+          if (entry.rank === 1 || index === 0) {
+            rankText = '🥇';
+            rankColor = '#f1c40f';
+          } else if (entry.rank === 2 || index === 1) {
+            rankText = '🥈';
+            rankColor = '#95a5a6';
+          } else if (entry.rank === 3 || index === 2) {
+            rankText = '🥉';
+            rankColor = '#cd7f32';
+          }
 
-        // Score
-        const score = this.add.text(50, entryY, entry.score.toString(), {
-          fontSize: '14px',
-          color: '#2ecc71',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
+          const rank = this.add.text(-250, entryY, rankText, {
+            fontSize: '16px',
+            color: rankColor,
+            fontStyle: 'bold'
+          }).setOrigin(0.5);
 
-        // Fish caught
-        const fish = this.add.text(150, entryY, entry.fishCaught.toString(), {
-          fontSize: '14px',
-          color: '#3498db',
-          fontStyle: 'bold'
-        }).setOrigin(0.5);
+          // Player name (truncate if too long)
+          const displayName = entry.name.length > 12 ?
+            entry.name.substring(0, 12) + '...' : entry.name;
+          const name = this.add.text(-120, entryY, displayName, {
+            fontSize: '14px',
+            color: '#ecf0f1',
+            fontStyle: 'bold'
+          }).setOrigin(0.5);
 
-        // Date (short format)
-        const dateStr = new Date(entry.timestamp).toLocaleDateString([], {
-          month: 'short',
-          day: 'numeric'
+          // Score
+          const score = this.add.text(50, entryY, entry.score.toString(), {
+            fontSize: '14px',
+            color: '#2ecc71',
+            fontStyle: 'bold'
+          }).setOrigin(0.5);
+
+          // Fish caught (may not be available from API)
+          const fishText = entry.fishCaught ? entry.fishCaught.toString() : '-';
+          const fish = this.add.text(150, entryY, fishText, {
+            fontSize: '14px',
+            color: '#3498db',
+            fontStyle: 'bold'
+          }).setOrigin(0.5);
+
+          // Date (may not be available from API)
+          let dateStr = 'N/A';
+          if (entry.timestamp) {
+            dateStr = new Date(entry.timestamp).toLocaleDateString([], {
+              month: 'short',
+              day: 'numeric'
+            });
+          }
+          const date = this.add.text(220, entryY, dateStr, {
+            fontSize: '12px',
+            color: '#95a5a6'
+          }).setOrigin(0.5);
+
+          entryElements.push(rank, name, score, fish, date);
+
+          // Add alternating row background
+          if (index % 2 === 0) {
+            const rowBg = this.add.rectangle(0, entryY, panelWidth - 20, 30, 0x34495e, 0.3);
+            entryElements.push(rowBg); // Add to container later
+          }
         });
-        const date = this.add.text(220, entryY, dateStr, {
-          fontSize: '12px',
-          color: '#95a5a6'
-        }).setOrigin(0.5);
-
-        entryElements.push(rank, name, score, fish, date);
-
-        // Add alternating row background
-        if (index % 2 === 0) {
-          const rowBg = this.add.rectangle(0, entryY, panelWidth - 20, 30, 0x34495e, 0.3);
-          entryElements.unshift(rowBg); // Add to beginning so it renders behind text
-        }
-      });
-    }
+      }
+      
+      // Add all elements to container
+      leaderboardContainer.add(entryElements);
+    };
+    
+    // Check for data after a short delay to allow API fetch to complete
+    this.time.delayedCall(500, displayLeaderboard);
 
     // Create action buttons
     const buttonY = 180;
-
-    // Clear leaderboard button (only show if there are entries)
-    let clearButton: Phaser.GameObjects.Graphics | null = null;
-    let clearButtonText: Phaser.GameObjects.Text | null = null;
-
-    if (leaderboard.length > 0) {
-      clearButton = this.add.graphics();
-      clearButton.fillStyle(0xe74c3c);
-      clearButton.fillRoundedRect(-200, buttonY - 20, 120, 40, 8);
-      clearButton.setInteractive(new Phaser.Geom.Rectangle(-200, buttonY - 20, 120, 40), Phaser.Geom.Rectangle.Contains);
-
-      clearButtonText = this.add.text(-140, buttonY, 'Clear All', {
-        fontSize: '16px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }).setOrigin(0.5);
-
-      clearButton.on('pointerover', () => {
-        clearButton!.clear();
-        clearButton!.fillStyle(0xc0392b);
-        clearButton!.fillRoundedRect(-200, buttonY - 20, 120, 40, 8);
-      });
-
-      clearButton.on('pointerout', () => {
-        clearButton!.clear();
-        clearButton!.fillStyle(0xe74c3c);
-        clearButton!.fillRoundedRect(-200, buttonY - 20, 120, 40, 8);
-      });
-
-      clearButton.on('pointerdown', () => {
-        // Confirmation before clearing
-        if (confirm('Are you sure you want to clear all leaderboard entries? This cannot be undone.')) {
-          LeaderboardManager.clearLeaderboard();
-          // Close and reopen leaderboard to refresh
-          cleanup();
-          this.showLeaderboard();
-        }
-      });
-    }
 
     // Close button
     const closeButton = this.add.graphics();
@@ -386,12 +379,8 @@ export class MenuScene extends Phaser.Scene {
     const containerElements = [
       leaderboardBg, title, statsText,
       rankHeader, nameHeader, scoreHeader, fishHeader, dateHeader,
-      separator, ...entryElements, closeButton, closeButtonText
+      separator, closeButton, closeButtonText
     ];
-
-    if (clearButton && clearButtonText) {
-      containerElements.push(clearButton, clearButtonText);
-    }
 
     leaderboardContainer.add(containerElements);
 

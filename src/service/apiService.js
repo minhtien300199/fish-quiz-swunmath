@@ -175,6 +175,56 @@ const gameSdk =(function(){
                     onFailed()
                 }
             }
+        },
+        loadGameLeaderBoard: function (cbOnLoad=null,onFailed=null) {
+            try {
+                let dataFilter={
+                    inTop:10,
+                    standardId:standarId,
+                    learningPathId:lnpid,
+                    gameId:gameId
+                }
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `${url}/Students/Leaderboard`, true);
+                xhr.setRequestHeader('Content-Type', 'application/json');
+                xhr.setRequestHeader('UserId', userId);
+                xhr.onload = function() {
+                    if (xhr.status === 200) {
+                        let apiData = JSON.parse(xhr.responseText);
+                        if (apiData && apiData.result&& apiData.result.data) {
+                            let formatResponse={
+                                leaderBoard:apiData.result.data.map((x,index)=>{
+                                  return {
+                                        rank:(index+1)>dataFilter.inTop?0:(index+1),
+                                        name:x.student.user.fullName,
+                                        score:x.score
+                                    }  
+                                })
+                            }
+                            if(cbOnLoad!=null){
+                                cbOnLoad(formatResponse);
+                            }
+                        }
+                        
+                    } else {
+                        if (onFailed!=null) {
+                            onFailed()
+                        }
+                    }
+                };
+                xhr.onerror = function() {
+                    if (onFailed!=null) {
+                        onFailed()
+                    }
+                };
+                
+                xhr.send(JSON.stringify(dataFilter));
+            } catch (error) {
+               console.log(error);
+                if (onFailed!=null) {
+                    onFailed()
+                }
+            }
         }
     }
 })();
