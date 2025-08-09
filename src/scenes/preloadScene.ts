@@ -89,15 +89,11 @@ export class PreloadScene extends Phaser.Scene {
       () => {
         console.error('Failed to load questions from API');
 
-        // Fallback to local question bank
-        console.log('Falling back to local question bank');
-
-        // Set fallback values
-        window.QUIZ_QUESTIONS = [];
-        window.TOTAL_QUESTIONS = 0;
-
-        // Start the menu scene even if API fails
-        this.scene.start('MenuScene');
+        // Show error scene instead of falling back silently
+        console.log('Showing error scene');
+        
+        // Start the error scene to inform the user
+        this.scene.start('ErrorScene');
       }
     );
   }
@@ -121,6 +117,7 @@ export class PreloadScene extends Phaser.Scene {
       frameHeight: 128
     });
     this.load.image('all-boats', 'assets/boats/all_full_boats.png');
+    this.load.image('errorBackground', 'assets/background/error.png');
 
     // Load fish (we'll load a few for now, can add more as needed)
     this.load.image('all-fish', 'assets/fish/all_fish.png');

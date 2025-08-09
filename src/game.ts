@@ -9,6 +9,7 @@ import { UIScene } from './scenes/uiScene';
 import { HowToPlayScene } from './scenes/howToPlayScene';
 import { WinScene } from './scenes/winScene';
 import { FishCollectionScene } from './scenes/fishCollectionScene';
+import { ErrorScene } from './scenes/errorScene';
 
 // Import test utilities for development
 import './test/fishCollectionTest';
@@ -27,7 +28,8 @@ export class Game extends Phaser.Game {
       UIScene,
       HowToPlayScene,
       WinScene,
-      FishCollectionScene
+      FishCollectionScene,
+      ErrorScene
     ];
 
     // Add scenes to the config
