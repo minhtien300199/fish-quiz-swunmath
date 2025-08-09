@@ -10,7 +10,7 @@ export interface CompletionData {
 const defaultCompletion: CompletionData = {
   "title": "Easy",
   "RarityRate": 0.4, // 40% chance to catch a rare fish
-  "Timers": [30], // Timer in seconds for each question
+  "Timers": [35], // Timer in seconds for each question
   "TotalFish": 5 // Need to catch 5 fish to complete the level
 };
 

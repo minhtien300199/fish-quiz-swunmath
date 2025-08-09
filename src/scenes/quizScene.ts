@@ -37,6 +37,7 @@ export class QuizScene extends Phaser.Scene {
   private submitButtonText!: Phaser.GameObjects.Text;
   private correctAnswerKeys: string[] = []; // Parsed correct answers
   private questionStartTime: number = 0; // Track when question started
+  private htmlQuestionContainer: HTMLDivElement | null = null; // HTML container for question content
 
   constructor() {
     super({ key: 'QuizScene' });
@@ -68,6 +69,9 @@ export class QuizScene extends Phaser.Scene {
 
     // Ensure clean state before creating new elements
     this.resetScene();
+    
+    // Clean up any existing HTML containers
+    this.disposeHtmlContainer();
 
     // Create quiz questions
     this.createQuizQuestions();
@@ -266,7 +270,7 @@ export class QuizScene extends Phaser.Scene {
     ).setOrigin(1, 0.5); // Right-align the text
 
     // Add options - position them in a 2x2 grid in the lower part of the paper
-    const firstButtonY = this.cameras.main.height * 0.55; // Move down to fit within the taller paper
+    const firstButtonY = this.cameras.main.height * 0.55 + 160; // Move down by additional 20px
     const gridSpacingX = 220; // Horizontal spacing between buttons
     const gridSpacingY = 100; // Vertical spacing between buttons
 
@@ -426,7 +430,7 @@ export class QuizScene extends Phaser.Scene {
     }
 
     // Add submit button below all options
-    const submitButtonY = firstButtonY + (this.currentQuestion.choices.length * 70) + 30;
+    const submitButtonY = firstButtonY + (this.currentQuestion.choices.length * 70) - 70;
 
     this.submitButton = this.add.rectangle(
       this.cameras.main.width / 2,
@@ -653,153 +657,138 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private displayQuestionContent(): void {
-    // Position question content on the paper background below the fish image
-    // Use the upper-middle area of the paper for positioning
-    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25); // Position in the upper-middle part of the paper
-
-    // Parse HTML content to extract images and text
-    const parser = new DOMParser();
-    const htmlDoc = parser.parseFromString(this.currentQuestion.question, 'text/html');
-
-    // Check for images in the question
-    const images = htmlDoc.querySelectorAll('img');
-    let hasImage = false;
-
-    if (images.length > 0) {
-      // Handle the first image (for simplicity)
-      const img = images[0];
-      const src = img.getAttribute('src');
-
-      if (src && src.startsWith('data:image')) {
-        hasImage = true;
-        // Create a temporary image element to load the base64 image
-        const tempImg = new Image();
-        tempImg.onload = () => {
-          // Create a canvas to convert the image to a texture
-          const canvas = document.createElement('canvas');
-          canvas.width = tempImg.width;
-          canvas.height = tempImg.height;
-          const ctx = canvas.getContext('2d');
-          if (ctx) {
-            ctx.drawImage(tempImg, 0, 0);
-            // Create a texture from the canvas
-            const texture = this.textures.addCanvas('question-image', canvas);
-            // Add the image to the scene
-            const questionImage = this.add.image(
-              this.cameras.main.width / 2,
-              questionY,
-              'question-image'
-            );
-            // Set depth to appear above paper but below UI elements
-            questionImage.setDepth(1);
-
-            // Scale the image to fit within the paper width
-            const paperWidth = this.paperBg.displayWidth * 0.7; // Leave some margin
-            if (questionImage.width > paperWidth) {
-              const scale = paperWidth / questionImage.width;
-              questionImage.setScale(scale);
-            }
-
-            // Limit the height to avoid overflow
-            const maxHeight = this.paperBg.displayHeight * 0.3;
-            if (questionImage.height * questionImage.scaleY > maxHeight) {
-              const heightScale = maxHeight / questionImage.height;
-              questionImage.setScale(Math.min(questionImage.scaleX, heightScale));
-            }
-          }
-        };
-        tempImg.src = src;
-      }
-    }
-
-    // Extract text content (excluding image tags and elements with display:none)
-    let textContent = '';
-
-    // Function to check if an element or its parents have display:none
-    const hasDisplayNone = (element: Element): boolean => {
-      // Check inline style
-      if (element.getAttribute('style')?.includes('display:none') ||
-        element.getAttribute('style')?.includes('display: none')) {
-        return true;
-      }
-
-      // Check for spans with display:none
-      if (element.tagName.toLowerCase() === 'span' &&
-        element.getAttribute('style')?.includes("display:none")) {
-        return true;
-      }
-
-      // Check parent recursively
-      return element.parentElement ? hasDisplayNone(element.parentElement) : false;
-    };
-
-    // Process nodes and filter out display:none elements
-    const processNode = (node: Node): string => {
-      // Text node - just return the content
-      if (node.nodeType === Node.TEXT_NODE) {
-        return node.textContent || '';
-      }
-
-      // Element node - check if it's visible
-      if (node.nodeType === Node.ELEMENT_NODE) {
-        const element = node as Element;
-
-        // Skip image tags
-        if (element.tagName.toLowerCase() === 'img') {
-          return '';
-        }
-
-        // Skip elements with display:none
-        if (hasDisplayNone(element)) {
-          return '';
-        }
-
-        // Process children for visible elements
-        let content = '';
-        Array.from(element.childNodes).forEach(child => {
-          content += processNode(child);
-        });
-
-        return content;
-      }
-
-      return '';
-    };
-
-    // Process the entire body
-    Array.from(htmlDoc.body.childNodes).forEach(node => {
-      textContent += processNode(node);
-    });
-
-    // Clean up the text
-    textContent = textContent.trim();
-
-    // Add text below the image if there is one, or at the default position
-    // Adjust the vertical spacing based on whether there's an image
-    const textY = hasImage ? questionY + 80 : questionY;
-
+    // Create HTML container outside canvas for proper HTML rendering
+    this.createHtmlContainer();
+    
+    // Create a placeholder text in canvas to maintain layout
+    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25);
+    
     this.questionText = this.add.text(
       this.cameras.main.width / 2,
-      textY,
-      textContent,
+      questionY,
+      '', // Empty text as placeholder
       {
-        fontSize: '22px', // Smaller font for better fit on paper
-        color: '#000000', // Black text like on notebook paper
+        fontSize: '22px',
+        color: 'transparent', // Make it invisible
         align: 'center',
         wordWrap: { width: this.paperBg.displayWidth * 0.7 },
-        lineSpacing: 8 // Add line spacing for better readability on the lined paper
+        lineSpacing: 8
       }
-    ).setOrigin(0.5).setDepth(1); // Set depth to appear above paper
-
-    // Limit text height to avoid overlap with answer options
-    const maxTextHeight = this.paperBg.displayHeight * 0.4;
-    if (this.questionText.height > maxTextHeight) {
-      // If text is too long, truncate and add ellipsis
-      let truncatedText = textContent;
-      while (this.questionText.height > maxTextHeight && truncatedText.length > 10) {
-        truncatedText = truncatedText.substring(0, truncatedText.length - 10) + '...';
-        this.questionText.setText(truncatedText);
+    ).setOrigin(0.5).setDepth(1);
+  }
+  
+  private createHtmlContainer(): void {
+    // Remove any existing HTML container
+    this.disposeHtmlContainer();
+    
+    // Create HTML container
+    this.htmlQuestionContainer = document.createElement('div');
+    this.htmlQuestionContainer.innerHTML = this.currentQuestion.question;
+    
+    // Calculate position based on canvas and paper background
+    const canvas = this.game.canvas as HTMLCanvasElement;
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Get the actual canvas scale factors
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    
+    // Calculate the question position in world coordinates
+    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25);
+    
+    // Convert world coordinates to screen coordinates
+    const worldX = this.cameras.main.width / 2;
+    const worldY = questionY;
+    
+    const screenX = canvasRect.left + (worldX * scaleX);
+    const screenY = canvasRect.top + (worldY * scaleY);
+    
+    // Style the HTML container to blend seamlessly with canvas
+    this.htmlQuestionContainer.style.position = 'fixed';
+    this.htmlQuestionContainer.style.left = screenX + 'px';
+    this.htmlQuestionContainer.style.top = screenY + 'px';
+    this.htmlQuestionContainer.style.transform = 'translate(-50%, -50%)';
+    this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * scaleX) + 'px';
+    this.htmlQuestionContainer.style.maxHeight = Math.min(250, this.paperBg.displayHeight * 0.4 * scaleY) + 'px';
+    this.htmlQuestionContainer.style.overflow = 'auto';
+    this.htmlQuestionContainer.style.zIndex = '1000';
+    this.htmlQuestionContainer.style.backgroundColor = 'transparent'; // Transparent background
+    this.htmlQuestionContainer.style.padding = '15px';
+    this.htmlQuestionContainer.style.borderRadius = '0px'; // No border radius
+    this.htmlQuestionContainer.style.boxShadow = 'none'; // No drop shadow
+    this.htmlQuestionContainer.style.fontSize = '16px';
+    this.htmlQuestionContainer.style.lineHeight = '1.5';
+    this.htmlQuestionContainer.style.color = '#000000';
+    this.htmlQuestionContainer.style.textAlign = 'left';
+    this.htmlQuestionContainer.style.fontFamily = 'Arial, sans-serif';
+    this.htmlQuestionContainer.style.border = 'none'; // No border
+    
+    // Handle images in the HTML content
+    const images = this.htmlQuestionContainer.querySelectorAll('img');
+    images.forEach(img => {
+      img.style.maxWidth = '100%';
+      img.style.height = 'auto';
+      img.style.display = 'block';
+      img.style.margin = '10px auto';
+      img.style.borderRadius = '5px';
+    });
+    
+    // Handle MathML if present
+    const mathElements = this.htmlQuestionContainer.querySelectorAll('math');
+    mathElements.forEach(math => {
+      math.style.display = 'block';
+      math.style.margin = '10px auto';
+      math.style.textAlign = 'center';
+    });
+    
+    // Handle any custom styling elements
+    const styleElements = this.htmlQuestionContainer.querySelectorAll('style');
+    styleElements.forEach(style => {
+      if (style.textContent) {
+        style.textContent = style.textContent.replace(/margin-left:\s*30%/g, 'margin-left: auto');
       }
+    });
+    
+    // Add to document body
+    document.body.appendChild(this.htmlQuestionContainer);
+    
+    // Update position on window resize
+    const updatePosition = () => {
+      if (this.htmlQuestionContainer && canvas.parentElement) {
+        const newCanvasRect = canvas.getBoundingClientRect();
+        const newScaleX = newCanvasRect.width / canvas.width;
+        const newScaleY = newCanvasRect.height / canvas.height;
+        
+        const newScreenX = newCanvasRect.left + (worldX * newScaleX);
+        const newScreenY = newCanvasRect.top + (worldY * newScaleY);
+        
+        this.htmlQuestionContainer.style.left = newScreenX + 'px';
+        this.htmlQuestionContainer.style.top = newScreenY + 'px';
+        this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * newScaleX) + 'px';
+        this.htmlQuestionContainer.style.maxHeight = Math.min(250, this.paperBg.displayHeight * 0.4 * newScaleY) + 'px';
+      }
+    };
+    
+    window.addEventListener('resize', updatePosition);
+    
+    // Store the resize handler for cleanup
+    (this.htmlQuestionContainer as any).resizeHandler = updatePosition;
+  }
+  
+  private disposeHtmlContainer(): void {
+    if (this.htmlQuestionContainer) {
+      // Remove resize event listener
+      const resizeHandler = (this.htmlQuestionContainer as any).resizeHandler;
+      if (resizeHandler) {
+        window.removeEventListener('resize', resizeHandler);
+      }
+      
+      // Remove from DOM
+      if (this.htmlQuestionContainer.parentNode) {
+        this.htmlQuestionContainer.parentNode.removeChild(this.htmlQuestionContainer);
+      }
+      
+      this.htmlQuestionContainer = null;
     }
   }
 
@@ -887,6 +876,9 @@ export class QuizScene extends Phaser.Scene {
     // Wait a moment before returning to the game
     this.time.delayedCall(2000, () => {
       //console.log('QuizScene: Preparing to return to GameScene...');
+
+      // Clean up HTML container before transitioning
+      this.disposeHtmlContainer();
 
       // Prepare data for GameScene
       const gameData = {
@@ -1089,6 +1081,8 @@ export class QuizScene extends Phaser.Scene {
 
     // Clean up dynamically created textures
     this.cleanupDynamicTextures();
+    // Clean up HTML container before transitioning
+    this.disposeHtmlContainer();
 
     //console.log('QuizScene: Cleanup completed');
   }
@@ -1142,6 +1136,8 @@ export class QuizScene extends Phaser.Scene {
    */
   shutdown(): void {
     //console.log('QuizScene: Shutdown called');
+    // Ensure HTML container is disposed before cleanup
+    this.disposeHtmlContainer();
     this.cleanup();
   }
 }
