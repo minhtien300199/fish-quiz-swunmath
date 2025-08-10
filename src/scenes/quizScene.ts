@@ -26,7 +26,8 @@ export class QuizScene extends Phaser.Scene {
   private choiceImages: Phaser.GameObjects.Image[] = []; // Store choice images for cleanup
   private timerText!: Phaser.GameObjects.Text;
   private timerEvent!: Phaser.Time.TimerEvent;
-  private timeRemaining: number = 15;
+  private timeRemaining: number = 0; // Will be set by getQuizTimeRemaining()
+  private readonly DEFAULT_TIME_REMAINING: number = 35; // Default time in seconds
   private paperBg!: Phaser.GameObjects.Image; // Paper background for quiz
   private panel!: Phaser.GameObjects.Image;
   private fishSprite!: Phaser.GameObjects.Image;
@@ -54,14 +55,8 @@ export class QuizScene extends Phaser.Scene {
       this.currentFish = FishType.bass;
     }
 
-    // Set timer based on completion data or default to 15 seconds
-    if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
-      this.timeRemaining = this.completionData.Timers[0];
-
-    } else {
-      this.timeRemaining = 15; // Default timer
-
-    }
+    // Initialize timer from centralized method
+    this.timeRemaining = this.getQuizTimeRemaining();
   }
 
   create(): void {
@@ -701,7 +696,7 @@ export class QuizScene extends Phaser.Scene {
     const worldY = questionY;
     
     const screenX = canvasRect.left + (worldX * scaleX);
-    const screenY = canvasRect.top + (worldY * scaleY) + 150;
+    const screenY = canvasRect.top + (worldY * scaleY) + 100;
     
     // Style the HTML container to blend seamlessly with canvas
     this.htmlQuestionContainer.style.position = 'fixed';
@@ -709,7 +704,7 @@ export class QuizScene extends Phaser.Scene {
     this.htmlQuestionContainer.style.top = screenY + 'px';
     this.htmlQuestionContainer.style.transform = 'translate(-50%, -50%)';
     this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * scaleX) + 'px';
-    this.htmlQuestionContainer.style.maxHeight = Math.min(250, this.paperBg.displayHeight * 0.4 * scaleY) + 'px';
+    this.htmlQuestionContainer.style.maxHeight = Math.min(350, this.paperBg.displayHeight * 0.4 * scaleY) + 'px';
     this.htmlQuestionContainer.style.overflow = 'auto';
     this.htmlQuestionContainer.style.zIndex = '1000';
     this.htmlQuestionContainer.style.backgroundColor = 'transparent'; // Transparent background
@@ -765,7 +760,7 @@ export class QuizScene extends Phaser.Scene {
         this.htmlQuestionContainer.style.left = newScreenX + 'px';
         this.htmlQuestionContainer.style.top = newScreenY + 'px';
         this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * newScaleX) + 'px';
-        this.htmlQuestionContainer.style.maxHeight = Math.min(250, this.paperBg.displayHeight * 0.4 * newScaleY) + 'px';
+        this.htmlQuestionContainer.style.maxHeight = Math.min(400, this.paperBg.displayHeight * 0.4 * newScaleY) + 'px';
       }
     };
     
@@ -1011,6 +1006,20 @@ export class QuizScene extends Phaser.Scene {
    * Comprehensive cleanup of all quiz scene resources
    * Called when scene is destroyed or needs to be reset
    */
+  /**
+   * Get the quiz time remaining value from completion data or use default
+   * Centralizes the timer logic in one place
+   */
+  private getQuizTimeRemaining(): number {
+    if (this.completionData && this.completionData.Timers && this.completionData.Timers.length > 0) {
+      console.log(`QuizScene: Using timer from completion data: ${this.completionData.Timers[0]} seconds`);
+      return this.completionData.Timers[0];
+    } else {
+      console.log(`QuizScene: Using default timer: ${this.DEFAULT_TIME_REMAINING} seconds`);
+      return this.DEFAULT_TIME_REMAINING;
+    }
+  }
+
   private cleanup(): void {
     //console.log('QuizScene: Starting cleanup...');
 
@@ -1117,8 +1126,8 @@ export class QuizScene extends Phaser.Scene {
   private resetScene(): void {
     //console.log('QuizScene: Resetting scene state...');
 
-    // Reset timer
-    this.timeRemaining = 15;
+    // Reset timer using centralized method
+    this.timeRemaining = this.getQuizTimeRemaining();
 
     // Reset data
     this.selectedAnswers.clear();
