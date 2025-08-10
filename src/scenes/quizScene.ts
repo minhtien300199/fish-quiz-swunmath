@@ -701,7 +701,7 @@ export class QuizScene extends Phaser.Scene {
     const worldY = questionY;
     
     const screenX = canvasRect.left + (worldX * scaleX);
-    const screenY = canvasRect.top + (worldY * scaleY);
+    const screenY = canvasRect.top + (worldY * scaleY) + 150;
     
     // Style the HTML container to blend seamlessly with canvas
     this.htmlQuestionContainer.style.position = 'fixed';
