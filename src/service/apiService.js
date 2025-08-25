@@ -1,3 +1,17 @@
+// URL replacement function to fix AWS file paths
+export function replaceURL(text) {
+    if (!text) return "";
+    
+    // Access url from the gameSdk scope
+    const url = "https://games.swunmath.com/backend/api/v1";
+    
+    return text.replace(
+      /\/AssessmentSetup\/LibraryFileManager\/GetLibraryVideoFile\?keyName=([^"]+)/g,
+      (match, keyName) => {
+        return `${url}/aws/get-file?keyName=${keyName}`;
+      }
+    );
+}
 const gameSdk =(function(){
     // Initialize parameters from URL
     const parseUrlParams = () => {
@@ -16,7 +30,7 @@ const gameSdk =(function(){
     let standarId = params.standarId;
     let lnpid = params.lnpid;
     let gameId = params.gameId;
-    let url="http://localhost:5000/api/v1";
+    let url="https://games.swunmath.com/backend/api/v1";
     return {
         setParamater(userIdPr,standarIdPr,lnpidPr,gameIdPr){
             userId=userIdPr;
@@ -178,6 +192,12 @@ const gameSdk =(function(){
         },
         loadGameLeaderBoard: function (cbOnLoad=null,onFailed=null) {
             try {
+                if (userId==null) {
+                    if (cbOnLoad) {
+                        cbOnLoad({leaderBoard:leaderBoardUser})
+                    }
+                    return;
+                }
                 let dataFilter={
                     inTop:10,
                     standardId:standarId,
@@ -191,12 +211,12 @@ const gameSdk =(function(){
                 xhr.onload = function() {
                     if (xhr.status === 200) {
                         let apiData = JSON.parse(xhr.responseText);
-                        if (apiData && apiData.result&& apiData.result.data) {
+                        if (apiData && apiData.result&& apiData.result.length>0) {
                             let formatResponse={
-                                leaderBoard:apiData.result.data.map((x,index)=>{
+                                leaderBoard:apiData.result.map((x,index)=>{
                                   return {
                                         rank:(index+1)>dataFilter.inTop?0:(index+1),
-                                        name:x.student.user.fullName,
+                                        name:x.studentName,
                                         score:x.score
                                     }  
                                 })
@@ -205,7 +225,7 @@ const gameSdk =(function(){
                                 cbOnLoad(formatResponse);
                             }
                         }
-                        
+                       
                     } else {
                         if (onFailed!=null) {
                             onFailed()
@@ -217,7 +237,7 @@ const gameSdk =(function(){
                         onFailed()
                     }
                 };
-                
+               
                 xhr.send(JSON.stringify(dataFilter));
             } catch (error) {
                console.log(error);

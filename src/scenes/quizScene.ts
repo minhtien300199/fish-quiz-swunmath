@@ -4,7 +4,7 @@ import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fis
 import { FishFactory, FishState, FishSizeCategory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
 // @ts-ignore
-import gameSdk from '../service/apiService.js';
+import gameSdk, { replaceURL } from '../service/apiService.js';
 
 interface QuizQuestion {
   id?: string; // Question ID from backend API
@@ -71,8 +71,8 @@ export class QuizScene extends Phaser.Scene {
     // Create quiz questions
     this.createQuizQuestions();
 
-    // Select a random question
-    this.currentQuestion = this.questions[Phaser.Math.Between(0, this.questions.length - 1)];
+    // Select the first question (index 0) instead of random
+    this.currentQuestion = this.questions[0];
 
     // Parse correct answers (support comma-separated values)
     this.correctAnswerKeys = this.currentQuestion.correctAnswer.split(',').map(key => key.trim());
@@ -652,24 +652,24 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private displayQuestionContent(): void {
+    // Set question text with processed content
+    if (this.questionText) {
+      // Process question text through replaceURL function
+      const processedQuestion = replaceURL(this.currentQuestion.question);
+      this.questionText.setText(processedQuestion);
+    }
+
+    // Set option texts with processed content
+    for (let i = 0; i < this.currentQuestion.choices.length; i++) {
+      if (i < this.optionTexts.length) {
+        // Process choice text through replaceURL function
+        const processedChoiceText = replaceURL(this.currentQuestion.choices[i].text);
+        this.optionTexts[i].setText(processedChoiceText);
+      }
+    }
+
     // Create HTML container outside canvas for proper HTML rendering
     this.createHtmlContainer();
-    
-    // Create a placeholder text in canvas to maintain layout
-    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25);
-    
-    this.questionText = this.add.text(
-      this.cameras.main.width / 2,
-      questionY,
-      '', // Empty text as placeholder
-      {
-        fontSize: '22px',
-        color: 'transparent', // Make it invisible
-        align: 'center',
-        wordWrap: { width: this.paperBg.displayWidth * 0.7 },
-        lineSpacing: 8
-      }
-    ).setOrigin(0.5).setDepth(1);
   }
   
   private createHtmlContainer(): void {
@@ -678,7 +678,14 @@ export class QuizScene extends Phaser.Scene {
     
     // Create HTML container
     this.htmlQuestionContainer = document.createElement('div');
-    this.htmlQuestionContainer.innerHTML = this.currentQuestion.question;
+    
+    // Process question content through replaceURL function
+    const processedQuestionContent = replaceURL(this.currentQuestion.question);
+    
+    // Create a wrapper for dynamic content sizing
+    const contentWrapper = document.createElement('div');
+    contentWrapper.innerHTML = processedQuestionContent;
+    this.htmlQuestionContainer.appendChild(contentWrapper);
     
     // Calculate position based on canvas and paper background
     const canvas = this.game.canvas as HTMLCanvasElement;
