@@ -20,6 +20,7 @@ export class QuizScene extends Phaser.Scene {
   private currentFish!: FishType;
   private questions: QuizQuestion[] = [];
   private currentQuestion!: QuizQuestion;
+  private currentQuestionIndex: number = 0; // Track current question index
   private questionText!: Phaser.GameObjects.Text;
   private optionTexts: Phaser.GameObjects.Text[] = [];
   private optionButtons: Phaser.GameObjects.Rectangle[] = [];
@@ -39,6 +40,8 @@ export class QuizScene extends Phaser.Scene {
   private correctAnswerKeys: string[] = []; // Parsed correct answers
   private questionStartTime: number = 0; // Track when question started
   private htmlQuestionContainer: HTMLDivElement | null = null; // HTML container for question content
+  private htmlAnswersContainer: HTMLDivElement | null = null; // HTML container for answer choices
+  private handleWindowResize: (() => void) | null = null; // Window resize handler
 
   constructor() {
     super({ key: 'QuizScene' });
@@ -71,8 +74,21 @@ export class QuizScene extends Phaser.Scene {
     // Create quiz questions
     this.createQuizQuestions();
 
-    // Select the first question (index 0) instead of random
-    this.currentQuestion = this.questions[0];
+    // Load saved question index from localStorage
+    const savedIndex = localStorage.getItem('fishQuizQuestionIndex');
+    if (savedIndex !== null) {
+      this.currentQuestionIndex = parseInt(savedIndex, 10);
+      // Reset to 0 if we've gone through all questions
+      if (this.currentQuestionIndex >= this.questions.length) {
+        this.currentQuestionIndex = 0;
+        localStorage.setItem('fishQuizQuestionIndex', '0');
+      }
+    }
+
+    console.log(`Loading question ${this.currentQuestionIndex + 1} of ${this.questions.length}`);
+
+    // Select the current question based on index
+    this.currentQuestion = this.questions[this.currentQuestionIndex];
 
     // Parse correct answers (support comma-separated values)
     this.correctAnswerKeys = this.currentQuestion.correctAnswer.split(',').map(key => key.trim());
@@ -264,10 +280,15 @@ export class QuizScene extends Phaser.Scene {
       }
     ).setOrigin(1, 0.5); // Right-align the text
 
+    // PHASER ANSWER BUTTONS HIDDEN - Only HTML answers are shown
+    // The following code creates Phaser answer buttons but they are commented out
+    // to only show HTML-based answer options
+    
+    /*
     // Add options - position them in a 2x2 grid in the lower part of the paper
     const firstButtonY = this.cameras.main.height * 0.55 + 160; // Move down by additional 20px
-    const gridSpacingX = 220; // Horizontal spacing between buttons
-    const gridSpacingY = 100; // Vertical spacing between buttons
+    const gridSpacingX = 280; // Increased horizontal spacing between buttons (from 220 to 280)
+    const gridSpacingY = 160; // Increased vertical spacing between buttons (from 100 to 160)
 
     for (let i = 0; i < this.currentQuestion.choices.length; i++) {
       // Calculate position in 2x2 grid
@@ -468,6 +489,7 @@ export class QuizScene extends Phaser.Scene {
     this.submitButton.on('pointerdown', () => {
       this.submitAnswer();
     });
+    */
   }
 
   private startTimer(): void {
@@ -587,39 +609,40 @@ export class QuizScene extends Phaser.Scene {
     }
   }
 
-  private submitAnswer(): void {
-    if (this.selectedAnswers.size === 0) return;
+  // DISABLED - This method is no longer used since we only use HTML submission
+  // private submitAnswer(): void {
+  //   if (this.selectedAnswers.size === 0) return;
 
-    // Stop the timer
-    this.timerEvent.remove();
+  //   // Stop the timer
+  //   this.timerEvent.remove();
 
-    // Calculate time spent on this question (in seconds)
-    const timeSpentMs = Date.now() - this.questionStartTime;
-    const timeSpentSeconds = Math.round(timeSpentMs / 1000);
+  //   // Calculate time spent on this question (in seconds)
+  //   const timeSpentMs = Date.now() - this.questionStartTime;
+  //   const timeSpentSeconds = Math.round(timeSpentMs / 1000);
 
-    // Check if the answer is correct based on question type
-    let isCorrect = false;
-    const selectedArray = Array.from(this.selectedAnswers).sort();
-    const correctArray = this.correctAnswerKeys.sort();
+  //   // Check if the answer is correct based on question type
+  //   let isCorrect = false;
+  //   const selectedArray = Array.from(this.selectedAnswers).sort();
+  //   const correctArray = this.correctAnswerKeys.sort();
 
-    if (this.currentQuestion.questionType === 'MC') {
-      // For single choice, user must select exactly one correct answer
-      isCorrect = selectedArray.length === 1 && correctArray.includes(selectedArray[0]);
-    } else {
-      // For multiple selection, user must select all correct answers and no incorrect ones
-      isCorrect = selectedArray.length === correctArray.length &&
-        selectedArray.every(key => correctArray.includes(key));
-    }
+  //   if (this.currentQuestion.questionType === 'MC') {
+  //     // For single choice, user must select exactly one correct answer
+  //     isCorrect = selectedArray.length === 1 && correctArray.includes(selectedArray[0]);
+  //   } else {
+  //     // For multiple selection, user must select all correct answers and no incorrect ones
+  //     isCorrect = selectedArray.length === correctArray.length &&
+  //       selectedArray.every(key => correctArray.includes(key));
+  //   }
 
-    // Calculate time bonus - how much time is left
-    const timeBonus = this.timeRemaining;
+  //   // Calculate time bonus - how much time is left
+  //   const timeBonus = this.timeRemaining;
 
-    // Create user answer string for display
-    const userAnswer = selectedArray.join(','); // Use comma without space for API
+  //   // Create user answer string for display
+  //   const userAnswer = selectedArray.join(','); // Use comma without space for API
 
-    // Call API to save question attempt before showing results
-    this.saveQuestionAttempt(timeSpentSeconds, userAnswer, isCorrect, timeBonus);
-  }
+  //   // Call API to save question attempt before showing results
+  //   this.saveQuestionAttempt(timeSpentSeconds, userAnswer, isCorrect, timeBonus);
+  // }
 
   /**
    * Save question attempt to the backend API
@@ -652,24 +675,11 @@ export class QuizScene extends Phaser.Scene {
   }
 
   private displayQuestionContent(): void {
-    // Set question text with processed content
-    if (this.questionText) {
-      // Process question text through replaceURL function
-      const processedQuestion = replaceURL(this.currentQuestion.question);
-      this.questionText.setText(processedQuestion);
-    }
-
-    // Set option texts with processed content
-    for (let i = 0; i < this.currentQuestion.choices.length; i++) {
-      if (i < this.optionTexts.length) {
-        // Process choice text through replaceURL function
-        const processedChoiceText = replaceURL(this.currentQuestion.choices[i].text);
-        this.optionTexts[i].setText(processedChoiceText);
-      }
-    }
-
     // Create HTML container outside canvas for proper HTML rendering
     this.createHtmlContainer();
+    
+    // Create HTML answers container for rich answer content
+    this.createHtmlAnswersContainer();
   }
   
   private createHtmlContainer(): void {
@@ -774,35 +784,429 @@ export class QuizScene extends Phaser.Scene {
     window.addEventListener('resize', updatePosition);
     
     // Store the resize handler for cleanup
-    (this.htmlQuestionContainer as any).resizeHandler = updatePosition;
+    this.handleWindowResize = updatePosition;
   }
   
+  /**
+   * Dispose of HTML container and remove from DOM
+   */
   private disposeHtmlContainer(): void {
     if (this.htmlQuestionContainer) {
-      // Remove resize event listener
-      const resizeHandler = (this.htmlQuestionContainer as any).resizeHandler;
-      if (resizeHandler) {
-        window.removeEventListener('resize', resizeHandler);
+      // Remove window resize event listener
+      if (this.handleWindowResize) {
+        window.removeEventListener('resize', this.handleWindowResize);
       }
       
-      // Remove from DOM
+      // Remove container from DOM
       if (this.htmlQuestionContainer.parentNode) {
         this.htmlQuestionContainer.parentNode.removeChild(this.htmlQuestionContainer);
       }
-      
       this.htmlQuestionContainer = null;
     }
   }
 
+  /**
+   * Dispose of HTML answers container and remove from DOM
+   */
+  private disposeHtmlAnswersContainer(): void {
+    if (this.htmlAnswersContainer) {
+      document.body.removeChild(this.htmlAnswersContainer);
+      this.htmlAnswersContainer = null;
+    }
+  }
+
+  /**
+   * Highlight correct and incorrect answers in the HTML container
+   * @param isCorrect Whether the user's answer was correct
+   */
+  private highlightHtmlAnswers(isCorrect: boolean): void {
+    if (!this.htmlAnswersContainer) return;
+    
+    // Disable all option containers to prevent further interaction
+    const optionContainers = this.htmlAnswersContainer.querySelectorAll('div[data-choice-key]');
+    optionContainers.forEach(container => {
+      (container as HTMLElement).style.pointerEvents = 'none';
+    });
+    
+    // Hide the submit button
+    const submitButton = this.htmlAnswersContainer.querySelector('button');
+    if (submitButton) {
+      (submitButton.parentNode as HTMLElement).style.display = 'none';
+    }
+    
+    // Highlight correct answers in green
+    this.correctAnswerKeys.forEach(correctKey => {
+      const correctContainer = this.htmlAnswersContainer?.querySelector(`div[data-choice-key="${correctKey}"]`);
+      if (correctContainer) {
+        (correctContainer as HTMLElement).style.backgroundColor = '#4caf50'; // Green
+        (correctContainer as HTMLElement).style.borderColor = '#2e7d32'; // Dark green
+        (correctContainer as HTMLElement).style.color = 'white';
+        (correctContainer as HTMLElement).style.fontWeight = 'bold';
+      }
+    });
+    
+    // Highlight incorrect selections in red
+    this.selectedAnswers.forEach(selectedKey => {
+      if (!this.correctAnswerKeys.includes(selectedKey)) {
+        const incorrectContainer = this.htmlAnswersContainer?.querySelector(`div[data-choice-key="${selectedKey}"]`);
+        if (incorrectContainer) {
+          (incorrectContainer as HTMLElement).style.backgroundColor = '#f44336'; // Red
+          (incorrectContainer as HTMLElement).style.borderColor = '#c62828'; // Dark red
+          (incorrectContainer as HTMLElement).style.color = 'white';
+        }
+      }
+    });
+    
+    // Add a result message at the bottom of the container
+    const resultMessage = document.createElement('div');
+    resultMessage.style.position = 'absolute';
+    resultMessage.style.bottom = '10%';
+    resultMessage.style.left = '50%';
+    resultMessage.style.transform = 'translateX(-50%)';
+    resultMessage.style.padding = '15px 30px';
+    resultMessage.style.borderRadius = '8px';
+    resultMessage.style.fontWeight = 'bold';
+    resultMessage.style.fontSize = '24px';
+    resultMessage.style.zIndex = '1002';
+    
+    if (isCorrect) {
+      resultMessage.textContent = 'CORRECT! You caught the fish!';
+      resultMessage.style.backgroundColor = '#4caf50'; // Green
+      resultMessage.style.color = 'white';
+    } else {
+      resultMessage.textContent = 'WRONG! The fish got away!';
+      resultMessage.style.backgroundColor = '#f44336'; // Red
+      resultMessage.style.color = 'white';
+    }
+    
+    document.body.appendChild(resultMessage);
+    
+    // Remove the result message when the answers are disposed
+    this.time.delayedCall(1900, () => {
+      if (resultMessage.parentNode) {
+        document.body.removeChild(resultMessage);
+      }
+    });
+  }
+
+  /**
+   * Create HTML container for answer choices in 2x2 grid layout
+   */
+  private createHtmlAnswersContainer(): void {
+    // Remove any existing HTML answers container
+    this.disposeHtmlAnswersContainer();
+    
+    // Create HTML answers container
+    this.htmlAnswersContainer = document.createElement('div');
+    
+    // Calculate position based on canvas and paper background
+    const canvas = this.game.canvas as HTMLCanvasElement;
+    const canvasRect = canvas.getBoundingClientRect();
+    
+    // Get the actual canvas scale factors
+    const scaleX = canvasRect.width / canvas.width;
+    const scaleY = canvasRect.height / canvas.height;
+    
+    // Style the HTML answers container as invisible overlay
+    this.htmlAnswersContainer.style.position = 'fixed';
+    this.htmlAnswersContainer.style.left = '0px';
+    this.htmlAnswersContainer.style.top = '0px';
+    this.htmlAnswersContainer.style.width = '100%';
+    this.htmlAnswersContainer.style.height = '100%';
+    this.htmlAnswersContainer.style.zIndex = '1001'; // Above question container
+    this.htmlAnswersContainer.style.pointerEvents = 'none'; // Allow clicks to pass through except on answer buttons
+    
+    // Calculate grid positions matching the game's 2x2 layout
+    const firstButtonY = this.paperBg.y + (this.paperBg.displayHeight * 0.15); // Added 200px to Y position
+    const gridSpacingX = 280; // Increased horizontal spacing between buttons (from 220 to 280)
+    const gridSpacingY = 150; // Increased vertical spacing between buttons (from 100 to 160)
+    
+    // Create answer options in 2x2 grid
+    this.currentQuestion.choices.forEach((choice, index) => {
+      // Process choice text through replaceURL function
+      const processedChoiceText = replaceURL(choice.text);
+      
+      // Calculate position in 2x2 grid (matching original Phaser layout)
+      const row = Math.floor(index / 2); // 0 for first row, 1 for second row
+      const col = index % 2; // 0 for left column, 1 for right column
+      
+      // Calculate button position
+      const buttonX = (this.cameras.main.width / 2) + ((col === 0) ? -gridSpacingX : gridSpacingX);
+      const buttonY = firstButtonY + (row * gridSpacingY);
+      
+      // Convert world coordinates to screen coordinates
+      const screenX = canvasRect.left + (buttonX * scaleX);
+      const screenY = canvasRect.top + (buttonY * scaleY);
+      
+      // Create answer option container
+      const optionContainer = document.createElement('div');
+      optionContainer.setAttribute('data-choice-key', choice.key); // Add data attribute for highlighting
+      optionContainer.style.position = 'absolute';
+      optionContainer.style.left = screenX + 'px';
+      optionContainer.style.top = screenY + 'px';
+      optionContainer.style.transform = 'translate(-50%, -50%)';
+      optionContainer.style.width = '350px';
+      optionContainer.style.minHeight = '90px';
+      optionContainer.style.maxHeight = '200px';
+      optionContainer.style.overflow = 'auto';
+      optionContainer.style.padding = '15px'; // Increased padding from 15px to 20px
+      optionContainer.style.margin = '10px'; // Added margin to prevent stacking
+      optionContainer.style.border = '2px solid #90caf9';
+      optionContainer.style.borderRadius = '8px';
+      optionContainer.style.cursor = 'pointer';
+      optionContainer.style.transition = 'all 0.3s ease';
+      optionContainer.style.backgroundColor = '#f5f5f5';
+      optionContainer.style.pointerEvents = 'auto'; // Enable clicks on this element
+      optionContainer.style.fontSize = '16px';
+      optionContainer.style.lineHeight = '1.4';
+      optionContainer.style.color = '#000000';
+      optionContainer.style.fontFamily = 'Arial, sans-serif';
+      optionContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      optionContainer.dataset.choiceKey = choice.key;
+      optionContainer.dataset.choiceIndex = index.toString();
+      
+      // Add hover effects
+      optionContainer.addEventListener('mouseenter', () => {
+        if (!this.selectedAnswers.has(choice.key)) {
+          optionContainer.style.backgroundColor = '#e3f2fd';
+          optionContainer.style.borderColor = '#2196f3';
+          optionContainer.style.transform = 'translate(-50%, -50%) scale(1.02)';
+        }
+      });
+      
+      optionContainer.addEventListener('mouseleave', () => {
+        if (!this.selectedAnswers.has(choice.key)) {
+          optionContainer.style.backgroundColor = '#f5f5f5';
+          optionContainer.style.borderColor = '#90caf9';
+          optionContainer.style.transform = 'translate(-50%, -50%) scale(1)';
+        }
+      });
+      
+      // Add click handler
+      optionContainer.addEventListener('click', () => {
+        this.toggleHtmlAnswer(choice.key, index, optionContainer);
+      });
+      
+      // Create choice label
+      const choiceLabel = document.createElement('div');
+      choiceLabel.style.fontWeight = 'bold';
+      choiceLabel.style.marginBottom = '8px';
+      choiceLabel.style.color = '#333';
+      choiceLabel.style.fontSize = '18px';
+      choiceLabel.textContent = `${choice.key}.`;
+      optionContainer.appendChild(choiceLabel);
+      
+      // Create choice content
+      const choiceContent = document.createElement('div');
+      choiceContent.innerHTML = processedChoiceText;
+      
+      // Style images in choice content
+      const images = choiceContent.querySelectorAll('img');
+      images.forEach(img => {
+        (img as HTMLImageElement).style.maxWidth = '100%';
+        (img as HTMLImageElement).style.height = 'auto';
+        (img as HTMLImageElement).style.borderRadius = '4px';
+        (img as HTMLImageElement).style.marginTop = '8px';
+      });
+      
+      optionContainer.appendChild(choiceContent);
+      this.htmlAnswersContainer!.appendChild(optionContainer);
+    });
+    
+    // Create submit button positioned below the grid
+    const submitButtonContainer = document.createElement('div');
+    const submitButtonY = firstButtonY + (Math.ceil(this.currentQuestion.choices.length / 2) * gridSpacingY) + 50;
+    const submitScreenX = canvasRect.left + (this.cameras.main.width / 2 * scaleX);
+    const submitScreenY = canvasRect.top + (submitButtonY * scaleY);
+    
+    submitButtonContainer.style.position = 'absolute';
+    submitButtonContainer.style.left = submitScreenX + 'px';
+    submitButtonContainer.style.top = submitScreenY - 50 + 'px';
+    submitButtonContainer.style.transform = 'translate(-50%, -50%)';
+    submitButtonContainer.style.pointerEvents = 'auto';
+    
+    const submitButton = document.createElement('button');
+    submitButton.textContent = 'Submit Answer';
+    submitButton.style.padding = '12px 30px';
+    submitButton.style.fontSize = '18px';
+    submitButton.style.fontWeight = 'bold';
+    submitButton.style.backgroundColor = '#4caf50';
+    submitButton.style.color = 'white';
+    submitButton.style.border = 'none';
+    submitButton.style.borderRadius = '6px';
+    submitButton.style.cursor = 'pointer';
+    submitButton.style.transition = 'background-color 0.3s ease';
+    submitButton.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+    submitButton.disabled = true;
+    submitButton.style.opacity = '0.5';
+    
+    submitButton.addEventListener('click', () => {
+      this.submitHtmlAnswer();
+    });
+    
+    submitButtonContainer.appendChild(submitButton);
+    this.htmlAnswersContainer.appendChild(submitButtonContainer);
+    
+    // Store reference to submit button for enabling/disabling
+    (this.htmlAnswersContainer as any).submitButton = submitButton;
+    
+    // Add to DOM
+    document.body.appendChild(this.htmlAnswersContainer);
+    
+    // Update submit button state
+    this.updateHtmlSubmitButton();
+  }
+
+  /**
+   * Toggle HTML answer selection
+   */
+  private toggleHtmlAnswer(selectedKey: string, selectedIndex: number, optionContainer: HTMLElement): void {
+    // Handle different question types
+    if (this.currentQuestion.questionType === 'MC') {
+      // Single choice - clear all other selections
+      this.selectedAnswers.clear();
+      this.selectedAnswers.add(selectedKey);
+      
+      // Update all option containers visual state
+      if (this.htmlAnswersContainer) {
+        const allOptions = this.htmlAnswersContainer.querySelectorAll('[data-choice-key]');
+        allOptions.forEach(option => {
+          const element = option as HTMLElement;
+          const key = element.dataset.choiceKey;
+          if (key === selectedKey) {
+            element.style.backgroundColor = '#c8e6c9';
+            element.style.borderColor = '#4caf50';
+          } else {
+            element.style.backgroundColor = '#f9f9f9';
+            element.style.borderColor = '#ddd';
+          }
+        });
+      }
+    } else {
+      // Multiple selection - toggle this selection
+      if (this.selectedAnswers.has(selectedKey)) {
+        this.selectedAnswers.delete(selectedKey);
+        optionContainer.style.backgroundColor = '#f9f9f9';
+        optionContainer.style.borderColor = '#ddd';
+      } else {
+        this.selectedAnswers.add(selectedKey);
+        optionContainer.style.backgroundColor = '#c8e6c9';
+        optionContainer.style.borderColor = '#4caf50';
+      }
+    }
+    
+    // Update submit button state
+    this.updateHtmlSubmitButton();
+  }
+
+  /**
+   * Update HTML submit button state
+   */
+  private updateHtmlSubmitButton(): void {
+    if (!this.htmlAnswersContainer) return;
+    
+    const submitButton = (this.htmlAnswersContainer as any).submitButton as HTMLButtonElement;
+    if (!submitButton) return;
+    
+    let shouldEnable = false;
+    
+    if (this.currentQuestion.questionType === 'MC') {
+      // For single choice, enable submit button when exactly one answer is selected
+      shouldEnable = this.selectedAnswers.size === 1;
+    } else {
+      // For multiple selection, enable submit button when at least one answer is selected
+      shouldEnable = this.selectedAnswers.size > 0;
+    }
+    
+    submitButton.disabled = !shouldEnable;
+    submitButton.style.opacity = shouldEnable ? '1' : '0.5';
+    submitButton.style.backgroundColor = shouldEnable ? '#4caf50' : '#cccccc';
+    submitButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
+  }
+
+  /**
+   * Submit HTML answer
+   */
+  private submitHtmlAnswer(): void {
+    if (this.selectedAnswers.size === 0) return;
+    
+    // Disable HTML answer options
+    if (this.htmlAnswersContainer) {
+      const allOptions = this.htmlAnswersContainer.querySelectorAll('[data-choice-key]');
+      allOptions.forEach(option => {
+        const element = option as HTMLElement;
+        element.style.pointerEvents = 'none';
+        element.style.opacity = '0.7';
+      });
+      
+      // Disable submit button
+      const submitButton = (this.htmlAnswersContainer as any).submitButton as HTMLButtonElement;
+      if (submitButton) {
+        submitButton.disabled = true;
+        submitButton.style.opacity = '0.5';
+      }
+    }
+    
+    // Calculate time spent and bonus
+    const timeSpent = Math.floor((Date.now() - this.questionStartTime) / 1000);
+    const timeBonus = Math.max(0, this.timeRemaining - timeSpent);
+    
+    // Check if answer is correct
+    const selectedArray = Array.from(this.selectedAnswers).sort();
+    const correctArray = this.correctAnswerKeys.sort();
+    
+    let isCorrect = false;
+    if (this.currentQuestion.questionType === 'MC') {
+      // For single choice, user must select exactly one correct answer
+      isCorrect = selectedArray.length === 1 && correctArray.includes(selectedArray[0]);
+    } else {
+      // For multiple selection, user must select all correct answers and no incorrect ones
+      isCorrect = selectedArray.length === correctArray.length && 
+                  selectedArray.every(answer => correctArray.includes(answer));
+    }
+    
+    // Stop timer
+    if (this.timerEvent) {
+      this.timerEvent.remove();
+    }
+    
+    // Create submit answer string
+    const submitAnswer = Array.from(this.selectedAnswers).sort().join(',');
+    
+    // Save question data to API
+    const payload = {
+      GameAttemptId: window.GAME_ATTEMPT_ID || '',
+      questionId: this.currentQuestion.id || '',
+      timespent: timeSpent,
+      submittedAnswer: submitAnswer
+    };
+    
+    gameSdk.postQuestiion(
+      payload,
+      (response: any) => {
+        console.log('Question saved successfully:', response);
+        this.showResult(isCorrect, timeBonus, submitAnswer);
+      },
+      () => {
+        console.error('Failed to save question');
+        // Show result even if API fails to prevent blocking the user
+        this.showResult(isCorrect, timeBonus, submitAnswer);
+      }
+    );
+  }
+
   private showResult(isCorrect: boolean, timeBonus: number = 0, userAnswer?: string): void {
-    // Disable option buttons - safely check each button before disabling
+    // Instead of disposing HTML answers, highlight correct/incorrect answers
+    this.highlightHtmlAnswers(isCorrect);
+    
+    // Since Phaser buttons are now hidden/commented out, we don't need to disable them
+    // The following code is kept for compatibility but won't execute since buttons don't exist
     this.optionButtons.forEach(button => {
       if (button && button.input) {
         button.disableInteractive();
       }
     });
 
-    // Disable submit button
     if (this.submitButton && this.submitButton.input) {
       this.submitButton.disableInteractive();
     }
@@ -815,7 +1219,8 @@ export class QuizScene extends Phaser.Scene {
       );
     }
 
-    // Highlight all correct answers
+    // Since Phaser answer buttons are hidden, we don't highlight them
+    // The following code is kept for compatibility but won't execute since buttons don't exist
     this.correctAnswerKeys.forEach(correctKey => {
       const correctAnswerIndex = this.currentQuestion.choices.findIndex(
         choice => choice.key === correctKey
@@ -823,11 +1228,9 @@ export class QuizScene extends Phaser.Scene {
 
       if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
         this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00); // Green for correct
-        // Remove text style change to avoid Phaser errors
       }
     });
 
-    // Highlight user's incorrect selections in red
     this.selectedAnswers.forEach(selectedKey => {
       if (!this.correctAnswerKeys.includes(selectedKey)) {
         const incorrectIndex = this.currentQuestion.choices.findIndex(
@@ -836,7 +1239,6 @@ export class QuizScene extends Phaser.Scene {
 
         if (incorrectIndex >= 0 && incorrectIndex < this.optionButtons.length) {
           this.optionButtons[incorrectIndex].setFillStyle(0xff0000); // Red for incorrect
-          // Remove text style change to avoid Phaser errors
         }
       }
     });
@@ -844,7 +1246,7 @@ export class QuizScene extends Phaser.Scene {
     // Show result text - position it more prominently
     const resultText = this.add.text(
       this.cameras.main.width / 2,
-      this.cameras.main.height / 2 - 50, // More visible position
+      this.cameras.main.height / 2 + 55, // More visible position
       isCorrect ? 'CORRECT! You caught the fish!' : 'WRONG! The fish got away!',
       {
         fontSize: '36px',
@@ -875,14 +1277,21 @@ export class QuizScene extends Phaser.Scene {
       ).setOrigin(0.5).setDepth(10);
     }
 
-    // Wait a moment before returning to the game
+    // Wait a moment before returning to game (save progress for next fish)
     this.time.delayedCall(2000, () => {
       //console.log('QuizScene: Preparing to return to GameScene...');
 
-      // Clean up HTML container before transitioning
+      // Clean up HTML containers before transitioning
+      this.disposeHtmlAnswersContainer();
       this.disposeHtmlContainer();
 
-      // Prepare data for GameScene
+      // Increment question index for next fish caught
+      this.currentQuestionIndex++;
+      
+      // Save the current question index to localStorage for persistence
+      localStorage.setItem('fishQuizQuestionIndex', this.currentQuestionIndex.toString());
+      
+      // Always return to GameScene after each question
       const gameData = {
         success: isCorrect,
         timeBonus: timeBonus,
@@ -903,6 +1312,36 @@ export class QuizScene extends Phaser.Scene {
       // Stop this scene (this will trigger shutdown/cleanup)
       this.scene.stop();
     });
+  }
+
+  /**
+   * Load the next question in sequence
+   */
+  private loadNextQuestion(): void {
+    // Clean up current question UI
+    this.cleanupUIElements();
+    
+    // Set the current question based on the updated index
+    this.currentQuestion = this.questions[this.currentQuestionIndex];
+    
+    // Parse correct answers for the new question
+    this.correctAnswerKeys = this.currentQuestion.correctAnswer.split(',').map(key => key.trim());
+    
+    // Reset selected answers for new question
+    this.selectedAnswers.clear();
+    
+    // Reset timer for new question
+    this.timeRemaining = this.getQuizTimeRemaining();
+    this.questionStartTime = Date.now();
+    
+    // Create new UI for the question
+    this.createQuizUI();
+    
+    // Display the new question content
+    this.displayQuestionContent();
+    
+    // Start the timer for the new question
+    this.startTimer();
   }
 
   private formatFishName(fish: FishType): string {
@@ -980,6 +1419,9 @@ export class QuizScene extends Phaser.Scene {
       }
     });
     this.optionTexts = [];
+
+    // Clean up HTML answers container
+    this.disposeHtmlAnswersContainer();
 
     // Clean up other UI elements that might exist from previous questions
     if (this.submitButton && this.submitButton.scene) {
@@ -1097,8 +1539,9 @@ export class QuizScene extends Phaser.Scene {
 
     // Clean up dynamically created textures
     this.cleanupDynamicTextures();
-    // Clean up HTML container before transitioning
+    // Clean up HTML containers before transitioning
     this.disposeHtmlContainer();
+    this.disposeHtmlAnswersContainer();
 
     //console.log('QuizScene: Cleanup completed');
   }
@@ -1141,6 +1584,7 @@ export class QuizScene extends Phaser.Scene {
     this.correctAnswerKeys = [];
     this.questions = [];
     this.currentQuestion = null as any;
+    // Don't reset currentQuestionIndex here to preserve progress
     this.completionData = null;
 
     //console.log('QuizScene: Scene state reset completed');
