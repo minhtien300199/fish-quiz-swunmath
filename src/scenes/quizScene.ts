@@ -720,38 +720,27 @@ export class QuizScene extends Phaser.Scene {
     this.htmlQuestionContainer.style.left = screenX + 'px';
     this.htmlQuestionContainer.style.top = screenY + 'px';
     this.htmlQuestionContainer.style.transform = 'translate(-50%, -50%)';
-    this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * scaleX) + 'px';
-    this.htmlQuestionContainer.style.maxHeight = Math.min(350, this.paperBg.displayHeight * 0.4 * scaleY) + 'px';
-    this.htmlQuestionContainer.style.overflow = 'auto';
+    this.htmlQuestionContainer.style.width = '500px';
+    this.htmlQuestionContainer.style.height = '350px'; // Fixed height
+    this.htmlQuestionContainer.style.overflow = 'hidden'; // No scrolling
     this.htmlQuestionContainer.style.zIndex = '1000';
-    this.htmlQuestionContainer.style.backgroundColor = 'transparent'; // Transparent background
+    this.htmlQuestionContainer.style.backgroundColor = 'transparent';
     this.htmlQuestionContainer.style.padding = '15px';
-    this.htmlQuestionContainer.style.borderRadius = '0px'; // No border radius
-    this.htmlQuestionContainer.style.boxShadow = 'none'; // No drop shadow
+    this.htmlQuestionContainer.style.borderRadius = '0px';
+    this.htmlQuestionContainer.style.boxShadow = 'none';
     this.htmlQuestionContainer.style.fontSize = '16px';
     this.htmlQuestionContainer.style.lineHeight = '1.5';
     this.htmlQuestionContainer.style.color = '#000000';
     this.htmlQuestionContainer.style.textAlign = 'left';
     this.htmlQuestionContainer.style.fontFamily = 'Arial, sans-serif';
-    this.htmlQuestionContainer.style.border = 'none'; // No border
+    this.htmlQuestionContainer.style.border = 'none';
+    this.htmlQuestionContainer.style.boxSizing = 'border-box';
+    this.htmlQuestionContainer.style.display = 'flex';
+    this.htmlQuestionContainer.style.flexDirection = 'column';
+    this.htmlQuestionContainer.style.justifyContent = 'center';
     
-    // Handle images in the HTML content
-    const images = this.htmlQuestionContainer.querySelectorAll('img');
-    images.forEach(img => {
-      img.style.maxWidth = '100%';
-      img.style.height = 'auto';
-      img.style.display = 'block';
-      img.style.margin = '10px auto';
-      img.style.borderRadius = '5px';
-    });
-    
-    // Handle MathML if present
-    const mathElements = this.htmlQuestionContainer.querySelectorAll('math');
-    mathElements.forEach(math => {
-      math.style.display = 'block';
-      math.style.margin = '10px auto';
-      math.style.textAlign = 'center';
-    });
+    // Process content to fit without scrolling and add hover functionality
+    this.processQuestionContentNoScroll();
     
     // Handle any custom styling elements
     const styleElements = this.htmlQuestionContainer.querySelectorAll('style');
@@ -788,10 +777,130 @@ export class QuizScene extends Phaser.Scene {
   }
   
   /**
+   * Process question content to fit in no-scroll container with image hover functionality
+   */
+  private processQuestionContentNoScroll(): void {
+    if (!this.htmlQuestionContainer) return;
+    
+    // Get all images in the container and make them small with hover functionality
+    const images = this.htmlQuestionContainer.querySelectorAll('img');
+    images.forEach(img => {
+      const imageElement = img as HTMLImageElement;
+      
+      // Make images small to fit in container
+      imageElement.style.maxWidth = '150px';
+      imageElement.style.maxHeight = '100px';
+      imageElement.style.width = 'auto';
+      imageElement.style.height = 'auto';
+      imageElement.style.cursor = 'pointer';
+      imageElement.style.display = 'block';
+      imageElement.style.margin = '5px auto';
+      imageElement.style.borderRadius = '5px';
+      imageElement.style.transition = 'transform 0.2s ease';
+      
+      // Store original source for hover preview
+      const originalSrc = imageElement.src;
+      
+      // Add hover functionality for full-size preview
+      imageElement.addEventListener('mouseenter', () => {
+        // Create hover preview overlay
+        const hoverOverlay = document.createElement('div');
+        hoverOverlay.style.position = 'fixed';
+        hoverOverlay.style.top = '0';
+        hoverOverlay.style.left = '0';
+        hoverOverlay.style.width = '100vw';
+        hoverOverlay.style.height = '100vh';
+        hoverOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+        hoverOverlay.style.zIndex = '2000';
+        hoverOverlay.style.display = 'flex';
+        hoverOverlay.style.justifyContent = 'center';
+        hoverOverlay.style.alignItems = 'center';
+        hoverOverlay.style.cursor = 'pointer';
+        
+        // Create full-size image
+        const fullImage = document.createElement('img');
+        fullImage.src = originalSrc;
+        fullImage.style.maxWidth = '90vw';
+        fullImage.style.maxHeight = '90vh';
+        fullImage.style.objectFit = 'contain';
+        fullImage.style.borderRadius = '8px';
+        fullImage.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
+        
+        hoverOverlay.appendChild(fullImage);
+        document.body.appendChild(hoverOverlay);
+        
+        // Store reference for cleanup
+        (imageElement as any).hoverOverlay = hoverOverlay;
+        
+        // Remove overlay on click
+        const removeOverlay = () => {
+          if (hoverOverlay.parentNode) {
+            document.body.removeChild(hoverOverlay);
+          }
+          (imageElement as any).hoverOverlay = null;
+        };
+        
+        hoverOverlay.addEventListener('click', removeOverlay);
+        
+        // Auto-remove after 3 seconds
+        setTimeout(() => {
+          if ((imageElement as any).hoverOverlay === hoverOverlay) {
+            removeOverlay();
+          }
+        }, 3000);
+      });
+      
+      imageElement.addEventListener('mouseleave', () => {
+        // Small delay before removing overlay to prevent flicker
+        setTimeout(() => {
+          const overlay = (imageElement as any).hoverOverlay;
+          if (overlay && overlay.parentNode) {
+            document.body.removeChild(overlay);
+            (imageElement as any).hoverOverlay = null;
+          }
+        }, 100);
+      });
+    });
+    
+    // Handle MathML elements if present
+    const mathElements = this.htmlQuestionContainer.querySelectorAll('math');
+    mathElements.forEach(math => {
+      (math as HTMLElement).style.display = 'block';
+      (math as HTMLElement).style.margin = '5px auto';
+      (math as HTMLElement).style.textAlign = 'center';
+      (math as HTMLElement).style.fontSize = '14px';
+    });
+    
+    // Adjust font size based on content length to ensure it fits
+    const textContent = this.htmlQuestionContainer.textContent || '';
+    const contentLength = textContent.length;
+    
+    if (contentLength > 600) {
+      this.htmlQuestionContainer.style.fontSize = '12px';
+      this.htmlQuestionContainer.style.lineHeight = '1.3';
+    } else if (contentLength > 400) {
+      this.htmlQuestionContainer.style.fontSize = '14px';
+      this.htmlQuestionContainer.style.lineHeight = '1.4';
+    } else {
+      this.htmlQuestionContainer.style.fontSize = '16px';
+      this.htmlQuestionContainer.style.lineHeight = '1.5';
+    }
+  }
+
+  /**
    * Dispose of HTML container and remove from DOM
    */
   private disposeHtmlContainer(): void {
     if (this.htmlQuestionContainer) {
+      // Clean up any hover overlays
+      const images = this.htmlQuestionContainer.querySelectorAll('img');
+      images.forEach(img => {
+        const overlay = (img as any).hoverOverlay;
+        if (overlay && overlay.parentNode) {
+          document.body.removeChild(overlay);
+        }
+      });
+      
       // Remove window resize event listener
       if (this.handleWindowResize) {
         window.removeEventListener('resize', this.handleWindowResize);
