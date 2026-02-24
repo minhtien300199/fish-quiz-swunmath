@@ -3,7 +3,7 @@ export function replaceURL(text) {
     if (!text) return "";
     
     // Access url from the gameSdk scope
-    const url = "https://games.swunmath.com/backend/api/v1";
+    const url = "https://practice.paradigmmath.com/backend/api/v1";
     
     return text.replace(
       /\/AssessmentSetup\/LibraryFileManager\/GetLibraryVideoFile\?keyName=([^"]+)/g,
@@ -30,7 +30,7 @@ const gameSdk =(function(){
     let standarId = params.standarId;
     let lnpid = params.lnpid;
     let gameId = params.gameId;
-    let url="https://games.swunmath.com/backend/api/v1";
+    let url="https://practice.paradigmmath.com/backend/api/v1";
     return {
         setParamater(userIdPr,standarIdPr,lnpidPr,gameIdPr){
             userId=userIdPr;
