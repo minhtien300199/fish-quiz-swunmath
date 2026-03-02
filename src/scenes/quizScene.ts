@@ -222,7 +222,7 @@ export class QuizScene extends Phaser.Scene {
     }
 
     // Create fish image at the top of the paper using FishFactory
-    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, 300, this.currentFish);
+    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, 288, this.currentFish);
     fishSprite.setScale(0.5);
     this.fishSprite = fishSprite;
 

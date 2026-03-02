@@ -58,10 +58,12 @@ export class GameScene extends Phaser.Scene {
   private fishingLine: Phaser.GameObjects.Graphics | null = null; // Visual fishing line
   private fishSplashingSound: Phaser.Sound.BaseSound | null = null; // Fish splashing sound
   private bitingFishShadow: Phaser.GameObjects.Sprite | null = null; // Fish shadow that will bite the floater
-  private catchButton: Phaser.GameObjects.Container | null = null; // Button to catch fish when biting
+  private catchButton: HTMLDivElement | null = null; // DOM button to catch fish when biting
   private fishCelebrationContainer: Phaser.GameObjects.Container | null = null; // Fish celebration display
   private fishBox: Phaser.GameObjects.Container | null = null; // Fish storage box
   private keyboardAnimationTimer: Phaser.Time.TimerEvent | null = null; // Timer for keyboard animation
+  private catchButtonAnimationId: number | null = null; // RAF id for keyboard animation
+  private catchButtonFloatId: number | null = null; // RAF id for catch button float
   private fishQuizDataList: FishQuizData[] = []; // Store quiz data for caught fish
   private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
   private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
@@ -2925,140 +2927,195 @@ export class GameScene extends Phaser.Scene {
   /**
    * Show a catch button above the player's head when fish is biting
    */
+  /**
+   * Convert world coordinates to screen coordinates for DOM positioning
+   */
+  private worldToScreenForDom(worldX: number, worldY: number): { x: number; y: number } {
+    const camera = this.cameras.main;
+    const canvas = this.game.canvas;
+    const canvasRect = canvas.getBoundingClientRect();
+    const screenX = (worldX - camera.worldView.x) * (canvasRect.width / camera.worldView.width) + canvasRect.left;
+    const screenY = (worldY - camera.worldView.y) * (canvasRect.height / camera.worldView.height) + canvasRect.top;
+    return { x: screenX, y: screenY };
+  }
+
   private showCatchButton(): void {
     if (!this.character) return;
 
     // Remove existing button if any
     this.removeCatchButton();
 
-    // Create a container for the button
-    this.catchButton = this.add.container(this.character.x, this.character.y - 60);
+    // Create DOM-based catch button bubble
+    this.catchButton = document.createElement('div');
+    this.catchButton.style.position = 'fixed';
+    this.catchButton.style.zIndex = '8500';
+    this.catchButton.style.transform = 'translate(-50%, -100%)';
+    this.catchButton.style.cursor = 'pointer';
+    this.catchButton.style.transition = 'opacity 0.2s ease';
+    this.catchButton.style.opacity = '0';
 
-    // Create button background (adjusted size for keyboard gif and cursor)
-    const buttonBg = this.add.rectangle(0, 0, 140, 40, 0xe74c3c, 0.9)
-      .setStrokeStyle(2, 0xffffff, 1);
+    // Build speech bubble HTML with keyboard animation and pointer
+    this.catchButton.innerHTML = `
+      <div style="
+        position: relative;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+      ">
+        <div style="
+          color: #ffff00;
+          font-size: 60px;
+          font-weight: bold;
+          text-shadow: 0 0 4px #ff0000, 0 0 2px #ff0000;
+          animation: catchPulse 0.6s ease-in-out infinite alternate;
+          margin-bottom: 4px;
+        ">!</div>
+        <div style="
+          background: rgba(231, 76, 60, 0.9);
+          border: 2px solid #fff;
+          border-radius: 24px;
+          padding: 28px 48px;
+          display: flex;
+          align-items: center;
+          gap: 28px;
+          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+          position: relative;
+        ">
+          <img id="catchKeyboardImg" src="assets/ui/control_ui/space_0001.png" style="height: 96px; width: auto;" />
+          <span style="color: #fff; font-size: 36px; font-weight: bold; font-family: Arial, sans-serif;">OR</span>
+          <img src="assets/ui/control_ui/pointer_0001.png" style="height: 84px; width: auto;" />
+          <div style="
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 8px solid transparent;
+            border-right: 8px solid transparent;
+            border-top: 10px solid #fff;
+          "></div>
+          <div style="
+            position: absolute;
+            bottom: -7px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0; height: 0;
+            border-left: 7px solid transparent;
+            border-right: 7px solid transparent;
+            border-top: 9px solid rgba(231, 76, 60, 0.9);
+          "></div>
+        </div>
+      </div>
+    `;
 
-    // Create animated keyboard sprite
-    const keyboardSprite = this.add.image(-30, 0, 'keyboard-frame-1');
-    keyboardSprite.setOrigin(0.5);
-    keyboardSprite.setScale(0.15); // Scale down to fit nicely in the button (488x185 -> ~58x22)
-
-    // Create cursor/click icon
-    const cursorSprite = this.add.image(30, 0, 'pointer-normal');
-    cursorSprite.setOrigin(0.5);
-    cursorSprite.setScale(0.5); // Scale down the cursor icon
-
-    // Add "OR" text between them
-    const orText = this.add.text(20, 0, 'OR', {
-      fontSize: '10px',
-      color: '#ffffff',
-      fontStyle: 'bold'
-    }).setOrigin(0.5);
-
-    // Create animation by alternating between frames
-    let currentFrame = 1;
-    this.keyboardAnimationTimer = this.time.addEvent({
-      delay: 200, // Switch frames every 500ms
-      callback: () => {
-        if (keyboardSprite && keyboardSprite.active) {
-          currentFrame = currentFrame === 1 ? 2 : 1;
-          keyboardSprite.setTexture(`keyboard-frame-${currentFrame}`);
-        }
-      },
-      loop: true
-    });
-
-    // Create pulsing exclamation mark (smaller)
-    const exclamation = this.add.text(0, -22, '!', {
-      fontSize: '16px',
-      color: '#ffff00',
-      fontStyle: 'bold',
-      stroke: '#ff0000',
-      strokeThickness: 1
-    }).setOrigin(0.5);
-
-    // Add all elements to container
-    this.catchButton.add([buttonBg, keyboardSprite, cursorSprite, orText, exclamation]);
-
-    // Set depth to appear above everything else
-    this.catchButton.setDepth(1001);
-
-    // Make sure it's visible to main camera only
-    const cameras = this.cameras.cameras;
-    for (let i = 1; i < cameras.length; i++) {
-      const camera = cameras[i];
-      if (camera && camera !== this.cameras.main) {
-        camera.ignore(this.catchButton);
+    // Add CSS animation for pulsing exclamation
+    const style = document.createElement('style');
+    style.id = 'catchButtonStyles';
+    style.textContent = `
+      @keyframes catchPulse {
+        from { transform: scale(1); }
+        to { transform: scale(1.3); }
       }
+    `;
+    if (!document.getElementById('catchButtonStyles')) {
+      document.head.appendChild(style);
     }
 
-    // Make button interactive
-    buttonBg.setInteractive({ useHandCursor: true });
-
-    // Add hover effects
-    buttonBg.on('pointerover', () => {
-      buttonBg.setFillStyle(0xc0392b, 1);
-      buttonBg.setScale(1.05);
-    });
-
-    buttonBg.on('pointerout', () => {
-      buttonBg.setFillStyle(0xe74c3c, 0.9);
-      buttonBg.setScale(1);
-    });
-
-    // Add click handler
-    buttonBg.on('pointerdown', () => {
+    // Click handler
+    this.catchButton.addEventListener('click', () => {
       this.handleCatchAttempt();
     });
 
-    // Add pulsing animation to exclamation mark
-    this.tweens.add({
-      targets: exclamation,
-      scaleX: 1.3,
-      scaleY: 1.3,
-      duration: 300,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
+    // Hover effects
+    const buttonDiv = this.catchButton;
+    this.catchButton.addEventListener('mouseenter', () => {
+      const bg = buttonDiv.querySelector('div > div:last-child') as HTMLElement;
+      if (bg) bg.style.background = 'rgba(192, 57, 43, 1)';
+    });
+    this.catchButton.addEventListener('mouseleave', () => {
+      const bg = buttonDiv.querySelector('div > div:last-child') as HTMLElement;
+      if (bg) bg.style.background = 'rgba(231, 76, 60, 0.9)';
     });
 
-    // Add gentle bobbing animation to entire button
-    this.tweens.add({
-      targets: this.catchButton,
-      y: this.character.y - 65,
-      duration: 800,
-      yoyo: true,
-      repeat: -1,
-      ease: 'Sine.easeInOut'
+    document.body.appendChild(this.catchButton);
+
+    // Position it
+    this.updateCatchButtonPosition();
+
+    // Animate in
+    requestAnimationFrame(() => {
+      if (this.catchButton) {
+        this.catchButton.style.opacity = '1';
+      }
     });
 
+    // Keyboard frame animation (alternate between space_0001 and space_0002)
+    let currentFrame = 1;
+    const animateKeyboard = () => {
+      if (!this.catchButton) return;
+      const img = this.catchButton.querySelector('#catchKeyboardImg') as HTMLImageElement;
+      if (img) {
+        currentFrame = currentFrame === 1 ? 2 : 1;
+        img.src = `assets/ui/control_ui/space_000${currentFrame}.png`;
+      }
+      this.catchButtonAnimationId = window.setTimeout(() => {
+        requestAnimationFrame(animateKeyboard);
+      }, 200) as unknown as number;
+    };
+    this.catchButtonAnimationId = window.setTimeout(() => {
+      requestAnimationFrame(animateKeyboard);
+    }, 200) as unknown as number;
 
+    // Bobbing float animation
+    let floatStart = performance.now();
+    const floatAnimate = (time: number) => {
+      if (!this.catchButton || !this.character) return;
+      const elapsed = time - floatStart;
+      const offset = Math.sin(elapsed / 400) * 3; // 3px bob
+      const screenPos = this.worldToScreenForDom(this.character.x, this.character.y - 70 + offset);
+      this.catchButton.style.left = screenPos.x + 'px';
+      this.catchButton.style.top = screenPos.y + 'px';
+      this.catchButtonFloatId = requestAnimationFrame(floatAnimate);
+    };
+    this.catchButtonFloatId = requestAnimationFrame(floatAnimate);
+  }
+
+  /**
+   * Update catch button screen position (called from updateCatchButton)
+   */
+  private updateCatchButtonPosition(): void {
+    if (!this.catchButton || !this.character) return;
+    const screenPos = this.worldToScreenForDom(this.character.x, this.character.y - 70);
+    this.catchButton.style.left = screenPos.x + 'px';
+    this.catchButton.style.top = screenPos.y + 'px';
   }
 
   /**
    * Remove the catch button
    */
   private removeCatchButton(): void {
-    if (this.catchButton) {
-      // Stop any tweens on the button
-      this.tweens.killTweensOf(this.catchButton);
+    // Stop keyboard animation
+    if (this.catchButtonAnimationId !== null) {
+      clearTimeout(this.catchButtonAnimationId);
+      this.catchButtonAnimationId = null;
+    }
 
-      // Check if container has children and stop their tweens too
-      if (this.catchButton.list && this.catchButton.list.length > 0) {
-        this.catchButton.list.forEach(child => {
-          this.tweens.killTweensOf(child);
-        });
-      }
+    // Stop float animation
+    if (this.catchButtonFloatId !== null) {
+      cancelAnimationFrame(this.catchButtonFloatId);
+      this.catchButtonFloatId = null;
+    }
 
-      // Stop keyboard animation timer
-      if (this.keyboardAnimationTimer) {
-        this.keyboardAnimationTimer.remove();
-        this.keyboardAnimationTimer = null;
-      }
+    // Stop keyboard animation timer (legacy)
+    if (this.keyboardAnimationTimer) {
+      this.keyboardAnimationTimer.remove();
+      this.keyboardAnimationTimer = null;
+    }
 
-      this.catchButton.destroy();
+    // Remove DOM element
+    if (this.catchButton && this.catchButton.parentNode) {
+      this.catchButton.parentNode.removeChild(this.catchButton);
       this.catchButton = null;
-
     }
   }
 
@@ -3098,11 +3155,8 @@ export class GameScene extends Phaser.Scene {
    * Update catch button position to follow character
    */
   private updateCatchButton(): void {
-    if (this.catchButton && this.character) {
-      // Keep button positioned above character's head
-      this.catchButton.x = this.character.x;
-      // Don't update y position as it's handled by the bobbing animation
-    }
+    // Position is now handled by the float animation RAF loop
+    // This method is kept for compatibility but no manual update needed
   }
 
   /**
