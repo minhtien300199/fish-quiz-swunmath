@@ -82,6 +82,13 @@ export class PreloadScene extends Phaser.Scene {
         console.log('data', data);
         console.log(`Loaded ${window.TOTAL_QUESTIONS} questions from API`);
 
+        // Check if questions are null or empty
+        if (!data.question || data.question.length === 0) {
+          console.error('No questions available');
+          this.scene.start('ErrorScene');
+          return;
+        }
+
         // Start the menu scene
         this.scene.start('MenuScene');
       },

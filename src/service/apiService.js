@@ -1,3 +1,5 @@
+import { questionBank } from '../datas/quesionBank';
+
 // URL replacement function to fix AWS file paths
 export function replaceURL(text) {
     if (!text) return "";
@@ -17,7 +19,7 @@ const gameSdk =(function(){
     const parseUrlParams = () => {
         const urlParams = new URLSearchParams(window.location.search);
         return {
-            userId: (urlParams.get('userId') || urlParams.get('UserId')) ?? null,
+            userId: (urlParams.get('userId') || urlParams.get('UserId') || urlParams.get('userid')) ?? null,
             standarId: (urlParams.get('standarId') || urlParams.get('StandardId')) ?? null,
             lnpid: (urlParams.get('lnpid') || urlParams.get('LnpId')) ?? null,
             gameId: (urlParams.get('gameId') || urlParams.get('GameId')) ?? null
@@ -40,6 +42,12 @@ const gameSdk =(function(){
         },
         getQuestion: function (cbOnProgess=null,cbOnLoad=null,onFailed=null) {
             try {
+                if (userId==null) {
+                    if (cbOnLoad) {
+                        cbOnLoad({question:questionBank});
+                    }
+                    return;
+                }
                 const xhr = new XMLHttpRequest();
                 xhr.open('GET', `${url}/Students/LearningPath/${lnpid}/Standard/${standarId}?game=true&gameId=${gameId}`, true);
                 xhr.setRequestHeader('Content-Type', 'application/json');
