@@ -117,7 +117,7 @@ export class PreloadScene extends Phaser.Scene {
       frameHeight: 128
     });
     this.load.image('all-boats', 'assets/boats/all_full_boats.png');
-    this.load.image('errorBackground', 'assets/background/error.png');
+    this.load.image('errorBackground', 'assets/background/background_v1.png');
 
     // Load fish (we'll load a few for now, can add more as needed)
     this.load.image('all-fish', 'assets/fish/all_fish.png');

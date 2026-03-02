@@ -273,4 +273,13 @@ export class CursorManager {
             }
         }
     }
-} 
+
+    /**
+     * Public method to update cursor position (for external use, e.g., DOM overlays)
+     * @param x X coordinate in game space
+     * @param y Y coordinate in game space
+     */
+    public static updatePosition(x: number, y: number): void {
+        this.updateCursorPosition(x, y);
+    }
+}

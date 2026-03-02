@@ -27,7 +27,7 @@ export class ErrorScene extends Phaser.Scene {
     const errorText = this.add.text(
       this.cameras.main.width / 2,
       this.cameras.main.height / 2 - 50,
-      'Failed to load questions from API',
+      'Questions could not be loaded. You are playing in offline mode with sample questions.',
       {
         fontSize: '32px',
         color: '#ffffff',

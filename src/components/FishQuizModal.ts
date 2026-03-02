@@ -15,6 +15,8 @@ export class FishQuizModal {
     private scene: Phaser.Scene;
     private container: Phaser.GameObjects.Container | null = null;
     private overlay: Phaser.GameObjects.Graphics | null = null;
+    private htmlContainer: HTMLDivElement | null = null;
+    private resizeHandler: (() => void) | null = null;
 
     constructor(scene: Phaser.Scene) {
         this.scene = scene;
@@ -31,83 +33,35 @@ export class FishQuizModal {
         // Get camera properties for proper positioning
         const camera = this.scene.cameras.main;
 
-        // Create overlay that blocks all interaction with background elements - following MenuScene pattern
+        // Create overlay that blocks all interaction with background elements
         this.overlay = this.scene.add.graphics();
         this.overlay.fillStyle(0x000000, 0.95);
         this.overlay.fillRect(0, 0, camera.width, camera.height);
         this.overlay.setDepth(50000);
-        // Make overlay interactive to block all clicks behind modal
         this.overlay.setInteractive(new Phaser.Geom.Rectangle(0, 0, camera.width, camera.height), Phaser.Geom.Rectangle.Contains);
 
-        // Create modal container at screen center - following MenuScene pattern
+        // Create modal container at screen center
         this.container = this.scene.add.container(
             camera.width / 2,
             camera.height / 2
         );
         this.container.setDepth(50001);
 
-        // Create larger modal background
+        // Create modal background
         const modalBg = this.scene.add.rectangle(0, 0, 800, 700, 0xf0f0f0, 1.0);
         modalBg.setStrokeStyle(4, 0x333333);
-        modalBg.setDepth(50002); // Ensure modal background is above overlay
+        modalBg.setDepth(50002);
 
-        // Fish name title (larger)
-        const fishName = this.formatFishName(quizData.fishType);
-        const titleText = this.scene.add.text(0, -300, fishName, {
-            fontSize: '36px',
-            color: '#333333',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(50003);
+        // Create HTML overlay for text content
+        this.createHtmlOverlay(quizData);
 
-        // Question text (larger)
-        const questionText = this.scene.add.text(0, -220, 'Question:', {
-            fontSize: '28px',
-            color: '#333333',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(50003);
+        // Text content is now in HTML overlay
 
-        // Parse and display question content with HTML support
-        const questionContent = this.parseQuestionContent(quizData.question);
-        const questionContentText = this.scene.add.text(0, -160, questionContent, {
-            fontSize: '20px',
-            color: '#333333',
-            align: 'center',
-            wordWrap: { width: 750 },
-            lineSpacing: 5
-        }).setOrigin(0.5).setDepth(50003);
-
-        // Choices header (larger)
-        const choicesText = this.scene.add.text(0, -60, 'Answer Choices:', {
-            fontSize: '24px',
-            color: '#333333',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(50003);
-
-        // Create choice displays with proper formatting
-        const choiceElements = this.createChoiceElements(quizData, -10);
-
-        // Result and time bonus (larger)
-        const resultText = quizData.isCorrect ? 'Correct!' : 'Incorrect';
-        const resultColor = quizData.isCorrect ? '#00aa00' : '#aa0000';
-        const bonusText = quizData.timeBonus > 0 ? ` (Time bonus: ${quizData.timeBonus}s)` : '';
-
-        const resultDisplay = this.scene.add.text(0, 200, `${resultText}${bonusText}`, {
-            fontSize: '24px',
-            color: resultColor,
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(50003);
-
-        // Larger close button
+        // Close button (Phaser for interaction, HTML for text)
         const closeButton = this.scene.add.rectangle(0, 270, 160, 50, 0xe74c3c);
         closeButton.setStrokeStyle(3, 0xffffff);
         closeButton.setInteractive({ useHandCursor: true });
         closeButton.setDepth(50003);
-
-        const closeButtonText = this.scene.add.text(0, 270, 'Close', {
-            fontSize: '20px',
-            color: '#ffffff',
-            fontStyle: 'bold'
-        }).setOrigin(0.5).setDepth(50004);
 
         // Close button interactions
         closeButton.on('pointerover', () => {
@@ -122,21 +76,12 @@ export class FishQuizModal {
             this.close();
         });
 
-        // Add all elements to modal container (following MenuScene pattern)
-        const allElements = [
-            modalBg, titleText, questionText, questionContentText,
-            choicesText, ...choiceElements, resultDisplay, closeButton, closeButtonText
-        ];
+        // Add elements to modal container
+        this.container.add([modalBg, closeButton]);
 
-        this.container.add(allElements);
-
-        // IMPORTANT: Make modal elements visible ONLY to UI camera (ignore main camera)
-        // This prevents the zoomed duplicate from appearing - following WINDSURF_RULES.md
+        // Make modal elements visible ONLY to UI camera
         this.scene.cameras.main.ignore([this.overlay, this.container]);
-        this.scene.cameras.main.ignore([
-            modalBg, titleText, questionText, questionContentText,
-            choicesText, ...choiceElements, resultDisplay, closeButton, closeButtonText
-        ]);
+        this.scene.cameras.main.ignore([modalBg, closeButton]);
 
         // Scale animation
         this.container.setScale(0);
@@ -146,12 +91,10 @@ export class FishQuizModal {
             duration: 300,
             ease: 'Back.easeOut'
         });
-
-
     }
 
     /**
-     * Close the modal - following MenuScene cleanup pattern
+     * Close the modal and cleanup HTML elements
      */
     public close(): void {
         if (this.overlay) {
@@ -162,6 +105,7 @@ export class FishQuizModal {
             this.container.destroy();
             this.container = null;
         }
+        this.disposeHtmlOverlay();
     }
 
     /**
@@ -218,62 +162,184 @@ export class FishQuizModal {
     }
 
     /**
-     * Create choice elements with proper styling and indicators
-     * @param quizData The quiz data
-     * @param startY Starting Y position for choices
-     * @returns Array of choice display elements
+     * Create HTML overlay for text content
      */
-    private createChoiceElements(quizData: FishQuizData, startY: number): Phaser.GameObjects.GameObject[] {
-        const elements: Phaser.GameObjects.GameObject[] = [];
-        const choiceSpacing = 35;
+    private createHtmlOverlay(quizData: FishQuizData): void {
+        this.disposeHtmlOverlay();
 
-        quizData.choices.forEach((choice, index) => {
-            const yPos = startY + (index * choiceSpacing);
+        const canvas = this.scene.game.canvas;
+        const canvasRect = canvas.getBoundingClientRect();
+
+        // Create HTML container
+        this.htmlContainer = document.createElement('div');
+        this.htmlContainer.style.position = 'fixed';
+        this.htmlContainer.style.left = canvasRect.left + 'px';
+        this.htmlContainer.style.top = canvasRect.top + 'px';
+        this.htmlContainer.style.width = canvasRect.width + 'px';
+        this.htmlContainer.style.height = canvasRect.height + 'px';
+        this.htmlContainer.style.pointerEvents = 'none';
+        this.htmlContainer.style.zIndex = '9000'; // Below HTML cursor (10000)
+        this.htmlContainer.style.display = 'flex';
+        this.htmlContainer.style.flexDirection = 'column';
+        this.htmlContainer.style.alignItems = 'center';
+        this.htmlContainer.style.justifyContent = 'center';
+        this.htmlContainer.style.overflow = 'hidden';
+
+        // Create content container (centered modal)
+        const contentDiv = document.createElement('div');
+        contentDiv.style.width = '800px';
+        contentDiv.style.maxWidth = '90%';
+        contentDiv.style.height = '700px';
+        contentDiv.style.maxHeight = '90%';
+        contentDiv.style.padding = '20px';
+        contentDiv.style.boxSizing = 'border-box';
+        contentDiv.style.display = 'flex';
+        contentDiv.style.flexDirection = 'column';
+        contentDiv.style.alignItems = 'center';
+        contentDiv.style.color = '#333333';
+        contentDiv.style.fontFamily = 'Arial, sans-serif';
+        contentDiv.style.cursor = 'none';
+
+        // Fish name title
+        const fishName = this.formatFishName(quizData.fishType);
+        const titleDiv = document.createElement('div');
+        titleDiv.textContent = fishName;
+        titleDiv.style.fontSize = '36px';
+        titleDiv.style.fontWeight = 'bold';
+        titleDiv.style.marginBottom = '20px';
+        titleDiv.style.textAlign = 'center';
+        contentDiv.appendChild(titleDiv);
+
+        // Question header
+        const questionHeader = document.createElement('div');
+        questionHeader.textContent = 'Question:';
+        questionHeader.style.fontSize = '28px';
+        questionHeader.style.fontWeight = 'bold';
+        questionHeader.style.marginBottom = '10px';
+        contentDiv.appendChild(questionHeader);
+
+        // Question content
+        const questionDiv = document.createElement('div');
+        questionDiv.innerHTML = quizData.question;
+        questionDiv.style.fontSize = '20px';
+        questionDiv.style.marginBottom = '20px';
+        questionDiv.style.textAlign = 'center';
+        questionDiv.style.maxWidth = '750px';
+        questionDiv.style.lineHeight = '1.5';
+        contentDiv.appendChild(questionDiv);
+
+        // Choices header
+        const choicesHeader = document.createElement('div');
+        choicesHeader.textContent = 'Answer Choices:';
+        choicesHeader.style.fontSize = '24px';
+        choicesHeader.style.fontWeight = 'bold';
+        choicesHeader.style.marginBottom = '10px';
+        contentDiv.appendChild(choicesHeader);
+
+        // Choices container
+        const choicesContainer = document.createElement('div');
+        choicesContainer.style.width = '700px';
+        choicesContainer.style.maxWidth = '100%';
+        choicesContainer.style.marginBottom = '20px';
+
+        quizData.choices.forEach((choice) => {
             const isCorrect = choice.key === quizData.correctAnswer;
             const wasUserChoice = choice.key === quizData.userAnswer;
 
-            // Create choice background
-            let bgColor = 0xffffff;
-            let borderColor = 0xcccccc;
+            const choiceDiv = document.createElement('div');
+            choiceDiv.style.padding = '10px';
+            choiceDiv.style.marginBottom = '8px';
+            choiceDiv.style.borderRadius = '4px';
+            choiceDiv.style.border = '2px solid';
+            choiceDiv.style.fontSize = '18px';
+            choiceDiv.style.textAlign = 'center';
 
+            // Set colors based on state
             if (isCorrect && wasUserChoice) {
-                bgColor = 0xe8f5e8; // Light green for correct user choice
-                borderColor = 0x00aa00;
+                choiceDiv.style.backgroundColor = '#e8f5e8';
+                choiceDiv.style.borderColor = '#00aa00';
             } else if (isCorrect) {
-                bgColor = 0xf0f8f0; // Very light green for correct answer
-                borderColor = 0x00aa00;
+                choiceDiv.style.backgroundColor = '#f0f8f0';
+                choiceDiv.style.borderColor = '#00aa00';
             } else if (wasUserChoice) {
-                bgColor = 0xfff0f0; // Light red for wrong user choice
-                borderColor = 0xaa0000;
+                choiceDiv.style.backgroundColor = '#fff0f0';
+                choiceDiv.style.borderColor = '#aa0000';
+            } else {
+                choiceDiv.style.backgroundColor = '#ffffff';
+                choiceDiv.style.borderColor = '#cccccc';
             }
 
-            const choiceBg = this.scene.add.rectangle(0, yPos, 700, 30, bgColor);
-            choiceBg.setStrokeStyle(2, borderColor);
-            choiceBg.setDepth(50002);
-
-            // Create choice text with indicator
+            // Add indicator
             let indicator = '';
             if (isCorrect && wasUserChoice) {
-                indicator = '✓ '; // Correct and user's choice
+                indicator = '✓ ';
             } else if (isCorrect) {
-                indicator = '✓ '; // Correct answer
+                indicator = '✓ ';
             } else if (wasUserChoice) {
-                indicator = '✗ '; // User's wrong choice
+                indicator = '✗ ';
             }
 
-            // Strip HTML from choice text
-            const cleanChoiceText = this.parseQuestionContent(choice.text);
-            const choiceText = this.scene.add.text(0, yPos, `${choice.key}. ${indicator}${cleanChoiceText}`, {
-                fontSize: '18px',
-                color: '#333333',
-                wordWrap: { width: 650 },
-                align: 'center'
-            }).setOrigin(0.5, 0.5).setDepth(50003);
-
-            elements.push(choiceBg, choiceText);
+            choiceDiv.innerHTML = `${choice.key}. ${indicator}${choice.text}`;
+            choicesContainer.appendChild(choiceDiv);
         });
 
-        return elements;
+        contentDiv.appendChild(choicesContainer);
+
+        // Result and time bonus
+        const resultText = quizData.isCorrect ? 'Correct!' : 'Incorrect';
+        const resultColor = quizData.isCorrect ? '#00aa00' : '#aa0000';
+        const bonusText = quizData.timeBonus > 0 ? ` (Time bonus: ${quizData.timeBonus}s)` : '';
+
+        const resultDiv = document.createElement('div');
+        resultDiv.textContent = `${resultText}${bonusText}`;
+        resultDiv.style.fontSize = '24px';
+        resultDiv.style.fontWeight = 'bold';
+        resultDiv.style.color = resultColor;
+        resultDiv.style.marginBottom = '20px';
+        contentDiv.appendChild(resultDiv);
+
+        // Close button text (positioned absolutely to match Phaser button)
+        const closeButtonText = document.createElement('div');
+        closeButtonText.textContent = 'Close';
+        closeButtonText.style.position = 'absolute';
+        closeButtonText.style.fontSize = '20px';
+        closeButtonText.style.fontWeight = 'bold';
+        closeButtonText.style.color = '#ffffff';
+        closeButtonText.style.pointerEvents = 'none';
+        // Position at bottom of modal
+        closeButtonText.style.bottom = '80px';
+        contentDiv.style.position = 'relative';
+        contentDiv.appendChild(closeButtonText);
+
+        this.htmlContainer.appendChild(contentDiv);
+        document.body.appendChild(this.htmlContainer);
+
+        // Handle resize
+        this.resizeHandler = () => {
+            if (this.htmlContainer) {
+                const rect = canvas.getBoundingClientRect();
+                this.htmlContainer.style.left = rect.left + 'px';
+                this.htmlContainer.style.top = rect.top + 'px';
+                this.htmlContainer.style.width = rect.width + 'px';
+                this.htmlContainer.style.height = rect.height + 'px';
+            }
+        };
+        window.addEventListener('resize', this.resizeHandler);
+    }
+
+    /**
+     * Dispose of HTML overlay
+     */
+    private disposeHtmlOverlay(): void {
+        if (this.htmlContainer && this.htmlContainer.parentNode) {
+            this.htmlContainer.parentNode.removeChild(this.htmlContainer);
+            this.htmlContainer = null;
+        }
+
+        if (this.resizeHandler) {
+            window.removeEventListener('resize', this.resizeHandler);
+            this.resizeHandler = null;
+        }
     }
 
     /**
@@ -296,4 +362,4 @@ export class FishQuizModal {
     public isOpen(): boolean {
         return this.container !== null;
     }
-} 
+}

@@ -42,6 +42,8 @@ export class QuizScene extends Phaser.Scene {
   private htmlQuestionContainer: HTMLDivElement | null = null; // HTML container for question content
   private htmlAnswersContainer: HTMLDivElement | null = null; // HTML container for answer choices
   private handleWindowResize: (() => void) | null = null; // Window resize handler
+  private htmlCursor: HTMLImageElement | null = null; // HTML cursor overlay
+  private mouseMoveHandler: ((event: MouseEvent) => void) | null = null; // Mouse move handler
 
   constructor() {
     super({ key: 'QuizScene' });
@@ -68,8 +70,9 @@ export class QuizScene extends Phaser.Scene {
     // Ensure clean state before creating new elements
     this.resetScene();
     
-    // Clean up any existing HTML containers
+    // Clean up any existing HTML containers and cursor
     this.disposeHtmlContainer();
+    this.disposeHtmlCursor();
 
     // Create quiz questions
     this.createQuizQuestions();
@@ -219,13 +222,12 @@ export class QuizScene extends Phaser.Scene {
     }
 
     // Create fish image at the top of the paper using FishFactory
-    this.fishSprite = FishFactory.createFish(
-      this,
-      this.cameras.main.width / 2,
-      this.paperBg.y - (this.paperBg.displayHeight / 2) + 60, // Position at the top area of the paper
-      this.currentFish,
-      FishState.NORMAL // Use normal state for the quiz display
-    );
+    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, 300, this.currentFish);
+    fishSprite.setScale(0.5);
+    this.fishSprite = fishSprite;
+
+    // Create HTML cursor overlay for proper display over HTML elements
+    this.createHtmlCursor();
 
     // Set depth to ensure it's on top
     this.fishSprite.setDepth(2);
@@ -792,7 +794,7 @@ export class QuizScene extends Phaser.Scene {
       imageElement.style.maxHeight = '100px';
       imageElement.style.width = 'auto';
       imageElement.style.height = 'auto';
-      imageElement.style.cursor = 'pointer';
+      imageElement.style.cursor = 'none';
       imageElement.style.display = 'block';
       imageElement.style.margin = '5px auto';
       imageElement.style.borderRadius = '5px';
@@ -815,7 +817,7 @@ export class QuizScene extends Phaser.Scene {
         hoverOverlay.style.display = 'flex';
         hoverOverlay.style.justifyContent = 'center';
         hoverOverlay.style.alignItems = 'center';
-        hoverOverlay.style.cursor = 'pointer';
+        hoverOverlay.style.cursor = 'none';
         
         // Create full-size image
         const fullImage = document.createElement('img');
@@ -885,6 +887,93 @@ export class QuizScene extends Phaser.Scene {
       this.htmlQuestionContainer.style.fontSize = '16px';
       this.htmlQuestionContainer.style.lineHeight = '1.5';
     }
+  }
+
+  /**
+   * Create HTML cursor that displays above HTML overlays
+   */
+  private createHtmlCursor(): void {
+    // Remove any existing cursor
+    this.disposeHtmlCursor();
+
+    // Global cleanup: Remove ALL cursor overlays from DOM to prevent duplicates
+    this.removeAllCursorOverlays();
+
+    // Destroy Phaser cursor to avoid having 2 cursors
+    CursorManager.destroy();
+
+    // Hide browser cursor globally
+    document.body.style.cursor = 'none';
+
+    // Create HTML cursor image
+    this.htmlCursor = document.createElement('img');
+    this.htmlCursor.src = 'assets/ui/control_ui/pointer_0001.png';
+    this.htmlCursor.style.position = 'fixed';
+    this.htmlCursor.style.pointerEvents = 'none';
+    this.htmlCursor.style.zIndex = '10000'; // Higher than all overlays
+    this.htmlCursor.style.width = '16px';
+    this.htmlCursor.style.height = '16px';
+    this.htmlCursor.style.transform = 'scale(3)';
+    this.htmlCursor.style.transformOrigin = 'top left';
+    document.body.appendChild(this.htmlCursor);
+
+    // Setup global mouse tracking
+    const canvas = this.game.canvas;
+    this.mouseMoveHandler = (event: MouseEvent) => {
+      if (this.scene.isActive()) {
+        // Update HTML cursor position
+        if (this.htmlCursor) {
+          this.htmlCursor.style.left = event.clientX + 'px';
+          this.htmlCursor.style.top = event.clientY + 'px';
+        }
+
+        // Update Phaser cursor
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleX = this.cameras.main.width / canvasRect.width;
+        const scaleY = this.cameras.main.height / canvasRect.height;
+        const gameX = (event.clientX - canvasRect.left) * scaleX;
+        const gameY = (event.clientY - canvasRect.top) * scaleY;
+        CursorManager.updatePosition(gameX, gameY);
+      }
+    };
+    document.addEventListener('mousemove', this.mouseMoveHandler);
+  }
+
+  /**
+   * Dispose of HTML cursor
+   */
+  private disposeHtmlCursor(): void {
+    if (this.htmlCursor && this.htmlCursor.parentNode) {
+      this.htmlCursor.parentNode.removeChild(this.htmlCursor);
+      this.htmlCursor = null;
+    }
+
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
+      this.mouseMoveHandler = null;
+    }
+
+    // Global cleanup: Remove any orphaned cursor overlays
+    this.removeAllCursorOverlays();
+
+    // Restore browser cursor
+    document.body.style.cursor = 'auto';
+  }
+
+  /**
+   * Remove all cursor overlay images from DOM
+   * This ensures no duplicate cursors remain from previous scenes
+   */
+  private removeAllCursorOverlays(): void {
+    const allImages = document.querySelectorAll('img');
+    allImages.forEach(img => {
+      // Check if this is a cursor overlay by matching the src
+      if (img.src && img.src.includes('pointer_0001.png')) {
+        if (img.parentNode) {
+          img.parentNode.removeChild(img);
+        }
+      }
+    });
   }
 
   /**
@@ -1062,7 +1151,7 @@ export class QuizScene extends Phaser.Scene {
       optionContainer.style.margin = '10px'; // Added margin to prevent stacking
       optionContainer.style.border = '2px solid #90caf9';
       optionContainer.style.borderRadius = '8px';
-      optionContainer.style.cursor = 'pointer';
+      optionContainer.style.cursor = 'none';
       optionContainer.style.transition = 'all 0.3s ease';
       optionContainer.style.backgroundColor = '#f5f5f5';
       optionContainer.style.pointerEvents = 'auto'; // Enable clicks on this element
@@ -1143,7 +1232,7 @@ export class QuizScene extends Phaser.Scene {
     submitButton.style.color = 'white';
     submitButton.style.border = 'none';
     submitButton.style.borderRadius = '6px';
-    submitButton.style.cursor = 'pointer';
+    submitButton.style.cursor = 'none';
     submitButton.style.transition = 'background-color 0.3s ease';
     submitButton.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
     submitButton.disabled = true;
@@ -1230,7 +1319,7 @@ export class QuizScene extends Phaser.Scene {
     submitButton.disabled = !shouldEnable;
     submitButton.style.opacity = shouldEnable ? '1' : '0.5';
     submitButton.style.backgroundColor = shouldEnable ? '#4caf50' : '#cccccc';
-    submitButton.style.cursor = shouldEnable ? 'pointer' : 'not-allowed';
+    submitButton.style.cursor = 'none';
   }
 
   /**
@@ -1648,9 +1737,10 @@ export class QuizScene extends Phaser.Scene {
 
     // Clean up dynamically created textures
     this.cleanupDynamicTextures();
-    // Clean up HTML containers before transitioning
+    // Clean up HTML containers and cursor before transitioning
     this.disposeHtmlContainer();
     this.disposeHtmlAnswersContainer();
+    this.disposeHtmlCursor();
 
     //console.log('QuizScene: Cleanup completed');
   }
@@ -1705,8 +1795,9 @@ export class QuizScene extends Phaser.Scene {
    */
   shutdown(): void {
     //console.log('QuizScene: Shutdown called');
-    // Ensure HTML container is disposed before cleanup
+    // Ensure HTML container and cursor are disposed before cleanup
     this.disposeHtmlContainer();
+    this.disposeHtmlCursor();
     this.cleanup();
   }
 }

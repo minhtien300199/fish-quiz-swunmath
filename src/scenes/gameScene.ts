@@ -33,11 +33,8 @@ export class GameScene extends Phaser.Scene {
   private fishingTimer: Phaser.Time.TimerEvent | null = null;
   private currentFish: FishType | null = null;
   private lives: number = 3;
-  private livesText!: Phaser.GameObjects.Text;
   private livesIcons: Phaser.GameObjects.Image[] = [];
   private fishCaught: number = 0;
-  private fishCaughtText!: Phaser.GameObjects.Text;
-  private progressText!: Phaser.GameObjects.Text;
 
   private gameState: GameState = {
     lives: 3,
@@ -48,8 +45,10 @@ export class GameScene extends Phaser.Scene {
   };
   private completionData: CompletionData | null = null;
   private points: number = 0;
-  private pointsText!: Phaser.GameObjects.Text;
   private gameStartTime: number = 0; // Track overall game time
+  private htmlUIContainer: HTMLDivElement | null = null;
+  private htmlCursor: HTMLImageElement | null = null;
+  private mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
   private currentBoatType: BoatType = BoatType.BLUE;
   private currentCharacterType: CharacterType = CharacterType.LIGHT; // Default character type
   private shouldReset: boolean = false;
@@ -336,6 +335,8 @@ export class GameScene extends Phaser.Scene {
     this.events.on('resume', () => {
       console.log('GameScene resumed, recreating cursor...');
       CursorManager.forceCursorRecreation(this);
+      // Recreate HTML cursor for DOM overlays
+      this.createHtmlCursor();
     });
 
     // Initialize joystick manager for mobile devices
@@ -993,6 +994,8 @@ export class GameScene extends Phaser.Scene {
         if (this.currentFish) {
           this.showFishCatchLightEffect(this.currentFish, () => {
             // After light effect, start the quiz
+            // Dispose HTML cursor before launching QuizScene to avoid duplicate cursors
+            this.disposeHtmlCursor();
             this.scene.pause();
             this.scene.launch('QuizScene', {
               gameState: this.gameState,
@@ -1580,57 +1583,26 @@ export class GameScene extends Phaser.Scene {
       .setOrigin(0, 0)
       .setStrokeStyle(2, 0xffffff, 0.5);
 
-    // Create lives display with clear visibility
-    this.livesText = this.add.text(20, 20, 'Lives:', {
-      fontSize: '24px',
-      color: '#ffffff',
-      fontStyle: 'bold',
-      stroke: '#000000',
-      strokeThickness: 5
-    });
-
     // Clear any existing life icons
     this.livesIcons = [];
 
     // Add heart icons for lives
-    const iconStartX = this.livesText.x + this.livesText.width + 10;
+    const iconStartX = 120;
     for (let i = 0; i < this.lives; i++) {
       const heartIcon = this.add.image(
-        iconStartX + (i * 24), // Reduced spacing since heart icons are smaller (16x16)
-        this.livesText.y + this.livesText.height / 2,
+        iconStartX + (i * 24),
+        35,
         'heart-icon'
-      ).setScale(2); // No scaling needed as it's already the right size (16x16)
+      ).setScale(2);
 
       this.livesIcons.push(heartIcon);
     }
 
-    // Create fish caught display
-    this.fishCaughtText = this.add.text(
-      20,
-      this.livesText.y + this.livesText.height + 10,
-      `Progress: ${this.fishCaught}/${this.completionData?.TotalFish || 5} fish`,
-      {
-        fontSize: '24px',
-        color: '#ffffff',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 5
-      }
-    );
+    // Create HTML overlay for text
+    this.createHtmlUIOverlay();
 
-    // Create points display
-    this.pointsText = this.add.text(
-      20,
-      this.fishCaughtText.y + this.fishCaughtText.height + 10,
-      `Points: ${this.points}`,
-      {
-        fontSize: '18px', // Smaller font size for points
-        color: '#ffff00', // Yellow color for points
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3 // Reduced stroke thickness
-      }
-    );
+    // Create HTML cursor
+    this.createHtmlCursor();
 
     // Coordinates display removed per user request
 
@@ -1764,8 +1736,8 @@ export class GameScene extends Phaser.Scene {
 
     // Add all UI elements to the container
     uiContainer.add([
-      bg, this.livesText, ...this.livesIcons, this.fishCaughtText,
-      this.pointsText, menuButton, menuLine1, menuLine2, menuLine3,
+      bg, ...this.livesIcons,
+      menuButton, menuLine1, menuLine2, menuLine3,
       musicButton, musicIcon, soundButton, soundIcon
     ]);
 
@@ -1974,22 +1946,12 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Update fish caught text
-    if (this.fishCaughtText) {
-      const totalFish = this.completionData?.TotalFish || 5;
-      this.fishCaughtText.setText(`Progress: ${this.fishCaught}/${totalFish} fish`);
+    // Update HTML UI overlay
+    this.updateHtmlUIOverlay();
 
-      // Check if player has caught enough fish to win
-      if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
-        // Player has won! Transition to the win scene
-
-        this.triggerWin();
-      }
-    }
-
-    // Update points text
-    if (this.pointsText) {
-      this.pointsText.setText(`Points: ${this.points}`);
+    // Check if player has caught enough fish to win
+    if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
+      this.triggerWin();
     }
 
     // Update lives icons
@@ -2275,11 +2237,158 @@ export class GameScene extends Phaser.Scene {
 
   }
 
+  private createHtmlUIOverlay(): void {
+    const canvas = this.game.canvas;
+    const canvasRect = canvas.getBoundingClientRect();
+
+    this.htmlUIContainer = document.createElement('div');
+    this.htmlUIContainer.style.position = 'fixed';
+    this.htmlUIContainer.style.left = (canvasRect.left + 10) + 'px';
+    this.htmlUIContainer.style.top = (canvasRect.top + 10) + 'px';
+    this.htmlUIContainer.style.width = '350px';
+    this.htmlUIContainer.style.pointerEvents = 'none';
+    this.htmlUIContainer.style.zIndex = '1000';
+    this.htmlUIContainer.style.fontFamily = 'Arial, sans-serif';
+    this.htmlUIContainer.style.color = '#ffffff';
+
+    this.htmlUIContainer.innerHTML = `
+      <div style="padding: 10px;">
+        <div style="font-size: clamp(14px, 2.2vh, 24px); font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000;">Lives:</div>
+        <div id="gameProgress" style="font-size: clamp(14px, 2.2vh, 24px); font-weight: bold; margin-bottom: 8px; text-shadow: 2px 2px 4px #000;">Progress: 0/5 fish</div>
+        <div id="gamePoints" style="font-size: clamp(12px, 1.7vh, 18px); color: #ffff00; font-weight: bold; text-shadow: 1px 1px 3px #000;">Points: 0</div>
+      </div>
+    `;
+
+    document.body.appendChild(this.htmlUIContainer);
+
+    // Handle window resize
+    const resizeHandler = () => {
+      if (this.htmlUIContainer) {
+        const rect = canvas.getBoundingClientRect();
+        this.htmlUIContainer.style.left = (rect.left + 10) + 'px';
+        this.htmlUIContainer.style.top = (rect.top + 10) + 'px';
+      }
+    };
+    window.addEventListener('resize', resizeHandler);
+    this.events.once('shutdown', () => {
+      window.removeEventListener('resize', resizeHandler);
+    });
+  }
+
+  private updateHtmlUIOverlay(): void {
+    if (!this.htmlUIContainer) return;
+
+    const progressEl = document.getElementById('gameProgress');
+    if (progressEl) {
+      const totalFish = this.completionData?.TotalFish || 5;
+      progressEl.textContent = `Progress: ${this.fishCaught}/${totalFish} fish`;
+    }
+
+    const pointsEl = document.getElementById('gamePoints');
+    if (pointsEl) {
+      pointsEl.textContent = `Points: ${this.points}`;
+    }
+  }
+
+  private createHtmlCursor(): void {
+    // Remove any existing HTML cursor first to prevent duplicates
+    this.disposeHtmlCursor();
+
+    // Global cleanup: Remove ALL cursor overlays from DOM to prevent duplicates
+    this.removeAllCursorOverlays();
+
+    this.htmlCursor = document.createElement('img');
+    this.htmlCursor.src = 'assets/ui/control_ui/pointer_0001.png';
+    this.htmlCursor.style.position = 'fixed';
+    this.htmlCursor.style.pointerEvents = 'none';
+    this.htmlCursor.style.zIndex = '10000';
+    this.htmlCursor.style.width = '16px';
+    this.htmlCursor.style.height = '16px';
+    this.htmlCursor.style.transform = 'scale(3)';
+    this.htmlCursor.style.transformOrigin = 'top left';
+    document.body.appendChild(this.htmlCursor);
+
+    const canvas = this.game.canvas;
+    this.mouseMoveHandler = (event: MouseEvent) => {
+      if (this.scene.isActive()) {
+        if (this.htmlCursor) {
+          this.htmlCursor.style.left = event.clientX + 'px';
+          this.htmlCursor.style.top = event.clientY + 'px';
+        }
+
+        const canvasRect = canvas.getBoundingClientRect();
+        const scaleX = this.cameras.main.width / canvasRect.width;
+        const scaleY = this.cameras.main.height / canvasRect.height;
+        const gameX = (event.clientX - canvasRect.left) * scaleX;
+        const gameY = (event.clientY - canvasRect.top) * scaleY;
+        CursorManager.updatePosition(gameX, gameY);
+      }
+    };
+    document.addEventListener('mousemove', this.mouseMoveHandler);
+  }
+
+  private disposeHtmlUIOverlay(): void {
+    if (this.htmlUIContainer && this.htmlUIContainer.parentNode) {
+      this.htmlUIContainer.parentNode.removeChild(this.htmlUIContainer);
+      this.htmlUIContainer = null;
+    }
+  }
+
+  private disposeHtmlCursor(): void {
+    if (this.htmlCursor && this.htmlCursor.parentNode) {
+      this.htmlCursor.parentNode.removeChild(this.htmlCursor);
+      this.htmlCursor = null;
+    }
+
+    if (this.mouseMoveHandler) {
+      document.removeEventListener('mousemove', this.mouseMoveHandler);
+      this.mouseMoveHandler = null;
+    }
+
+    // Global cleanup: Remove any orphaned cursor overlays
+    this.removeAllCursorOverlays();
+  }
+
+  /**
+   * Remove all cursor overlay images from DOM
+   * This ensures no duplicate cursors remain from previous scenes
+   */
+  private removeAllCursorOverlays(): void {
+    const allImages = document.querySelectorAll('img');
+    allImages.forEach(img => {
+      // Check if this is a cursor overlay by matching the src
+      if (img.src && img.src.includes('pointer_0001.png')) {
+        if (img.parentNode) {
+          img.parentNode.removeChild(img);
+        }
+      }
+    });
+  }
+
+  private cleanupFishShadows(): void {
+    // Clean up spawn timer
+    if (this.fishShadowSpawnTimer) {
+      this.fishShadowSpawnTimer.destroy();
+      this.fishShadowSpawnTimer = null;
+    }
+
+    // Clean up all fish shadows
+    this.fishShadows.forEach(shadow => {
+      if (shadow && shadow.active) {
+        shadow.destroy();
+      }
+    });
+    this.fishShadows = [];
+  }
+
   /**
    * Clean up any existing game objects to prevent duplicates
    * This is called at the start of create() to ensure we don't have multiple instances
    */
   private cleanup(): void {
+    // Dispose HTML overlays
+    this.disposeHtmlUIOverlay();
+    this.disposeHtmlCursor();
     // Clean up character if it exists
     if (this.character) {
       this.character.destroy();
@@ -3566,15 +3675,6 @@ export class GameScene extends Phaser.Scene {
     }
 
     // Use factory's destroy method with fade out
-    FishShadowFactory.destroyFishShadow(this, fishShadow, true);
-
-
-  }
-
-  /**
-   * Clean up all fish shadows
-   */
-  private cleanupFishShadows(): void {
     // Clean up spawn timer
     if (this.fishShadowSpawnTimer) {
       this.fishShadowSpawnTimer.destroy();

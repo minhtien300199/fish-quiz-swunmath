@@ -22,6 +22,11 @@ export class FishCollectionScene extends Phaser.Scene {
     private returnToScene: string = 'MenuScene'; // Default return scene
     private interactiveCardBackgrounds: Phaser.GameObjects.Rectangle[] = []; // Track interactive cards
     private modalOpen: boolean = false; // Track if modal is currently open
+    private modalHtmlContainer: HTMLDivElement | null = null;
+    private modalOverlay: Phaser.GameObjects.Graphics | null = null;
+    private modalFishSprite: Phaser.GameObjects.Image | null = null;
+    private mouseMoveHandler: ((event: MouseEvent) => void) | null = null;
+    private htmlCursor: HTMLImageElement | null = null;
 
     constructor() {
         super({ key: 'FishCollectionScene' });
@@ -42,8 +47,6 @@ export class FishCollectionScene extends Phaser.Scene {
     create(): void {
         // Load fish info data
         this.fishInfoData = this.cache.json.get('fishInfo') || {};
-
-
 
         // Create background that covers full screen
         this.add.rectangle(
@@ -200,8 +203,6 @@ export class FishCollectionScene extends Phaser.Scene {
             const fishTypeKey = fishType.toString();
             const fishInfo = this.fishInfoData[fishTypeKey];
 
-
-
             const fishName = fishInfo ? fishInfo.name : this.formatFishName(fishType);
             const nameText = this.add.text(0, 20, fishName, {
                 fontSize: '12px',
@@ -276,37 +277,23 @@ export class FishCollectionScene extends Phaser.Scene {
         if (!fishInfo) {
             const fishTypeKey = fishType.toString();
             fishInfo = this.fishInfoData[fishTypeKey];
-
         }
 
-        // Create modal overlay
-        const overlay = this.add.graphics();
-        overlay.fillStyle(0x000000, 0.8);
-        overlay.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
-        overlay.setDepth(1000);
-
-        // Create modal background
-        const modalWidth = Math.min(600, this.cameras.main.width - 40);
-        const modalHeight = Math.min(500, this.cameras.main.height - 40);
-        const modalBg = this.add.rectangle(
-            this.cameras.main.width / 2,
-            this.cameras.main.height / 2,
-            modalWidth,
-            modalHeight,
-            0x2c3e50
-        );
-        modalBg.setStrokeStyle(3, 0x3498db);
-        modalBg.setDepth(1001);
+        // Create dark overlay
+        this.modalOverlay = this.add.graphics();
+        this.modalOverlay.fillStyle(0x000000, 0.8);
+        this.modalOverlay.fillRect(0, 0, this.cameras.main.width, this.cameras.main.height);
+        this.modalOverlay.setDepth(1000);
 
         // Create fish sprite
-        const fishSprite = FishFactory.createFish(
+        this.modalFishSprite = FishFactory.createFish(
             this,
             this.cameras.main.width / 2,
             this.cameras.main.height / 2 - 150,
             fishType
         );
         const sizeCategory = FishFactory.getFishSizeCategory(fishType);
-        let modalScale = 0.7; // Updated to 0.65 for detail view
+        let modalScale = 0.7;
         switch (sizeCategory) {
             case FishSizeCategory.LARGE:
                 modalScale = 0.7;
@@ -315,10 +302,70 @@ export class FishCollectionScene extends Phaser.Scene {
                 modalScale = 0.7;
                 break;
         }
-        fishSprite.setScale(modalScale);
-        fishSprite.setDepth(1002);
+        this.modalFishSprite.setScale(modalScale);
+        this.modalFishSprite.setDepth(1002);
 
-        // Create info text
+        // Create HTML modal for text
+        this.createHtmlModal(fishType, fishInfo);
+
+        // Create HTML cursor overlay
+        this.createHtmlCursor();
+
+        // Add global mouse tracking for cursor over modal
+        const canvas = this.game.canvas;
+        this.mouseMoveHandler = (event: MouseEvent) => {
+            if (this.scene.isActive()) {
+                const canvasRect = canvas.getBoundingClientRect();
+                const scaleX = this.cameras.main.width / canvasRect.width;
+                const scaleY = this.cameras.main.height / canvasRect.height;
+                const gameX = (event.clientX - canvasRect.left) * scaleX;
+                const gameY = (event.clientY - canvasRect.top) * scaleY;
+                CursorManager.updatePosition(gameX, gameY);
+
+                // Update HTML cursor position
+                if (this.htmlCursor) {
+                    this.htmlCursor.style.left = event.clientX + 'px';
+                    this.htmlCursor.style.top = event.clientY + 'px';
+                }
+            }
+        };
+        document.addEventListener('mousemove', this.mouseMoveHandler);
+    }
+
+    private createHtmlModal(fishType: FishType, fishInfo?: FishInfo): void {
+        const canvas = this.game.canvas;
+        const canvasRect = canvas.getBoundingClientRect();
+
+        // Create HTML container
+        this.modalHtmlContainer = document.createElement('div');
+        this.modalHtmlContainer.style.position = 'fixed';
+        this.modalHtmlContainer.style.left = canvasRect.left + 'px';
+        this.modalHtmlContainer.style.top = canvasRect.top + 'px';
+        this.modalHtmlContainer.style.width = canvasRect.width + 'px';
+        this.modalHtmlContainer.style.height = canvasRect.height + 'px';
+        this.modalHtmlContainer.style.pointerEvents = 'none';
+        this.modalHtmlContainer.style.zIndex = '1000';
+        this.modalHtmlContainer.style.display = 'flex';
+        this.modalHtmlContainer.style.alignItems = 'center';
+        this.modalHtmlContainer.style.justifyContent = 'center';
+
+        // Create modal card
+        const modalCard = document.createElement('div');
+        modalCard.style.width = 'min(90%, 600px)';
+        modalCard.style.maxHeight = '70%';
+        modalCard.style.backgroundColor = 'rgba(44, 62, 80, 0.98)';
+        modalCard.style.border = '3px solid #3498db';
+        modalCard.style.borderRadius = '12px';
+        modalCard.style.padding = '20px';
+        modalCard.style.boxSizing = 'border-box';
+        modalCard.style.overflowY = 'auto';
+        modalCard.style.pointerEvents = 'auto';
+        modalCard.style.cursor = 'none';
+        modalCard.style.fontFamily = 'Arial, sans-serif';
+        modalCard.style.color = '#ecf0f1';
+        modalCard.style.marginTop = '100px'; // Leave space for fish sprite above
+
+        // Get fish info
         const info = fishInfo || {
             name: this.formatFishName(fishType),
             description: 'No description available.',
@@ -329,79 +376,122 @@ export class FishCollectionScene extends Phaser.Scene {
             category: 'Unknown'
         };
 
-        const infoText = `${info.description}\n\nHabitat: ${info.habitat}\nSize: ${info.size}\nDiet: ${info.diet}\n\nFun Fact: ${info.funFact}`;
+        // Create content
+        modalCard.innerHTML = `
+            <h2 style="font-size: clamp(20px, 3.5vh, 32px); color: #3498db; margin: 0 0 15px 0; text-align: center; text-shadow: 2px 2px 4px #000;">${info.name}</h2>
+            <p style="font-size: clamp(12px, 2vh, 18px); margin: 10px 0; text-align: center; color: #f39c12; font-weight: bold;">${info.category}</p>
+            <p style="font-size: clamp(13px, 2.2vh, 20px); line-height: 1.6; margin: 15px 0;">${info.description}</p>
+            <div style="font-size: clamp(12px, 2vh, 18px); line-height: 1.8; margin: 15px 0;">
+                <p style="margin: 8px 0;"><strong style="color: #3498db;">Habitat:</strong> ${info.habitat}</p>
+                <p style="margin: 8px 0;"><strong style="color: #3498db;">Size:</strong> ${info.size}</p>
+                <p style="margin: 8px 0;"><strong style="color: #3498db;">Diet:</strong> ${info.diet}</p>
+            </div>
+            <p style="font-size: clamp(12px, 2vh, 18px); line-height: 1.6; margin: 15px 0; padding: 12px; background: rgba(52, 152, 219, 0.2); border-radius: 8px; border-left: 4px solid #3498db;">
+                <strong style="color: #f39c12;">Fun Fact:</strong> ${info.funFact}
+            </p>
+            <div style="text-align: center; margin-top: 25px;">
+                <button id="closeModalBtn" style="
+                    background-color: #e74c3c;
+                    border: 2px solid #c0392b;
+                    color: white;
+                    padding: 12px 30px;
+                    font-size: clamp(14px, 2.2vh, 20px);
+                    font-weight: bold;
+                    border-radius: 8px;
+                    cursor: none;
+                    transition: all 0.2s;
+                ">
+                    Close
+                </button>
+            </div>
+        `;
 
-        const detailsText = this.add.text(
-            this.cameras.main.width / 2,
-            this.cameras.main.height / 2 + 20,
-            infoText,
-            {
-                fontSize: '16px',
-                color: '#ecf0f1',
-                align: 'center',
-                wordWrap: { width: modalWidth - 40 },
-                lineSpacing: 8
-            }
-        ).setOrigin(0.5);
-        detailsText.setDepth(1002);
+        this.modalHtmlContainer.appendChild(modalCard);
+        document.body.appendChild(this.modalHtmlContainer);
 
-        // Create close button
-        const closeButton = this.add.rectangle(
-            this.cameras.main.width / 2,
-            this.cameras.main.height / 2 + 180,
-            120,
-            40,
-            0xe74c3c
-        );
-        closeButton.setStrokeStyle(2, 0xc0392b);
-        closeButton.setInteractive();
-        closeButton.setDepth(1002);
-
-        const closeText = this.add.text(
-            this.cameras.main.width / 2,
-            this.cameras.main.height / 2 + 180,
-            'Close',
-            {
-                fontSize: '18px',
-                color: '#ffffff',
-                fontStyle: 'bold'
-            }
-        ).setOrigin(0.5);
-        closeText.setDepth(1003);
-
-        // Close modal function
-        const closeModal = () => {
-            overlay.destroy();
-            modalBg.destroy();
-            fishSprite.destroy();
-            detailsText.destroy();
-            closeButton.destroy();
-            closeText.destroy();
-
-            // Reset modal state
-            this.modalOpen = false;
-
-            // Re-enable interactive cards (with safety check)
-            this.interactiveCardBackgrounds.forEach(bg => {
-                if (bg && bg.active && bg.scene) {
-                    bg.setInteractive();
-                }
+        // Add close button handler
+        const closeBtn = document.getElementById('closeModalBtn');
+        if (closeBtn) {
+            closeBtn.addEventListener('click', () => this.closeModal());
+            closeBtn.addEventListener('mouseenter', () => {
+                closeBtn.style.backgroundColor = '#c0392b';
+                closeBtn.style.transform = 'scale(1.05)';
             });
+            closeBtn.addEventListener('mouseleave', () => {
+                closeBtn.style.backgroundColor = '#e74c3c';
+                closeBtn.style.transform = 'scale(1)';
+            });
+        }
+
+        // Handle window resize
+        const resizeHandler = () => {
+            if (this.modalHtmlContainer) {
+                const rect = canvas.getBoundingClientRect();
+                this.modalHtmlContainer.style.left = rect.left + 'px';
+                this.modalHtmlContainer.style.top = rect.top + 'px';
+                this.modalHtmlContainer.style.width = rect.width + 'px';
+                this.modalHtmlContainer.style.height = rect.height + 'px';
+            }
         };
-
-        closeButton.on('pointerdown', closeModal);
-        overlay.setInteractive();
-        overlay.on('pointerdown', closeModal);
-
-        // Hover effect for close button
-        closeButton.on('pointerover', () => {
-            closeButton.setFillStyle(0xc0392b);
-            closeText.setColor('#f1c40f');
+        window.addEventListener('resize', resizeHandler);
+        this.events.once('shutdown', () => {
+            window.removeEventListener('resize', resizeHandler);
         });
+    }
 
-        closeButton.on('pointerout', () => {
-            closeButton.setFillStyle(0xe74c3c);
-            closeText.setColor('#ffffff');
+    private createHtmlCursor(): void {
+        // Create HTML cursor image that sits above modal
+        this.htmlCursor = document.createElement('img');
+        this.htmlCursor.src = 'assets/ui/control_ui/pointer_0001.png';
+        this.htmlCursor.style.position = 'fixed';
+        this.htmlCursor.style.pointerEvents = 'none';
+        this.htmlCursor.style.zIndex = '10000'; // Higher than modal (1000)
+        this.htmlCursor.style.width = '30px'; // Adjust size as needed
+        this.htmlCursor.style.height = '30px';
+        this.htmlCursor.style.transform = 'scale(3)';
+        this.htmlCursor.style.transformOrigin = 'top left';
+        document.body.appendChild(this.htmlCursor);
+    }
+
+    private closeModal(): void {
+        // Cleanup overlay graphics
+        if (this.modalOverlay) {
+            this.modalOverlay.destroy();
+            this.modalOverlay = null;
+        }
+
+        // Cleanup fish sprite
+        if (this.modalFishSprite) {
+            this.modalFishSprite.destroy();
+            this.modalFishSprite = null;
+        }
+
+        // Cleanup HTML container
+        if (this.modalHtmlContainer && this.modalHtmlContainer.parentNode) {
+            this.modalHtmlContainer.parentNode.removeChild(this.modalHtmlContainer);
+            this.modalHtmlContainer = null;
+        }
+
+        // Cleanup HTML cursor
+        if (this.htmlCursor && this.htmlCursor.parentNode) {
+            this.htmlCursor.parentNode.removeChild(this.htmlCursor);
+            this.htmlCursor = null;
+        }
+
+        // Remove mouse move handler
+        if (this.mouseMoveHandler) {
+            document.removeEventListener('mousemove', this.mouseMoveHandler);
+            this.mouseMoveHandler = null;
+        }
+
+        // Reset modal state
+        this.modalOpen = false;
+
+        // Re-enable interactive cards
+        this.interactiveCardBackgrounds.forEach(bg => {
+            if (bg && bg.active && bg.scene) {
+                bg.setInteractive();
+            }
         });
     }
 
