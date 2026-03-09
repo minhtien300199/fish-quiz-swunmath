@@ -290,5 +290,19 @@ export class PreloadScene extends Phaser.Scene {
 
     // Load completion data (mock backend)
     this.load.json('completion', 'src/datas/completion.json');
+
+    // Load fishing mini game assets
+    for (let i = 1; i <= 4; i++) {
+      const frameNumber = String(i).padStart(4, '0');
+      this.load.image(`minigame-bg-${i}`, `assets/ui_fishing_minigame/mini_game_${frameNumber}.png`);
+    }
+    this.load.image('minigame-fishbar-easy', 'assets/ui_fishing_minigame/fish_bar_easy.png');
+    this.load.image('minigame-fishbar-medium', 'assets/ui_fishing_minigame/fish_bar_medium.png');
+    this.load.image('minigame-fishbar-hard', 'assets/ui_fishing_minigame/fish_bar_hard.png');
+    this.load.image('minigame-fish', 'assets/ui_fishing_minigame/mini_game_fish.png');
+    for (let i = 1; i <= 74; i++) {
+      const frameNumber = String(i).padStart(4, '0');
+      this.load.image(`minigame-progress-${i}`, `assets/ui_fishing_minigame/progress/progres_bar_${frameNumber}.png`);
+    }
   }
 }

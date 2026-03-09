@@ -995,34 +995,61 @@ export class GameScene extends Phaser.Scene {
         // Show spectacular fish catch light effect above player's head
         if (this.currentFish) {
           this.showFishCatchLightEffect(this.currentFish, () => {
-            // After light effect, start the quiz
-            // Dispose HTML cursor before launching QuizScene to avoid duplicate cursors
+            // Dispose HTML cursor before launching overlay scene to avoid duplicate cursors
             this.disposeHtmlCursor();
             this.scene.pause();
-            this.scene.launch('QuizScene', {
-              gameState: this.gameState,
-              currentFish: this.currentFish,
-              completionData: this.completionData
-            });
 
-            // Listen for quiz completion
-            this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
-              if (data && data.success) {
-                // Correct answer: Show celebration and handle success
-                if (this.currentFish) {
-                  this.showFishCelebration(this.currentFish, () => {
-                    // Continue with success logic after celebration
+            const gameType = gameSdk.getGameType();
+
+            if (gameType === 1) {
+              // NO_MATH mode: launch fishing mini game instead of quiz
+              this.scene.launch('FishingMiniGameScene', {
+                gameState: this.gameState,
+                currentFish: this.currentFish
+              });
+
+              this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
+                if (data && data.success) {
+                  // Mini game won: fish caught
+                  if (this.currentFish) {
+                    this.showFishCelebration(this.currentFish, () => {
+                      this.handleQuizSuccess(data);
+                    });
+                  } else {
                     this.handleQuizSuccess(data);
-                  });
+                  }
                 } else {
-                  // Fallback if no current fish
-                  this.handleQuizSuccess(data);
+                  // Mini game lost: fish escaped — lose a life, don't count as caught
+                  this.handleMiniGameFailure();
                 }
-              } else {
-                // Incorrect answer: Still increment progress but with different handling
-                this.handleQuizAttempt(data, false);
-              }
-            });
+              });
+            } else {
+              // MATH mode (gameType=0): launch quiz scene (existing logic)
+              this.scene.launch('QuizScene', {
+                gameState: this.gameState,
+                currentFish: this.currentFish,
+                completionData: this.completionData
+              });
+
+              // Listen for quiz completion
+              this.events.once('resume', (sys: Phaser.Scenes.Systems, data: any) => {
+                if (data && data.success) {
+                  // Correct answer: Show celebration and handle success
+                  if (this.currentFish) {
+                    this.showFishCelebration(this.currentFish, () => {
+                      // Continue with success logic after celebration
+                      this.handleQuizSuccess(data);
+                    });
+                  } else {
+                    // Fallback if no current fish
+                    this.handleQuizSuccess(data);
+                  }
+                } else {
+                  // Incorrect answer: Still increment progress but with different handling
+                  this.handleQuizAttempt(data, false);
+                }
+              });
+            }
           });
         }
       }
@@ -3617,6 +3644,53 @@ export class GameScene extends Phaser.Scene {
     this.fishingState = 'idle';
 
     // Clean up fishing elements
+    this.cleanUpFishing();
+  }
+
+  /**
+   * Handle mini game failure in NO_MATH mode.
+   * Fish escaped — lose a life but do NOT count as a caught fish.
+   */
+  private handleMiniGameFailure(): void {
+    // Decrease lives
+    this.lives--;
+    this.gameState.lives = this.lives;
+
+    // Show escape notification
+    const notif = this.add.text(
+      this.cameras.main.width / 2,
+      this.cameras.main.height / 2 - 100,
+      'Fish Escaped!\n-1 Life',
+      {
+        fontSize: '32px',
+        color: '#ff4444',
+        stroke: '#000000',
+        strokeThickness: 3,
+        fontStyle: 'bold',
+        align: 'center'
+      }
+    ).setOrigin(0.5).setDepth(100);
+
+    this.tweens.add({
+      targets: notif,
+      alpha: 0,
+      y: notif.y - 80,
+      duration: 2000,
+      ease: 'Power2',
+      onComplete: () => notif.destroy()
+    });
+
+    // Update UI
+    this.updateHtmlUIOverlay();
+
+    // Check for game over
+    if (this.lives <= 0) {
+      this.gameOver();
+      return;
+    }
+
+    // Reset fishing state
+    this.fishingState = 'idle';
     this.cleanUpFishing();
   }
 

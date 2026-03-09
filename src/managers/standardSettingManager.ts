@@ -9,7 +9,6 @@ export interface StandardSetting {
     allowSkip: boolean;
     timeLimit: number;
     minimumPlayTimes: number;
-    gameType: number;
 }
 
 const DEFAULT_SETTING: StandardSetting = {
@@ -18,7 +17,6 @@ const DEFAULT_SETTING: StandardSetting = {
     allowSkip: false,
     timeLimit: 0,
     minimumPlayTimes: 3,
-    gameType: 0,
 };
 
 export class StandardSettingManager {
@@ -38,7 +36,6 @@ export class StandardSettingManager {
                 allowSkip: data.allowSkip ?? DEFAULT_SETTING.allowSkip,
                 timeLimit: data.timeLimit ?? DEFAULT_SETTING.timeLimit,
                 minimumPlayTimes: data.minimumPlayTimes ?? DEFAULT_SETTING.minimumPlayTimes,
-                gameType: data.gameType ?? DEFAULT_SETTING.gameType,
             };
         }
         this.remainingPlayTimes = this.setting.minimumPlayTimes;

@@ -22,7 +22,8 @@ const gameSdk =(function(){
             userId: (urlParams.get('userId') || urlParams.get('UserId') || urlParams.get('userid')) ?? null,
             standarId: (urlParams.get('standarId') || urlParams.get('StandardId')) ?? null,
             lnpid: (urlParams.get('lnpid') || urlParams.get('LnpId')) ?? null,
-            gameId: (urlParams.get('gameId') || urlParams.get('GameId')) ?? null
+            gameId: (urlParams.get('gameId') || urlParams.get('GameId')) ?? null,
+            gameType: parseInt(urlParams.get('gameType') || urlParams.get('GameType') || urlParams.get('gametype') || '0', 10) || 0
         };
     };
     
@@ -36,6 +37,9 @@ const gameSdk =(function(){
     // let url="http://localhost:5000/api/v1";
 
     return {
+        getGameType() {
+            return params.gameType;
+        },
         setParamater(userIdPr,standarIdPr,lnpidPr,gameIdPr){
             userId=userIdPr;
             standarId = standarIdPr;
@@ -83,8 +87,7 @@ const gameSdk =(function(){
                                         minQuestions: apiData.result.standardSetting.minQuestions || 0,
                                         allowSkip: apiData.result.standardSetting.allowSkip || false,
                                         timeLimit: apiData.result.standardSetting.timeLimit || 0,
-                                        minimumPlayTimes: apiData.result.standardSetting.minimumPlayTimes ?? 1,
-                                        gameType: apiData.result.standardSetting.gameType ?? 0
+                                        minimumPlayTimes: apiData.result.standardSetting.minimumPlayTimes ?? 1
                                     } : null
                                 }
                                 cbOnLoad(formatResponse);
