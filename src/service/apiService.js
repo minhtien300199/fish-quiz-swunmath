@@ -33,6 +33,8 @@ const gameSdk =(function(){
     let lnpid = params.lnpid;
     let gameId = params.gameId;
     let url="https://practice.paradigmmath.com/backend/api/v1";
+    // let url="http://localhost:5000/api/v1";
+
     return {
         setParamater(userIdPr,standarIdPr,lnpidPr,gameIdPr){
             userId=userIdPr;
@@ -44,7 +46,12 @@ const gameSdk =(function(){
             try {
                 if (userId==null) {
                     if (cbOnLoad) {
-                        cbOnLoad({question:questionBank});
+                        cbOnLoad({
+                            question:questionBank,
+                            standardSetting: {
+                                minimumPlayTimes: 99999
+                            }
+                        });
                     }
                     return;
                 }
@@ -70,7 +77,15 @@ const gameSdk =(function(){
                                 }
                                 let formatResponse={    
                                     metaData:metaData,
-                                    question:apiData.result.questions.map(x=>({id:x.id,question:x.questionText,correctAnswer:x.correctAnswer.split("").join(","),difficulty:apiData.result.difficultyConvert,questionType:x.questionType.code,choices:JSON.parse(x.answerOptions).answers.map(y=>({key:y.OptionLabel,text:y.OptionText}))}))
+                                    question:apiData.result.questions.map(x=>({id:x.id,question:x.questionText,correctAnswer:x.correctAnswer.split("").join(","),difficulty:apiData.result.difficultyConvert,questionType:x.questionType.code,choices:JSON.parse(x.answerOptions).answers.map(y=>({key:y.OptionLabel,text:y.OptionText}))})),
+                                    standardSetting: apiData.result.standardSetting ? {
+                                        requiredAccuracy: apiData.result.standardSetting.requiredAccuracy || 0,
+                                        minQuestions: apiData.result.standardSetting.minQuestions || 0,
+                                        allowSkip: apiData.result.standardSetting.allowSkip || false,
+                                        timeLimit: apiData.result.standardSetting.timeLimit || 0,
+                                        minimumPlayTimes: apiData.result.standardSetting.minimumPlayTimes ?? 1,
+                                        gameType: apiData.result.standardSetting.gameType ?? 0
+                                    } : null
                                 }
                                 cbOnLoad(formatResponse);
                             }

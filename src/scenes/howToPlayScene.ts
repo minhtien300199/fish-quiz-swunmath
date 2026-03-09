@@ -40,16 +40,7 @@ export class HowToPlayScene extends Phaser.Scene {
     this.add.image(panel.x - panel.width / 2 + 80, panel.y + panel.height / 2 - 80, 'fish-bass').setScale(0.5);
     this.add.image(panel.x + panel.width / 2 - 80, panel.y + panel.height / 2 - 80, 'fish-puffer_fish').setScale(0.5);
 
-    // Add back button
-    this.createButton(
-      this.cameras.main.width / 2,
-      panel.y + panel.height / 2 + 50,
-      'Back to Menu',
-      () => {
-        this.disposeHtmlContainer();
-        this.scene.start('MenuScene');
-      }
-    );
+    // Back button is created as DOM element inside createHtmlInstructions
 
     // Initialize cursor management for this scene
     CursorManager.createCursor(this);
@@ -159,6 +150,50 @@ export class HowToPlayScene extends Phaser.Scene {
     
     contentWrapper.innerHTML += instructionsHtml;
     this.htmlContainer.appendChild(contentWrapper);
+
+    // Create DOM back button below the content
+    const backButton = document.createElement('button');
+    backButton.textContent = 'Back to Menu';
+    backButton.style.position = 'absolute';
+    backButton.style.left = '50%';
+    backButton.style.bottom = '4%';
+    backButton.style.transform = 'translateX(-50%)';
+    backButton.style.padding = '12px 40px';
+    backButton.style.fontSize = 'clamp(16px, 2.5vh, 28px)';
+    backButton.style.fontWeight = 'bold';
+    backButton.style.color = '#ffffff';
+    backButton.style.backgroundColor = '#4a6fa5';
+    backButton.style.border = '2px solid rgba(255, 255, 255, 0.8)';
+    backButton.style.borderRadius = '15px';
+    backButton.style.cursor = 'none';
+    backButton.style.pointerEvents = 'auto';
+    backButton.style.transition = 'background-color 0.2s ease, transform 0.1s ease';
+    backButton.style.boxShadow = '0 4px 8px rgba(0, 0, 0, 0.3)';
+    backButton.style.textShadow = '1px 1px 3px #000000';
+    backButton.style.zIndex = '1001';
+
+    backButton.addEventListener('mouseenter', () => {
+      backButton.style.backgroundColor = '#5d8bc3';
+      backButton.style.transform = 'translateX(-50%) scale(1.05)';
+    });
+    backButton.addEventListener('mouseleave', () => {
+      backButton.style.backgroundColor = '#4a6fa5';
+      backButton.style.transform = 'translateX(-50%) scale(1)';
+    });
+    backButton.addEventListener('mousedown', () => {
+      backButton.style.backgroundColor = '#395780';
+      backButton.style.transform = 'translateX(-50%) scale(0.97)';
+    });
+    backButton.addEventListener('mouseup', () => {
+      backButton.style.backgroundColor = '#4a6fa5';
+      backButton.style.transform = 'translateX(-50%) scale(1)';
+    });
+    backButton.addEventListener('click', () => {
+      this.disposeHtmlContainer();
+      this.scene.start('MenuScene');
+    });
+
+    this.htmlContainer.appendChild(backButton);
     document.body.appendChild(this.htmlContainer);
 
     // Handle window resize

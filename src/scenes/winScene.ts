@@ -1,6 +1,8 @@
 import { GameState } from '../types/gameState';
 import { FishType, getFishPath } from '../const/fishType';
 import { CursorManager } from '../managers/cursorManager';
+import { StandardSettingManager } from '../managers/standardSettingManager';
+import { LeaderboardManager, LeaderboardEntry } from '../managers/leaderboardManager';
 // @ts-ignore
 import gameSdk from '../service/apiService.js';
 
@@ -32,235 +34,240 @@ export class WinScene extends Phaser.Scene {
   }
 
   create(): void {
+    // Decrement remaining play times
+    StandardSettingManager.decrementPlayTimes();
+    const canReturn = StandardSettingManager.canReturnToDashboard();
+    const remaining = StandardSettingManager.getRemainingPlayTimes();
+
+    const W = this.cameras.main.width;
+    const H = this.cameras.main.height;
+
     // Add a background
-    const bg = this.add.rectangle(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      this.cameras.main.width,
-      this.cameras.main.height,
-      0x000000,
-      0.7
-    );
+    this.add.rectangle(W / 2, H / 2, W, H, 0x000000, 0.7);
+
+    // ---------- LEFT SIDE: Game result ----------
+    const leftX = W * 0.3;
 
     // Add a congratulations message
-    const titleText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 4,
-      `Congratulations!`,
-      {
-        fontSize: '48px',
-        color: '#ffff00',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 6
-      }
-    ).setOrigin(0.5);
+    const titleText = this.add.text(leftX, 40, 'Congratulations!', {
+      fontSize: '40px',
+      color: '#ffff00',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 6
+    }).setOrigin(0.5);
 
-    // Add boat idle frame (frame 0 from spritesheet)
-    const boatAsset = this.add.image(
-      this.cameras.main.width / 2,
-      titleText.y + titleText.height + 60,
-      'boat-fishing_boat_blue',
-      0 // Use frame 0 (idle/east direction)
-    );
-    boatAsset.setScale(2.5); // Smaller boat for better proportion
+    // Add boat idle frame
+    const boatAsset = this.add.image(leftX, titleText.y + 70, 'boat-fishing_boat_blue', 0);
+    boatAsset.setScale(2);
     boatAsset.setOrigin(0.5);
 
     // Add wave animation to the boat
     this.tweens.add({
       targets: boatAsset,
-      y: boatAsset.y - 10, // Move up 10 pixels
-      duration: 1500, // 1.5 seconds
+      y: boatAsset.y - 8,
+      duration: 1500,
       ease: 'Sine.easeInOut',
-      yoyo: true, // Return to original position
-      repeat: -1 // Repeat forever
+      yoyo: true,
+      repeat: -1
     });
 
-    // Add "Fish caught this run:" text (moved up)
-    const fishLabelText = this.add.text(
-      this.cameras.main.width / 2,
-      boatAsset.y + boatAsset.displayHeight / 2 + 30, // Reduced spacing from 50 to 30
-      'Fish caught this run:',
-      {
-        fontSize: '28px',
-        color: '#00ffff',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-      }
-    ).setOrigin(0.5);
+    // Score
+    this.add.text(leftX, boatAsset.y + 60, `Total Score: ${this.gameState.score}`, {
+      fontSize: '28px',
+      color: '#ffffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
 
-    // Display fish assets that were caught
-    this.displayCaughtFishAssets(fishLabelText.y + fishLabelText.height + 20); // Reduced spacing from 30 to 20
+    // Fish caught label
+    const fishLabelY = boatAsset.y + 100;
+    this.add.text(leftX, fishLabelY, 'Fish caught this run:', {
+      fontSize: '22px',
+      color: '#00ffff',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
 
-    // Add score below fish assets (moved up)
-    const scoreText = this.add.text(
-      this.cameras.main.width / 2,
-      fishLabelText.y + fishLabelText.height + 120, // Reduced spacing from 150 to 120
-      `Total Score: ${this.gameState.score}`,
-      {
-        fontSize: '28px',
-        color: '#ffffff',
-        align: 'center',
-        fontStyle: 'bold',
-        stroke: '#000000',
-        strokeThickness: 3
-      }
-    ).setOrigin(0.5);
+    // Display fish assets
+    this.displayCaughtFishAssets(fishLabelY + 30, leftX);
 
-    // Add a restart button (moved up)
-    const restartButton = this.add.rectangle(
-      this.cameras.main.width / 2 - 120,
-      scoreText.y + scoreText.height + 40, // Reduced spacing from 60 to 40
-      200,
-      60,
-      0x0066ff,
-      1
-    ).setInteractive();
+    // Remaining plays info
+    if (remaining > 0) {
+      // this.add.text(leftX, H - 80, `Remaining plays: ${remaining}`, {
+      //   fontSize: '18px',
+      //   color: '#f39c12',
+      //   fontStyle: 'bold',
+      //   stroke: '#000000',
+      //   strokeThickness: 2
+      // }).setOrigin(0.5);
+    }
 
-    // Add restart button text
-    const restartButtonText = this.add.text(
-      restartButton.x,
-      restartButton.y,
-      'Play Again',
-      {
-        fontSize: '24px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
+    // ---------- RIGHT SIDE: Leaderboard ----------
+    this.createLeaderboardPanel(W * 0.72, 30, 380, H - 110);
 
-    // Add restart button hover effect
-    restartButton.on('pointerover', () => {
-      restartButton.setFillStyle(0x0088ff);
-      restartButtonText.setColor('#ffff00');
-    });
+    // ---------- BUTTONS at bottom ----------
+    const buttonY = H - 40;
+    const buttonW = 230;
+    const buttonH = 60;
 
-    restartButton.on('pointerout', () => {
-      restartButton.setFillStyle(0x0066ff);
-      restartButtonText.setColor('#ffffff');
-    });
-
-    // Add restart button click event
-    restartButton.on('pointerdown', () => {
-      // Call startGame API before restarting the game
-      gameSdk.startGame(
-        (result: any) => {
-          console.log('Game started successfully:', result);
-          // Store the GameAttemptId for question submissions
-          if (result && result.id) {
-            window.GAME_ATTEMPT_ID = result.id;
-            console.log('GameAttemptId stored:', result.id);
-          }
-          // Restart the game with a fresh state
-          this.scene.start('GameScene', { reset: true });
-        },
-        () => {
-          console.error('Failed to start game');
-          // Start game scene anyway to prevent blocking the user
-          this.scene.start('GameScene', { reset: true });
-        }
-      );
-    });
-
-    // Add a main menu button (moved up)
-    const menuButton = this.add.rectangle(
-      this.cameras.main.width / 2 + 120,
-      scoreText.y + scoreText.height + 40, // Reduced spacing from 60 to 40
-      200,
-      60,
-      0x00aa66,
-      1
-    ).setInteractive();
-
-    // Add menu button text
-    const menuButtonText = this.add.text(
-      menuButton.x,
-      menuButton.y,
-      'Main Menu',
-      {
-        fontSize: '24px',
-        color: '#ffffff',
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5);
-
-    // Add menu button hover effect
-    menuButton.on('pointerover', () => {
-      menuButton.setFillStyle(0x00cc88);
-      menuButtonText.setColor('#ffff00');
-    });
-
-    menuButton.on('pointerout', () => {
-      menuButton.setFillStyle(0x00aa66);
-      menuButtonText.setColor('#ffffff');
-    });
-
-    // Add menu button click event
-    menuButton.on('pointerdown', () => {
-      // Return to the main menu
-      this.scene.start('MenuScene');
-    });
+    if (canReturn) {
+      // Show: Play Again | Return Dashboard
+      // this.createButton(W / 2 - 130, buttonY, buttonW, buttonH, 0x0066ff, 'Play Again', () => this.handlePlayAgain());
+      this.createButton(W / 2 + 130, buttonY, buttonW, buttonH, 0xe74c3c, 'Return Dashboard', () => this.handleReturnDashboard());
+    } else {
+      // Show: Play Again | Main Menu
+      this.createButton(W / 2 - 130, buttonY, buttonW, buttonH, 0x0066ff, 'Play Again', () => this.handlePlayAgain());
+      this.createButton(W / 2 + 130, buttonY, buttonW, buttonH, 0x00aa66, 'Main Menu', () => this.scene.start('MenuScene'));
+    }
 
     // Initialize cursor management for this scene
     CursorManager.createCursor(this);
   }
 
-  private displayCaughtFishAssets(startY: number): void {
-    const fishPerRow = 6; // Number of fish to show per row
-    const fishSize = 60; // Size for each fish
-    const fishSpacing = fishSize + 10; // Space between fish
-    const rowSpacing = fishSize + 20; // Space between rows
+  private createButton(x: number, y: number, w: number, h: number, color: number, label: string, onClick: () => void): void {
+    const btn = this.add.rectangle(x, y, w, h, color, 1).setInteractive({ useHandCursor: true });
+    const txt = this.add.text(x, y, label, { fontSize: '20px', color: '#ffffff', fontStyle: 'bold' }).setOrigin(0.5);
+
+    const hoverColor = Phaser.Display.Color.IntegerToColor(color).brighten(20).color;
+    btn.on('pointerover', () => { btn.setFillStyle(hoverColor); txt.setColor('#ffff00'); });
+    btn.on('pointerout', () => { btn.setFillStyle(color); txt.setColor('#ffffff'); });
+    btn.on('pointerdown', onClick);
+  }
+
+  private handlePlayAgain(): void {
+    gameSdk.startGame(
+      (result: any) => {
+        console.log('Game started successfully:', result);
+        if (result && result.id) {
+          window.GAME_ATTEMPT_ID = result.id;
+        }
+        this.scene.start('GameScene', { reset: true });
+      },
+      () => {
+        console.error('Failed to start game');
+        this.scene.start('GameScene', { reset: true });
+      }
+    );
+  }
+
+  private handleReturnDashboard(): void {
+    // Send message to parent window
+    window.parent.postMessage("returnDashboard", "*");
+    
+    // Try to communicate with parent window (iframe scenario)
+    try {
+      window.parent.postMessage({ type: 'GAME_COMPLETE', action: 'returnToDashboard' }, '*');
+    } catch (e) {
+      console.warn('Could not post message to parent:', e);
+    }
+    // Fallback: try to close the window or go back
+    try {
+      window.close();
+    } catch (e) {
+      // If window.close doesn't work, try history back
+      window.history.back();
+    }
+  }
+
+  private createLeaderboardPanel(x: number, y: number, w: number, h: number): void {
+    // Panel background
+    const panelBg = this.add.rectangle(x, y + h / 2, w, h, 0x2c3e50, 0.9);
+    panelBg.setStrokeStyle(2, 0x3498db);
+
+    // Title
+    this.add.text(x, y + 25, 'LEADERBOARD', {
+      fontSize: '24px',
+      color: '#f1c40f',
+      fontStyle: 'bold',
+      stroke: '#000000',
+      strokeThickness: 3
+    }).setOrigin(0.5);
+
+    // Header row
+    const headerY = y + 55;
+    this.add.text(x - w / 2 + 20, headerY, '#', { fontSize: '14px', color: '#95a5a6', fontStyle: 'bold' });
+    this.add.text(x - w / 2 + 50, headerY, 'Name', { fontSize: '14px', color: '#95a5a6', fontStyle: 'bold' });
+    this.add.text(x + w / 2 - 20, headerY, 'Score', { fontSize: '14px', color: '#95a5a6', fontStyle: 'bold' }).setOrigin(1, 0);
+
+    // Separator
+    const sep = this.add.graphics();
+    sep.lineStyle(1, 0x3498db, 0.5);
+    sep.lineBetween(x - w / 2 + 15, headerY + 20, x + w / 2 - 15, headerY + 20);
+
+    // Loading text
+    const loadingText = this.add.text(x, y + h / 2, 'Loading...', {
+      fontSize: '16px', color: '#ffffff', fontStyle: 'italic'
+    }).setOrigin(0.5);
+
+    // Fetch leaderboard
+    LeaderboardManager.refreshLeaderboard();
+
+    // Display after delay to allow API fetch
+    this.time.delayedCall(600, () => {
+      loadingText.destroy();
+      const entries = LeaderboardManager.getLeaderboard();
+
+      if (entries.length === 0) {
+        this.add.text(x, y + h / 2, 'No scores yet!', {
+          fontSize: '16px', color: '#999999', fontStyle: 'italic'
+        }).setOrigin(0.5);
+        return;
+      }
+
+      entries.slice(0, 10).forEach((entry: LeaderboardEntry, index: number) => {
+        const entryY = headerY + 30 + index * 30;
+        const rankColors = ['#f1c40f', '#95a5a6', '#cd7f32'];
+        const rankColor = index < 3 ? rankColors[index] : '#ecf0f1';
+        const medals = ['🥇', '🥈', '🥉'];
+        const rankLabel = index < 3 ? medals[index] : `${index + 1}`;
+
+        this.add.text(x - w / 2 + 20, entryY, rankLabel, { fontSize: '14px', color: rankColor });
+        this.add.text(x - w / 2 + 50, entryY, entry.name || 'Anonymous', {
+          fontSize: '14px', color: '#ecf0f1'
+        });
+        this.add.text(x + w / 2 - 20, entryY, `${entry.score}`, {
+          fontSize: '14px', color: rankColor, fontStyle: 'bold'
+        }).setOrigin(1, 0);
+      });
+    });
+  }
+
+  private displayCaughtFishAssets(startY: number, centerX: number): void {
+    const fishPerRow = 5;
+    const fishSize = 50;
+    const fishSpacing = fishSize + 8;
+    const rowSpacing = fishSize + 10;
 
     // Get unique fish types caught in this run
     const uniqueFishTypes = [...new Set(this.gameState.currentRunFish)];
 
     if (uniqueFishTypes.length === 0) {
-      // Show "No fish caught" if somehow no fish were caught
-      this.add.text(
-        this.cameras.main.width / 2,
-        startY + 30,
-        'No fish caught',
-        {
-          fontSize: '20px',
-          color: '#999999',
-          fontStyle: 'italic'
-        }
-      ).setOrigin(0.5);
+      this.add.text(centerX, startY + 20, 'No fish caught', {
+        fontSize: '18px', color: '#999999', fontStyle: 'italic'
+      }).setOrigin(0.5);
       return;
     }
-
-    // Calculate starting position to center the fish grid
-    const totalRows = Math.ceil(uniqueFishTypes.length / fishPerRow);
 
     uniqueFishTypes.forEach((fishType: string, index: number) => {
       const row = Math.floor(index / fishPerRow);
       const col = index % fishPerRow;
       const fishInThisRow = Math.min(fishPerRow, uniqueFishTypes.length - row * fishPerRow);
 
-      // Center each row
-      const rowStartX = this.cameras.main.width / 2 - (fishInThisRow * fishSpacing - 10) / 2;
-
+      const rowStartX = centerX - (fishInThisRow * fishSpacing - 8) / 2;
       const fishX = rowStartX + col * fishSpacing;
       const fishY = startY + row * rowSpacing;
 
-      // Create fish image
       const fishImage = this.add.image(fishX, fishY, `fish-${fishType}`);
-      fishImage.setScale(0.5); // Updated to 0.5
+      fishImage.setScale(0.4);
       fishImage.setOrigin(0.5);
-
-      // Add a subtle glow effect for the caught fish
       fishImage.setTint(0xffffff);
 
-      // Optional: Add fish name on hover
       fishImage.setInteractive();
-      fishImage.on('pointerover', () => {
-        fishImage.setTint(0xffff88); // Highlight on hover
-      });
-
-      fishImage.on('pointerout', () => {
-        fishImage.setTint(0xffffff); // Return to normal
-      });
+      fishImage.on('pointerover', () => fishImage.setTint(0xffff88));
+      fishImage.on('pointerout', () => fishImage.setTint(0xffffff));
     });
   }
 }

@@ -3,6 +3,7 @@ import { RodType, RodCatchAssets, RodThrowAssets, RodPullAssets, RodReelAssets }
 import { FishType, getFishPath, fishSizes, FishVariantType, fishVariants, hasFishVariants } from '../const/fishType';
 import { FishFactory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
+import { StandardSettingManager } from '../managers/standardSettingManager';
 import { HourglassLoadingBar } from '../components/HourglassLoadingBar';
 // @ts-ignore
 import gameSdk from '../service/apiService.js';
@@ -78,6 +79,9 @@ export class PreloadScene extends Phaser.Scene {
 
         // Store the total number of questions for completion logic
         window.TOTAL_QUESTIONS = (data.question || []).length;
+
+        // Initialize standard setting from API response
+        StandardSettingManager.init(data.standardSetting || null);
 
         console.log('data', data);
         console.log(`Loaded ${window.TOTAL_QUESTIONS} questions from API`);

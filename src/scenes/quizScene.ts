@@ -222,7 +222,9 @@ export class QuizScene extends Phaser.Scene {
     }
 
     // Create fish image at the top of the paper using FishFactory
-    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, 288, this.currentFish);
+    const paperTop = this.paperBg.y - (this.paperBg.displayHeight / 2);
+    const fishY = paperTop + 60;
+    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, fishY, this.currentFish);
     fishSprite.setScale(0.5);
     this.fishSprite = fishSprite;
 
@@ -784,7 +786,7 @@ export class QuizScene extends Phaser.Scene {
   private processQuestionContentNoScroll(): void {
     if (!this.htmlQuestionContainer) return;
     
-    // Get all images in the container and make them small with hover functionality
+    // Get all images in the container and make them small with click-to-preview functionality
     const images = this.htmlQuestionContainer.querySelectorAll('img');
     images.forEach(img => {
       const imageElement = img as HTMLImageElement;
@@ -798,26 +800,50 @@ export class QuizScene extends Phaser.Scene {
       imageElement.style.display = 'block';
       imageElement.style.margin = '5px auto';
       imageElement.style.borderRadius = '5px';
-      imageElement.style.transition = 'transform 0.2s ease';
+      imageElement.style.transition = 'transform 0.2s ease, box-shadow 0.2s ease';
+      imageElement.style.border = '2px solid transparent';
       
-      // Store original source for hover preview
+      // Store original source for detail preview
       const originalSrc = imageElement.src;
       
-      // Add hover functionality for full-size preview
+      // Hover effect - visual hint that image is clickable
       imageElement.addEventListener('mouseenter', () => {
-        // Create hover preview overlay
-        const hoverOverlay = document.createElement('div');
-        hoverOverlay.style.position = 'fixed';
-        hoverOverlay.style.top = '0';
-        hoverOverlay.style.left = '0';
-        hoverOverlay.style.width = '100vw';
-        hoverOverlay.style.height = '100vh';
-        hoverOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
-        hoverOverlay.style.zIndex = '2000';
-        hoverOverlay.style.display = 'flex';
-        hoverOverlay.style.justifyContent = 'center';
-        hoverOverlay.style.alignItems = 'center';
-        hoverOverlay.style.cursor = 'none';
+        imageElement.style.transform = 'scale(1.1)';
+        imageElement.style.boxShadow = '0 4px 12px rgba(0, 0, 0, 0.3)';
+        imageElement.style.border = '2px solid #2196f3';
+      });
+      
+      imageElement.addEventListener('mouseleave', () => {
+        imageElement.style.transform = 'scale(1)';
+        imageElement.style.boxShadow = 'none';
+        imageElement.style.border = '2px solid transparent';
+      });
+      
+      // Click to show full-size detail overlay
+      imageElement.addEventListener('click', (e) => {
+        e.stopPropagation();
+        
+        // Toggle off if already showing
+        const existingOverlay = (imageElement as any).hoverOverlay;
+        if (existingOverlay && existingOverlay.parentNode) {
+          document.body.removeChild(existingOverlay);
+          (imageElement as any).hoverOverlay = null;
+          return;
+        }
+        
+        // Create detail overlay
+        const detailOverlay = document.createElement('div');
+        detailOverlay.style.position = 'fixed';
+        detailOverlay.style.top = '0';
+        detailOverlay.style.left = '0';
+        detailOverlay.style.width = '100vw';
+        detailOverlay.style.height = '100vh';
+        detailOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+        detailOverlay.style.zIndex = '2000';
+        detailOverlay.style.display = 'flex';
+        detailOverlay.style.justifyContent = 'center';
+        detailOverlay.style.alignItems = 'center';
+        detailOverlay.style.cursor = 'none';
         
         // Create full-size image
         const fullImage = document.createElement('img');
@@ -828,39 +854,19 @@ export class QuizScene extends Phaser.Scene {
         fullImage.style.borderRadius = '8px';
         fullImage.style.boxShadow = '0 4px 20px rgba(0, 0, 0, 0.5)';
         
-        hoverOverlay.appendChild(fullImage);
-        document.body.appendChild(hoverOverlay);
+        detailOverlay.appendChild(fullImage);
+        document.body.appendChild(detailOverlay);
         
         // Store reference for cleanup
-        (imageElement as any).hoverOverlay = hoverOverlay;
+        (imageElement as any).hoverOverlay = detailOverlay;
         
-        // Remove overlay on click
-        const removeOverlay = () => {
-          if (hoverOverlay.parentNode) {
-            document.body.removeChild(hoverOverlay);
+        // Click overlay to close
+        detailOverlay.addEventListener('click', () => {
+          if (detailOverlay.parentNode) {
+            document.body.removeChild(detailOverlay);
           }
           (imageElement as any).hoverOverlay = null;
-        };
-        
-        hoverOverlay.addEventListener('click', removeOverlay);
-        
-        // Auto-remove after 3 seconds
-        setTimeout(() => {
-          if ((imageElement as any).hoverOverlay === hoverOverlay) {
-            removeOverlay();
-          }
-        }, 3000);
-      });
-      
-      imageElement.addEventListener('mouseleave', () => {
-        // Small delay before removing overlay to prevent flicker
-        setTimeout(() => {
-          const overlay = (imageElement as any).hoverOverlay;
-          if (overlay && overlay.parentNode) {
-            document.body.removeChild(overlay);
-            (imageElement as any).hoverOverlay = null;
-          }
-        }, 100);
+        });
       });
     });
     
@@ -1088,7 +1094,7 @@ export class QuizScene extends Phaser.Scene {
   }
 
   /**
-   * Create HTML container for answer choices in 2x2 grid layout
+   * Create HTML container for answer choices in responsive 2x2 grid layout
    */
   private createHtmlAnswersContainer(): void {
     // Remove any existing HTML answers container
@@ -1105,61 +1111,64 @@ export class QuizScene extends Phaser.Scene {
     const scaleX = canvasRect.width / canvas.width;
     const scaleY = canvasRect.height / canvas.height;
     
-    // Style the HTML answers container as invisible overlay
+    // Calculate the answers area in screen coordinates based on paper background
+    const paperCenterX = this.paperBg.x;
+    const paperWidth = this.paperBg.displayWidth;
+    const answersTopWorldY = this.paperBg.y + (this.paperBg.displayHeight * 0.10);
+    const paperBottomWorldY = this.paperBg.y + (this.paperBg.displayHeight * 0.47);
+    
+    // Convert to screen coordinates
+    const screenCenterX = canvasRect.left + (paperCenterX * scaleX);
+    const screenWidth = paperWidth * scaleX * 0.92;
+    const screenTop = canvasRect.top + (answersTopWorldY * scaleY);
+    const screenBottom = canvasRect.top + (paperBottomWorldY * scaleY);
+    const screenHeight = screenBottom - screenTop;
+    
+    // Position container over the paper answers area
     this.htmlAnswersContainer.style.position = 'fixed';
-    this.htmlAnswersContainer.style.left = '0px';
-    this.htmlAnswersContainer.style.top = '0px';
-    this.htmlAnswersContainer.style.width = '100%';
-    this.htmlAnswersContainer.style.height = '100%';
-    this.htmlAnswersContainer.style.zIndex = '1001'; // Above question container
-    this.htmlAnswersContainer.style.pointerEvents = 'none'; // Allow clicks to pass through except on answer buttons
+    this.htmlAnswersContainer.style.left = (screenCenterX - screenWidth / 2) + 'px';
+    this.htmlAnswersContainer.style.top = screenTop + 'px';
+    this.htmlAnswersContainer.style.width = screenWidth + 'px';
+    this.htmlAnswersContainer.style.height = screenHeight + 'px';
+    this.htmlAnswersContainer.style.zIndex = '1001';
+    this.htmlAnswersContainer.style.display = 'flex';
+    this.htmlAnswersContainer.style.flexDirection = 'column';
+    this.htmlAnswersContainer.style.alignItems = 'center';
+    this.htmlAnswersContainer.style.gap = '6px';
+    this.htmlAnswersContainer.style.padding = '4px';
+    this.htmlAnswersContainer.style.boxSizing = 'border-box';
+    this.htmlAnswersContainer.style.overflow = 'hidden';
     
-    // Calculate grid positions matching the game's 2x2 layout
-    const firstButtonY = this.paperBg.y + (this.paperBg.displayHeight * 0.15); // Added 200px to Y position
-    const gridSpacingX = 280; // Increased horizontal spacing between buttons (from 220 to 280)
-    const gridSpacingY = 150; // Increased vertical spacing between buttons (from 100 to 160)
+    // Create CSS grid for answer options (2x2 responsive layout)
+    const answersGrid = document.createElement('div');
+    answersGrid.style.display = 'grid';
+    answersGrid.style.gridTemplateColumns = '1fr 1fr';
+    answersGrid.style.gap = '6px';
+    answersGrid.style.width = '100%';
+    answersGrid.style.flex = '1';
+    answersGrid.style.minHeight = '0';
     
-    // Create answer options in 2x2 grid
+    // Create answer options in responsive grid
     this.currentQuestion.choices.forEach((choice, index) => {
       // Process choice text through replaceURL function
       const processedChoiceText = replaceURL(choice.text);
       
-      // Calculate position in 2x2 grid (matching original Phaser layout)
-      const row = Math.floor(index / 2); // 0 for first row, 1 for second row
-      const col = index % 2; // 0 for left column, 1 for right column
-      
-      // Calculate button position
-      const buttonX = (this.cameras.main.width / 2) + ((col === 0) ? -gridSpacingX : gridSpacingX);
-      const buttonY = firstButtonY + (row * gridSpacingY);
-      
-      // Convert world coordinates to screen coordinates
-      const screenX = canvasRect.left + (buttonX * scaleX);
-      const screenY = canvasRect.top + (buttonY * scaleY);
-      
       // Create answer option container
       const optionContainer = document.createElement('div');
-      optionContainer.setAttribute('data-choice-key', choice.key); // Add data attribute for highlighting
-      optionContainer.style.position = 'absolute';
-      optionContainer.style.left = screenX + 'px';
-      optionContainer.style.top = screenY + 'px';
-      optionContainer.style.transform = 'translate(-50%, -50%)';
-      optionContainer.style.width = '350px';
-      optionContainer.style.minHeight = '90px';
-      optionContainer.style.maxHeight = '200px';
-      optionContainer.style.overflow = 'auto';
-      optionContainer.style.padding = '15px'; // Increased padding from 15px to 20px
-      optionContainer.style.margin = '10px'; // Added margin to prevent stacking
+      optionContainer.setAttribute('data-choice-key', choice.key);
+      optionContainer.style.padding = '8px 10px';
       optionContainer.style.border = '2px solid #90caf9';
       optionContainer.style.borderRadius = '8px';
       optionContainer.style.cursor = 'none';
       optionContainer.style.transition = 'all 0.3s ease';
       optionContainer.style.backgroundColor = '#f5f5f5';
-      optionContainer.style.pointerEvents = 'auto'; // Enable clicks on this element
-      optionContainer.style.fontSize = '16px';
-      optionContainer.style.lineHeight = '1.4';
+      optionContainer.style.fontSize = 'clamp(11px, 1.4vw, 16px)';
+      optionContainer.style.lineHeight = '1.3';
       optionContainer.style.color = '#000000';
       optionContainer.style.fontFamily = 'Arial, sans-serif';
       optionContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
+      optionContainer.style.overflow = 'auto';
+      optionContainer.style.boxSizing = 'border-box';
       optionContainer.dataset.choiceKey = choice.key;
       optionContainer.dataset.choiceIndex = index.toString();
       
@@ -1168,7 +1177,7 @@ export class QuizScene extends Phaser.Scene {
         if (!this.selectedAnswers.has(choice.key)) {
           optionContainer.style.backgroundColor = '#e3f2fd';
           optionContainer.style.borderColor = '#2196f3';
-          optionContainer.style.transform = 'translate(-50%, -50%) scale(1.02)';
+          optionContainer.style.transform = 'scale(1.02)';
         }
       });
       
@@ -1176,7 +1185,7 @@ export class QuizScene extends Phaser.Scene {
         if (!this.selectedAnswers.has(choice.key)) {
           optionContainer.style.backgroundColor = '#f5f5f5';
           optionContainer.style.borderColor = '#90caf9';
-          optionContainer.style.transform = 'translate(-50%, -50%) scale(1)';
+          optionContainer.style.transform = 'scale(1)';
         }
       });
       
@@ -1188,9 +1197,9 @@ export class QuizScene extends Phaser.Scene {
       // Create choice label
       const choiceLabel = document.createElement('div');
       choiceLabel.style.fontWeight = 'bold';
-      choiceLabel.style.marginBottom = '8px';
+      choiceLabel.style.marginBottom = '4px';
       choiceLabel.style.color = '#333';
-      choiceLabel.style.fontSize = '18px';
+      choiceLabel.style.fontSize = 'clamp(12px, 1.5vw, 18px)';
       choiceLabel.textContent = `${choice.key}.`;
       optionContainer.appendChild(choiceLabel);
       
@@ -1204,29 +1213,24 @@ export class QuizScene extends Phaser.Scene {
         (img as HTMLImageElement).style.maxWidth = '100%';
         (img as HTMLImageElement).style.height = 'auto';
         (img as HTMLImageElement).style.borderRadius = '4px';
-        (img as HTMLImageElement).style.marginTop = '8px';
+        (img as HTMLImageElement).style.marginTop = '4px';
       });
       
       optionContainer.appendChild(choiceContent);
-      this.htmlAnswersContainer!.appendChild(optionContainer);
+      answersGrid.appendChild(optionContainer);
     });
     
-    // Create submit button positioned below the grid
-    const submitButtonContainer = document.createElement('div');
-    const submitButtonY = firstButtonY + (Math.ceil(this.currentQuestion.choices.length / 2) * gridSpacingY) + 50;
-    const submitScreenX = canvasRect.left + (this.cameras.main.width / 2 * scaleX);
-    const submitScreenY = canvasRect.top + (submitButtonY * scaleY);
+    this.htmlAnswersContainer.appendChild(answersGrid);
     
-    submitButtonContainer.style.position = 'absolute';
-    submitButtonContainer.style.left = submitScreenX + 'px';
-    submitButtonContainer.style.top = submitScreenY - 50 + 'px';
-    submitButtonContainer.style.transform = 'translate(-50%, -50%)';
-    submitButtonContainer.style.pointerEvents = 'auto';
+    // Create submit button below the grid
+    const submitButtonContainer = document.createElement('div');
+    submitButtonContainer.style.flexShrink = '0';
+    submitButtonContainer.style.padding = '4px 0';
     
     const submitButton = document.createElement('button');
     submitButton.textContent = 'Submit Answer';
-    submitButton.style.padding = '12px 30px';
-    submitButton.style.fontSize = '18px';
+    submitButton.style.padding = '8px 24px';
+    submitButton.style.fontSize = 'clamp(12px, 1.5vw, 18px)';
     submitButton.style.fontWeight = 'bold';
     submitButton.style.backgroundColor = '#4caf50';
     submitButton.style.color = 'white';
