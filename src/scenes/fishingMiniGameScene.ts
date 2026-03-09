@@ -151,7 +151,7 @@ export class FishingMiniGameScene extends Phaser.Scene {
     }).setOrigin(0.5).setDepth(10);
 
     // ----- Instruction text -----
-    this.add.text(W / 2, bgY - bgDisplayH * 0.5 - 100, 'Hold SPACE to move the catch zone!', {
+    this.add.text(W / 2, bgY - bgDisplayH * 0.5 - 100, 'Hold SPACE or LEFT CLICK to move the catch zone!', {
       fontSize: '28px',
       color: '#ffff00',
       stroke: '#000000',
@@ -213,8 +213,9 @@ export class FishingMiniGameScene extends Phaser.Scene {
       this.fishDirection *= -1;
     }
 
-    // --- Move catch zone based on SPACE key ---
-    if (this.spaceKey && this.spaceKey.isDown) {
+    // --- Move catch zone based on SPACE key or left mouse button ---
+    const isInputActive = (this.spaceKey && this.spaceKey.isDown) || this.input.activePointer.isDown;
+    if (isInputActive) {
       this.catchZoneX += 0.7 * dt;
     } else {
       this.catchZoneX -= 0.35 * dt;
