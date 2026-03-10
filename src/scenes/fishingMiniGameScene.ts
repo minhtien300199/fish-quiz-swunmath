@@ -27,9 +27,7 @@ export class FishingMiniGameScene extends Phaser.Scene {
   private progressFrame: number = 1;
   private readonly TOTAL_PROGRESS_FRAMES = 74;
   private readonly FILL_DURATION = 3;   // seconds of overlap to fill bar
-  private readonly DRAIN_RATE = 0.12;   // drain per second when not overlapping
-
-  private timeRemaining: number = 10;
+  private timeRemaining: number = 20;
   private timerText!: Phaser.GameObjects.Text;
   private countdownTimer!: Phaser.Time.TimerEvent;
 
@@ -52,7 +50,7 @@ export class FishingMiniGameScene extends Phaser.Scene {
     this.isComplete = false;
     this.progress = 0;
     this.progressFrame = 1;
-    this.timeRemaining = 10;
+    this.timeRemaining = 20;
     this.fishX = 0;
     this.fishDirection = 1;
     this.catchZoneX = 0.5;
@@ -94,23 +92,37 @@ export class FishingMiniGameScene extends Phaser.Scene {
     // ----- Calculate active bar area inside the background -----
     const bgDisplayW = this.bgFrames[0].displayWidth;
     const bgDisplayH = this.bgFrames[0].displayHeight;
-    // Start at the left edge of the background image
-    this.barLeft = (W / 2) - (bgDisplayW * 0.50);
-    this.barRight = (W / 2) + (bgDisplayW * 0.40) + 15;
-    this.barWidth = this.barRight - this.barLeft;
-    this.barY = bgY;
 
     // ----- Determine difficulty -----
     const difficulty = this.getDifficulty();
+
+    // Bar bounds per difficulty (leftFactor, rightFactor, rightOffset)
+    let barLeftFactor: number, barRightFactor: number, barRightOffset: number;
+    switch (difficulty) {
+      case 'easy':
+        barLeftFactor = 0.41; barRightFactor = 0.18; barRightOffset = 150;
+        break;
+      case 'medium':
+        barLeftFactor = 0.48; barRightFactor = 0.26; barRightOffset = 150;
+        break;
+      case 'hard':
+      default:
+        barLeftFactor = 0.50; barRightFactor = 0.26; barRightOffset = 150;
+        break;
+    }
+    this.barLeft  = (W / 2) - (bgDisplayW * barLeftFactor);
+    this.barRight = (W / 2) + (bgDisplayW * barRightFactor) - barRightOffset;
+    this.barWidth = this.barRight - this.barLeft;
+    this.barY = bgY;
 
     // Overlap zone pixel widths (original pixel art) must match the fish_bar image widths
     const overlapPx = difficulty === 'easy' ? 38 : difficulty === 'medium' ? 22 : 16;
     this.catchZoneHalfW = (overlapPx * SCALE) / (2 * this.barWidth);
 
     switch (difficulty) {
-      case 'easy':   this.fishSpeed = 0.28; break;
-      case 'medium': this.fishSpeed = 0.38; break;
-      case 'hard':   this.fishSpeed = 0.50; break;
+      case 'easy':   this.fishSpeed = 0.25; break;
+      case 'medium': this.fishSpeed = 0.3; break;
+      case 'hard':   this.fishSpeed = 0.4; break;
     }
 
     // ----- Catch zone (fish bar) -----
@@ -174,12 +186,12 @@ export class FishingMiniGameScene extends Phaser.Scene {
     // ----- Countdown timer -----
     this.countdownTimer = this.time.addEvent({
       delay: 1000,
-      repeat: 9,
+      repeat: 19,
       callback: () => {
         if (this.isComplete) return;
         this.timeRemaining--;
         this.timerText.setText(`Time: ${this.timeRemaining}`);
-        if (this.timeRemaining <= 3) {
+        if (this.timeRemaining <= 5) {
           this.timerText.setColor('#ff4444');
         }
         if (this.timeRemaining <= 0) {
@@ -228,8 +240,6 @@ export class FishingMiniGameScene extends Phaser.Scene {
     // --- Update progress ---
     if (isCatching) {
       this.progress += (1 / this.FILL_DURATION) * dt;
-    } else {
-      this.progress -= this.DRAIN_RATE * dt;
     }
     this.progress = Phaser.Math.Clamp(this.progress, 0, 1);
 

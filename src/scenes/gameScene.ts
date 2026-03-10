@@ -1979,7 +1979,8 @@ export class GameScene extends Phaser.Scene {
     this.updateHtmlUIOverlay();
 
     // Check if player has caught enough fish to win
-    if (this.fishCaught >= (this.completionData?.TotalFish || 5)) {
+    const targetFish = gameSdk.getGameType() === 1 ? 5 : (this.completionData?.TotalFish || 5);
+    if (this.fishCaught >= targetFish) {
       this.triggerWin();
     }
 
@@ -2309,7 +2310,7 @@ export class GameScene extends Phaser.Scene {
 
     const progressEl = document.getElementById('gameProgress');
     if (progressEl) {
-      const totalFish = this.completionData?.TotalFish || 5;
+      const totalFish = gameSdk.getGameType() === 1 ? 5 : (this.completionData?.TotalFish || 5);
       progressEl.textContent = `Progress: ${this.fishCaught}/${totalFish} fish`;
     }
 
