@@ -18,6 +18,7 @@ import { CursorManager } from '../managers/cursorManager';
 import gameSdk from '../service/apiService.js';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
+import { MapDecorFactory, MapDecor } from '../factories/mapDecorFactory';
 import {
   getRequestedFixtureId,
   applyQuizFixture,
@@ -70,6 +71,15 @@ export class GameScene extends Phaser.Scene {
   private keyboardAnimationTimer: Phaser.Time.TimerEvent | null = null; // Timer for keyboard animation
   private catchButtonAnimationId: number | null = null; // RAF id for keyboard animation
   private catchButtonFloatId: number | null = null; // RAF id for catch button float
+  private catchPromptResizeHandler: (() => void) | null = null; // Rescales the catch prompt with the viewport
+
+  /**
+   * How far above the character the catch prompt's tail sits, in world px.
+   * At the camera's 3x zoom this is ~108 screen px, which puts the tail just
+   * clear of the boat. It was 70 (210 screen px), which left the bubble
+   * stranded in open water with its tail pointing at nothing.
+   */
+  private static readonly CATCH_PROMPT_LIFT = 36;
   private fishQuizDataList: FishQuizData[] = []; // Store quiz data for caught fish
   private fishQuizModal: FishQuizModal | null = null; // Modal component for displaying quiz data
   private joystickManager: JoystickManager | null = null; // Virtual joystick for mobile
@@ -77,6 +87,7 @@ export class GameScene extends Phaser.Scene {
   private fishCatchLightEffect: Phaser.GameObjects.Container | null = null; // Light effect container for fish catch
   private conversationBox: ConversationBox | null = null; // Conversation box for player guidance
   private idleTimer: Phaser.Time.TimerEvent | null = null; // Timer to track idle state
+  private mapDecor: MapDecor | null = null; // Animated water and scattered island/sea-floor decoration
 
   constructor() {
     super({ key: 'GameScene' });
@@ -118,6 +129,9 @@ export class GameScene extends Phaser.Scene {
 
     // Load box assets
     BoxFactory.loadAssets(this);
+
+    // Load animated water and island/sea-floor decoration
+    MapDecorFactory.loadAssets(this);
   }
   async create(): Promise<void> {
     // Clean up any existing objects first
@@ -186,10 +200,13 @@ export class GameScene extends Phaser.Scene {
       return;
     }
 
-    // Create layers from the tilemap
+    // Create layers from the tilemap.
+    // The 'objects' layer mixes tiles from beach-objects (gid 17-88) and
+    // palm_tree (gid 89-102), so it needs both tilesets. Passing only
+    // beach-objects left every palm tree unresolved and therefore invisible.
     const seaLayer = map.createLayer('sea', seaSandTileset);
     const sandLayer = map.createLayer('sand', seaSandTileset);
-    const objectsLayer = map.createLayer('objects', objectsTileset);
+    const objectsLayer = map.createLayer('objects', [objectsTileset, palmTreeTileset]);
     const subObjectsLayer = map.createLayer('sub-objects', coconutTileset);
 
     if (!seaLayer || !sandLayer || !objectsLayer || !subObjectsLayer) {
@@ -334,6 +351,30 @@ export class GameScene extends Phaser.Scene {
       }
     }
 
+    // Animated water plus pixel decoration on the island and the sea floor.
+    // Purely visual: nothing here has a physics body, so sailing, casting and
+    // fish spawning are unaffected. Keep-out circles cover the two fishmarket
+    // buildings and the boat's spawn point.
+    this.mapDecor = MapDecorFactory.create(this, map, {
+      sea: seaLayer,
+      sand: sandLayer,
+      objects: objectsLayer
+    }, {
+      reserved: [
+        { x: 150, y: 140, radius: 52 },   // fishmarket stall
+        { x: 1080, y: 180, radius: 58 },  // fishmarket shop
+        { x: 1024, y: 288, radius: 40 }   // boat spawn
+      ]
+    });
+
+    // Decoration belongs to the world, not the UI overlay camera
+    for (let i = 1; i < this.cameras.cameras.length; i++) {
+      const camera = this.cameras.cameras[i];
+      if (camera && camera !== this.cameras.main) {
+        camera.ignore(this.mapDecor.objects);
+      }
+    }
+
     // Fish storage box will be created in createUI method
 
     // Initialize custom cursor at the very end after everything is set up
@@ -446,6 +487,16 @@ export class GameScene extends Phaser.Scene {
           this.tutorialStepper.start(() => {
             // Mark tutorial as completed
             localStorage.setItem('fishQuizTutorialCompleted', 'true');
+
+            // Arm idle detection now. The one-shot call scheduled in create()
+            // fires 3s in, while this tutorial is still open, so it hits the
+            // "tutorial active" guard and returns without starting a timer.
+            // Every other path that arms the timer (resetIdleTimer) runs off a
+            // movement or cast, so without this a new player who just sits
+            // there — exactly who the prompt is for — never sees it.
+            // Covers Skip and full completion alike: both go through
+            // TutorialStepper.stop().
+            this.startIdleDetection();
           });
         }
       });
@@ -2534,6 +2585,12 @@ export class GameScene extends Phaser.Scene {
     // Clean up fish shadows
     this.cleanupFishShadows();
 
+    // Clean up animated water and scattered map decoration
+    if (this.mapDecor) {
+      this.mapDecor.destroy();
+      this.mapDecor = null;
+    }
+
     // Clean up fish box
     if (this.fishBox) {
       BoxFactory.destroy();
@@ -3043,97 +3100,39 @@ export class GameScene extends Phaser.Scene {
 
     // Create DOM-based catch button bubble
     this.catchButton = document.createElement('div');
-    this.catchButton.style.position = 'fixed';
-    this.catchButton.style.zIndex = '8500';
-    this.catchButton.style.transform = 'translate(-50%, -100%)';
-    this.catchButton.style.cursor = 'pointer';
-    this.catchButton.style.transition = 'opacity 0.2s ease';
-    this.catchButton.style.opacity = '0';
+    this.catchButton.id = 'catch-prompt';
+    this.catchButton.className = 'cp-root';
 
-    // Build speech bubble HTML with keyboard animation and pointer
     this.catchButton.innerHTML = `
-      <div style="
-        position: relative;
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-      ">
-        <div style="
-          color: #ffff00;
-          font-size: 60px;
-          font-weight: bold;
-          text-shadow: 0 0 4px #ff0000, 0 0 2px #ff0000;
-          animation: catchPulse 0.6s ease-in-out infinite alternate;
-          margin-bottom: 4px;
-        ">!</div>
-        <div style="
-          background: rgba(231, 76, 60, 0.9);
-          border: 2px solid #fff;
-          border-radius: 24px;
-          padding: 28px 48px;
-          display: flex;
-          align-items: center;
-          gap: 28px;
-          box-shadow: 0 2px 8px rgba(0,0,0,0.3);
-          position: relative;
-        ">
-          <img id="catchKeyboardImg" src="assets/ui/control_ui/space_0001.png" style="height: 96px; width: auto;" />
-          <span style="color: #fff; font-size: 36px; font-weight: bold; font-family: Arial, sans-serif;">OR</span>
-          <img src="assets/ui/control_ui/pointer_0001.png" style="height: 84px; width: auto;" />
-          <div style="
-            position: absolute;
-            bottom: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 8px solid transparent;
-            border-right: 8px solid transparent;
-            border-top: 10px solid #fff;
-          "></div>
-          <div style="
-            position: absolute;
-            bottom: -7px;
-            left: 50%;
-            transform: translateX(-50%);
-            width: 0; height: 0;
-            border-left: 7px solid transparent;
-            border-right: 7px solid transparent;
-            border-top: 9px solid rgba(231, 76, 60, 0.9);
-          "></div>
+      <div class="cp-stack">
+        <div class="cp-alert">!</div>
+        <div class="cp-panel">
+          <div class="cp-label">Catch it!</div>
+          <div class="cp-controls">
+            <img class="cp-key" id="catchKeyboardImg" src="assets/ui/control_ui/space_0001.png" alt="Space key" />
+            <span class="cp-or">or</span>
+            <img class="cp-pointer" src="assets/ui/control_ui/pointer_0001.png" alt="Right click" />
+          </div>
+          <div class="cp-tail"></div>
         </div>
       </div>
     `;
 
-    // Add CSS animation for pulsing exclamation
-    const style = document.createElement('style');
-    style.id = 'catchButtonStyles';
-    style.textContent = `
-      @keyframes catchPulse {
-        from { transform: scale(1); }
-        to { transform: scale(1.3); }
-      }
-    `;
-    if (!document.getElementById('catchButtonStyles')) {
-      document.head.appendChild(style);
-    }
+    this.injectCatchPromptStyles();
 
     // Click handler
     this.catchButton.addEventListener('click', () => {
       this.handleCatchAttempt();
     });
 
-    // Hover effects
-    const buttonDiv = this.catchButton;
-    this.catchButton.addEventListener('mouseenter', () => {
-      const bg = buttonDiv.querySelector('div > div:last-child') as HTMLElement;
-      if (bg) bg.style.background = 'rgba(192, 57, 43, 1)';
-    });
-    this.catchButton.addEventListener('mouseleave', () => {
-      const bg = buttonDiv.querySelector('div > div:last-child') as HTMLElement;
-      if (bg) bg.style.background = 'rgba(231, 76, 60, 0.9)';
-    });
-
     document.body.appendChild(this.catchButton);
+
+    // Size to the current viewport, and keep tracking it. Inside the host iframe
+    // the drawable area is far smaller than a desktop viewport (see iframe_clue.md),
+    // and the old fixed pixel sizes made this panel swamp the play area there.
+    this.applyCatchPromptScale();
+    this.catchPromptResizeHandler = () => this.applyCatchPromptScale();
+    window.addEventListener('resize', this.catchPromptResizeHandler);
 
     // Position it
     this.updateCatchButtonPosition();
@@ -3168,7 +3167,10 @@ export class GameScene extends Phaser.Scene {
       if (!this.catchButton || !this.character) return;
       const elapsed = time - floatStart;
       const offset = Math.sin(elapsed / 400) * 3; // 3px bob
-      const screenPos = this.worldToScreenForDom(this.character.x, this.character.y - 70 + offset);
+      const screenPos = this.worldToScreenForDom(
+        this.character.x,
+        this.character.y - GameScene.CATCH_PROMPT_LIFT + offset
+      );
       this.catchButton.style.left = screenPos.x + 'px';
       this.catchButton.style.top = screenPos.y + 'px';
       this.catchButtonFloatId = requestAnimationFrame(floatAnimate);
@@ -3177,11 +3179,209 @@ export class GameScene extends Phaser.Scene {
   }
 
   /**
+   * Stylesheet for the "a fish is biting" prompt, injected once.
+   *
+   * Every size is expressed against --ui-scale so the panel tracks the drawable
+   * area instead of assuming a desktop viewport. Colours reuse the quiz shell's
+   * accent red and the celebration's gold, so this reads as part of the same UI
+   * family rather than a stray bootstrap-red pill.
+   */
+  private injectCatchPromptStyles(): void {
+    if (document.getElementById('catchPromptStyles')) return;
+
+    const style = document.createElement('style');
+    style.id = 'catchPromptStyles';
+    style.textContent = `
+#catch-prompt {
+  position: fixed;
+  z-index: 8500;
+  transform: translate(-50%, -100%);
+  transition: opacity 0.2s ease;
+  opacity: 0;
+  /* The game hides the native cursor and draws its own, so don't bring it back. */
+  cursor: none;
+  font-family: Arial, sans-serif;
+  --ui-scale: 1;
+  --cp-gold: #f0b429;
+  --cp-gold-lit: #ffd970;
+  --cp-red: #c0392b;
+  --cp-red-dark: #8e2a1f;
+}
+
+#catch-prompt .cp-stack {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* The "fish on" alert, as a solid coin badge. A bare glyph was the previous
+   approach and it disappeared whenever it landed on busy scenery like the
+   fishmarket roof; an opaque disc reads against any background. Scales from its
+   bottom edge so the pulse never drifts off the panel. */
+#catch-prompt .cp-alert {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-sizing: border-box;
+  width: calc(38px * var(--ui-scale));
+  height: calc(38px * var(--ui-scale));
+  margin-bottom: calc(5px * var(--ui-scale));
+  border: calc(3px * var(--ui-scale)) solid var(--cp-red-dark);
+  border-radius: 50%;
+  background: radial-gradient(circle at 38% 32%, var(--cp-gold-lit) 0%, var(--cp-gold) 62%, #d18f10 100%);
+  box-shadow: 0 calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale)) rgba(0, 0, 0, 0.4);
+  color: var(--cp-red-dark);
+  font-size: max(12px, calc(24px * var(--ui-scale)));
+  font-weight: bold;
+  line-height: 1;
+  transform-origin: 50% 100%;
+  animation: cpAlert 0.6s ease-in-out infinite alternate;
+}
+
+#catch-prompt .cp-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: calc(6px * var(--ui-scale));
+  padding: calc(10px * var(--ui-scale)) calc(20px * var(--ui-scale)) calc(12px * var(--ui-scale));
+  border: calc(3px * var(--ui-scale)) solid var(--cp-gold);
+  border-radius: calc(14px * var(--ui-scale));
+  background: linear-gradient(180deg, var(--cp-red) 0%, var(--cp-red-dark) 100%);
+  box-shadow:
+    inset 0 calc(2px * var(--ui-scale)) 0 rgba(255, 255, 255, 0.22),
+    0 calc(4px * var(--ui-scale)) calc(14px * var(--ui-scale)) rgba(0, 0, 0, 0.38);
+}
+
+/* Clickable affordance, kept from the old build but done in CSS rather than with
+   mouseenter/mouseleave handlers that reached in via a brittle child selector. */
+#catch-prompt:hover .cp-panel {
+  background: linear-gradient(180deg, #d4462f 0%, #a03123 100%);
+  border-color: var(--cp-gold-lit);
+}
+
+/* Pulsing halo. Animating opacity only, so this stays on the compositor. */
+#catch-prompt .cp-panel::after {
+  content: '';
+  position: absolute;
+  inset: calc(-5px * var(--ui-scale));
+  border: calc(2px * var(--ui-scale)) solid var(--cp-gold);
+  border-radius: calc(18px * var(--ui-scale));
+  opacity: 0;
+  animation: cpRing 0.9s ease-in-out infinite alternate;
+}
+
+#catch-prompt .cp-label {
+  color: var(--cp-gold-lit);
+  font-size: max(11px, calc(20px * var(--ui-scale)));
+  font-weight: bold;
+  letter-spacing: calc(1px * var(--ui-scale));
+  text-transform: uppercase;
+  text-shadow: 0 calc(2px * var(--ui-scale)) 0 rgba(0, 0, 0, 0.4);
+}
+
+#catch-prompt .cp-controls {
+  display: flex;
+  align-items: center;
+  gap: calc(14px * var(--ui-scale));
+}
+
+/* 488x185 source, so this is a downscale — smooth filtering is correct here. */
+#catch-prompt .cp-key {
+  height: calc(58px * var(--ui-scale));
+  width: auto;
+  display: block;
+}
+
+/* 16x16 source blown up several times over. Without pixelated it turns to mush;
+   the exact size is set in JS to a whole multiple of 16 to keep edges hard. */
+#catch-prompt .cp-pointer {
+  display: block;
+  image-rendering: pixelated;
+}
+
+#catch-prompt .cp-or {
+  color: #ffffff;
+  font-size: max(10px, calc(18px * var(--ui-scale)));
+  font-weight: bold;
+  text-transform: uppercase;
+  opacity: 0.85;
+  text-shadow: 0 calc(1px * var(--ui-scale)) 0 rgba(0, 0, 0, 0.45);
+}
+
+/* Speech tail: gold outer wedge with the panel's own colour layered on top. */
+#catch-prompt .cp-tail {
+  position: absolute;
+  bottom: calc(-12px * var(--ui-scale));
+  left: 50%;
+  transform: translateX(-50%);
+  width: 0;
+  height: 0;
+  border-left: calc(11px * var(--ui-scale)) solid transparent;
+  border-right: calc(11px * var(--ui-scale)) solid transparent;
+  border-top: calc(12px * var(--ui-scale)) solid var(--cp-gold);
+}
+
+#catch-prompt .cp-tail::after {
+  content: '';
+  position: absolute;
+  left: calc(-7px * var(--ui-scale));
+  top: calc(-13px * var(--ui-scale));
+  width: 0;
+  height: 0;
+  border-left: calc(7px * var(--ui-scale)) solid transparent;
+  border-right: calc(7px * var(--ui-scale)) solid transparent;
+  border-top: calc(8px * var(--ui-scale)) solid var(--cp-red-dark);
+}
+
+@keyframes cpAlert {
+  from { transform: scale(1); }
+  to   { transform: scale(1.22); }
+}
+
+@keyframes cpRing {
+  from { opacity: 0.08; }
+  to   { opacity: 0.6; }
+}
+`;
+    document.head.appendChild(style);
+  }
+
+  /**
+   * Size the catch prompt against the drawable area.
+   *
+   * Same base as the quiz modal shell: min() over both axes, floored so the
+   * panel never collapses. The pointer sprite is 16x16, so its size is snapped
+   * to a whole multiple of 16 — a fractional upscale is what makes pixel art
+   * look smeared even with image-rendering: pixelated.
+   */
+  private applyCatchPromptScale(): void {
+    if (!this.catchButton) return;
+
+    const scale = Math.min(
+      1,
+      Math.max(0.34, Math.min(window.innerWidth / 1586, window.innerHeight / 808))
+    );
+    this.catchButton.style.setProperty('--ui-scale', String(scale));
+
+    const pointer = this.catchButton.querySelector('.cp-pointer') as HTMLImageElement | null;
+    if (pointer) {
+      const px = 16 * Math.max(2, Math.round(3 * scale));
+      pointer.style.width = `${px}px`;
+      pointer.style.height = `${px}px`;
+    }
+  }
+
+  /**
    * Update catch button screen position (called from updateCatchButton)
    */
   private updateCatchButtonPosition(): void {
     if (!this.catchButton || !this.character) return;
-    const screenPos = this.worldToScreenForDom(this.character.x, this.character.y - 70);
+    const screenPos = this.worldToScreenForDom(
+      this.character.x,
+      this.character.y - GameScene.CATCH_PROMPT_LIFT
+    );
     this.catchButton.style.left = screenPos.x + 'px';
     this.catchButton.style.top = screenPos.y + 'px';
   }
@@ -3208,9 +3408,16 @@ export class GameScene extends Phaser.Scene {
       this.keyboardAnimationTimer = null;
     }
 
-    // Remove DOM element
-    if (this.catchButton && this.catchButton.parentNode) {
-      this.catchButton.parentNode.removeChild(this.catchButton);
+    // Stop tracking viewport size
+    if (this.catchPromptResizeHandler) {
+      window.removeEventListener('resize', this.catchPromptResizeHandler);
+      this.catchPromptResizeHandler = null;
+    }
+
+    // Remove DOM element. Null the reference even if it was never parented, so a
+    // detached node can't linger and block the next prompt.
+    if (this.catchButton) {
+      this.catchButton.remove();
       this.catchButton = null;
     }
   }
