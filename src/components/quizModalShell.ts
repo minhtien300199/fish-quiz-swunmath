@@ -39,7 +39,8 @@ export interface QuizModalShell {
   submitSlot: HTMLDivElement;
   /** Reserved row for the result banner. Visibility is toggled, never display. */
   bannerSlot: HTMLDivElement;
-  setTimer(text: string): void;
+  /** Seconds remaining. Formatting and the urgent state are presentation, decided here. */
+  setTimer(secondsRemaining: number): void;
   /** Run the fit ladder. Safe to call repeatedly; no-ops after dispose. */
   fit(): void;
   dispose(): void;
@@ -60,6 +61,25 @@ function styleSheet(): string {
   cursor: none;
   --ui-scale: 1;
   --answers-cols: 1fr 1fr;
+
+  /* Palette. Warm ivory paper rather than the old cold #f0f0f0 grey, a softer rule colour, and a
+     red margin line — the notebook look, done deliberately instead of incidentally. */
+  --paper: #faf6ec;
+  --paper-band: #f3eddd;
+  --paper-edge: #e0d7c2;
+  --rule: #dfe3f5;
+  --hole: #cbc3b4;
+  --accent: #c0392b;
+  --ink: #2c3e50;
+  --ink-soft: #5a6b7a;
+  --card: #fffdf7;
+  --card-edge: #d9d2c2;
+  --card-edge-hover: #b9ad93;
+  --ok: #2e7d32;
+  --ok-bg: #e8f5e9;
+  --bad: #c62828;
+  --bad-bg: #fdecea;
+  --go: #2f6f4f;
 }
 
 #quiz-modal .qm-backdrop {
@@ -88,21 +108,40 @@ function styleSheet(): string {
   --hole-first: calc(69px  * var(--ui-scale));
   --hole-d:     calc(14px  * var(--ui-scale));
 
-  background-color: #f0f0f0;
+  border-radius: calc(6px * var(--ui-scale));
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 calc(6px * var(--ui-scale)) calc(24px * var(--ui-scale)) rgba(31, 26, 18, 0.28);
+
+  background-color: var(--paper);
   background-image:
-    radial-gradient(circle closest-side, #333333 100%, transparent 100%),
-    linear-gradient(to right, #dddddd 0 var(--margin-w), transparent var(--margin-w)),
+    /* binding holes, down the margin band */
+    radial-gradient(circle closest-side, var(--hole) 100%, transparent 100%),
+    /* the red margin rule */
+    linear-gradient(
+      to right,
+      transparent 0 calc(var(--margin-w) - 1.5px),
+      var(--accent) calc(var(--margin-w) - 1.5px) var(--margin-w),
+      transparent var(--margin-w)
+    ),
+    /* margin band, a shade cooler than the page */
+    linear-gradient(to right, var(--paper-band) 0 var(--margin-w), transparent var(--margin-w)),
+    /* ruled lines */
     repeating-linear-gradient(
       to bottom,
       transparent 0,
       transparent calc(var(--line-step) - 1px),
-      rgba(204, 204, 255, 0.5) calc(var(--line-step) - 1px),
-      rgba(204, 204, 255, 0.5) var(--line-step)
+      var(--rule) calc(var(--line-step) - 1px),
+      var(--rule) var(--line-step)
     );
-  background-repeat: repeat-y, no-repeat, repeat;
-  background-size: var(--hole-d) var(--hole-step), 100% 100%, 100% 100%;
+  background-repeat: repeat-y, no-repeat, no-repeat, repeat;
+  background-size:
+    var(--hole-d) var(--hole-step),
+    100% 100%,
+    100% 100%,
+    100% 100%;
   background-position:
     calc((var(--margin-w) - var(--hole-d)) / 2) var(--hole-first),
+    0 0,
     0 0,
     0 var(--line-first);
 }
@@ -114,6 +153,9 @@ function styleSheet(): string {
   align-items: center;
   gap: calc(10px * var(--ui-scale));
   padding-left: calc(${HUD_SAFE_W}px * var(--ui-scale));
+  padding-bottom: calc(8px * var(--ui-scale));
+  margin-bottom: calc(8px * var(--ui-scale));
+  border-bottom: 1px solid var(--paper-edge);
   min-height: calc(72px * var(--ui-scale));
 }
 
@@ -126,19 +168,34 @@ function styleSheet(): string {
 #quiz-modal .qm-fishname {
   flex: 1 1 auto;
   font-weight: bold;
-  color: #2c3e50;
+  color: var(--ink);
   font-size: max(12px, calc(24px * var(--ui-scale)));
+  letter-spacing: 0.01em;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
+/* Timer as a chip so it reads as a status, and turns urgent on its own. The threshold is a pure
+   presentation read of the countdown the scene already maintains; no timing logic changes. */
 #quiz-modal .qm-timer {
   flex: 0 0 auto;
   font-weight: bold;
-  color: #b8860b;
-  font-size: max(12px, calc(28px * var(--ui-scale)));
+  color: var(--ink);
+  background: var(--paper-band);
+  border: 1px solid var(--paper-edge);
+  border-radius: 999px;
+  padding: calc(4px * var(--ui-scale)) calc(14px * var(--ui-scale));
+  font-size: max(12px, calc(22px * var(--ui-scale)));
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+  transition: background-color 150ms ease, color 150ms ease, border-color 150ms ease;
+}
+
+#quiz-modal .qm-timer.is-urgent {
+  color: #fff;
+  background: var(--accent);
+  border-color: var(--accent);
 }
 
 /* Question: the only row allowed to absorb slack. min-height:0 is required or flex refuses to
@@ -161,6 +218,9 @@ function styleSheet(): string {
      ends instead of staying inside it. Visually the slot clips it, but it still reaches into the
      answers row's space, which is exactly the overlap this design exists to make impossible. */
   justify-content: flex-start;
+  /* Same reasoning as .qm-choice: wrap a long token instead of letting it escape the panel. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
   font-size: max(${FONT_FLOOR_PX}px, calc(${ANSWER_FONT_PX}px * var(--ui-scale)));
   line-height: 1.4;
   text-align: left;
@@ -201,6 +261,145 @@ function styleSheet(): string {
 /* Scroll is the terminal fit level, reached only when scaling and reflow are exhausted. */
 #quiz-modal .qm-scroll-y { overflow-y: auto; }
 #quiz-modal .qm-scroll-x { overflow-x: auto; }
+
+#quiz-modal .qm-scroll-y::-webkit-scrollbar { width: calc(10px * var(--ui-scale)); }
+#quiz-modal .qm-scroll-y::-webkit-scrollbar-thumb {
+  background: var(--card-edge-hover);
+  border-radius: 999px;
+}
+#quiz-modal .qm-scroll-y::-webkit-scrollbar-track { background: transparent; }
+
+/* ---------- answer options ----------
+   These boxes are chrome our own code creates, so styling them is fair game. The injected answer
+   markup inside them is never touched. State lives in classes rather than inline styles, which also
+   removes an old inconsistency: creation painted an unselected box #f5f5f5/#90caf9 while the toggle
+   handler repainted it #f9f9f9/#ddd, so a box looked different before and after being touched. */
+#quiz-modal .qm-choice {
+  display: flex;
+  align-items: flex-start;
+  gap: calc(10px * var(--ui-scale));
+  /* Let an unbreakable token wrap rather than escape the box. This is our container deciding how to
+     cope with content that does not fit, not an override of anything the author set — backend markup
+     does not specify overflow-wrap. The alternative is a horizontal scrollbar inside every answer
+     box, which is worse for the age group. Flagged as a judgement call in plan.md. */
+  overflow-wrap: anywhere;
+  word-break: break-word;
+  /* Here rather than inline on the element, so the fit ladder's .qm-scroll-x class can override it
+     for a box whose content genuinely cannot wrap. */
+  overflow: hidden;
+  background: var(--card);
+  border: 1px solid var(--card-edge);
+  border-left: calc(3px * var(--ui-scale)) solid var(--card-edge);
+  border-radius: calc(10px * var(--ui-scale));
+  box-shadow: 0 1px calc(3px * var(--ui-scale)) rgba(31, 26, 18, 0.10);
+  transition: border-color 120ms ease, background-color 120ms ease, box-shadow 120ms ease;
+}
+
+#quiz-modal .qm-choice:hover {
+  background: #fffaf0;
+  border-color: var(--card-edge-hover);
+  border-left-color: var(--accent);
+  box-shadow: 0 calc(2px * var(--ui-scale)) calc(8px * var(--ui-scale)) rgba(31, 26, 18, 0.14);
+}
+
+#quiz-modal .qm-choice.is-selected {
+  background: #eef1f4;
+  border-color: var(--ink);
+  border-left-color: var(--ink);
+}
+
+#quiz-modal .qm-choice.is-correct {
+  background: var(--ok-bg);
+  border-color: var(--ok);
+  border-left-color: var(--ok);
+}
+
+#quiz-modal .qm-choice.is-wrong {
+  background: var(--bad-bg);
+  border-color: var(--bad);
+  border-left-color: var(--bad);
+}
+
+/* After submitting, options stop responding but stay legible — the old 0.7 opacity washed out the
+   very answer the player is being shown as correct. */
+#quiz-modal .qm-choice.is-locked { pointer-events: none; }
+#quiz-modal .qm-choice.is-locked:hover {
+  background: var(--card);
+  border-color: var(--card-edge);
+  border-left-color: var(--card-edge);
+  box-shadow: 0 1px calc(3px * var(--ui-scale)) rgba(31, 26, 18, 0.10);
+}
+#quiz-modal .qm-choice.is-locked.is-selected { background: #eef1f4; }
+#quiz-modal .qm-choice.is-locked.is-correct { background: var(--ok-bg); border-color: var(--ok); }
+#quiz-modal .qm-choice.is-locked.is-wrong { background: var(--bad-bg); border-color: var(--bad); }
+
+/* Letter badge. A round chip reads as a label instead of competing with the answer text. */
+#quiz-modal .qm-chip {
+  flex: 0 0 auto;
+  width: calc(26px * var(--ui-scale));
+  height: calc(26px * var(--ui-scale));
+  min-width: 20px;
+  min-height: 20px;
+  border-radius: 999px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--ink);
+  color: var(--paper);
+  font-weight: bold;
+  font-size: max(11px, calc(14px * var(--ui-scale)));
+  line-height: 1;
+  font-family: Arial, sans-serif;
+}
+
+#quiz-modal .qm-choice.is-correct .qm-chip { background: var(--ok); }
+#quiz-modal .qm-choice.is-wrong   .qm-chip { background: var(--bad); }
+
+/* The injected answer markup goes here. Only the box is styled, never its contents. */
+#quiz-modal .qm-choice-body {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+/* ---------- submit ---------- */
+#quiz-modal .qm-submit-btn {
+  font-family: Arial, sans-serif;
+  font-weight: bold;
+  color: #fff;
+  background: var(--go);
+  border: none;
+  border-radius: 999px;
+  box-shadow: 0 calc(2px * var(--ui-scale)) calc(6px * var(--ui-scale)) rgba(31, 26, 18, 0.20);
+  transition: background-color 120ms ease, box-shadow 120ms ease, transform 120ms ease;
+  cursor: none;
+}
+#quiz-modal .qm-submit-btn:hover:not(:disabled) {
+  background: #275b41;
+  box-shadow: 0 calc(3px * var(--ui-scale)) calc(10px * var(--ui-scale)) rgba(31, 26, 18, 0.26);
+}
+#quiz-modal .qm-submit-btn:disabled {
+  background: var(--card-edge);
+  color: #8b8375;
+  box-shadow: none;
+}
+
+/* ---------- result banner ---------- */
+#quiz-modal .qm-banner {
+  font-family: Arial, sans-serif;
+  border: 1px solid transparent;
+}
+#quiz-modal .qm-banner.is-ok  { background: var(--ok-bg);  color: #1b5e20; border-color: var(--ok); }
+#quiz-modal .qm-banner.is-bad { background: var(--bad-bg); color: #8e1b1b; border-color: var(--bad); }
+
+/* ---------- accessibility ---------- */
+#quiz-modal :focus-visible {
+  outline: calc(3px * var(--ui-scale)) solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  #quiz-modal * { transition: none !important; animation: none !important; }
+}
 `;
 }
 
@@ -212,6 +411,22 @@ function styleSheet(): string {
  * trailing block margin as overflow, and since author margins may not be overridden, the
  * measurement has to be the thing that adapts. Mirrors the predicate in tests/quiz-layout.spec.ts.
  */
+/** Horizontal twin of contentOverflowPx. Tables and unbreakable tokens escape sideways, not down. */
+export function contentOverflowXPx(el: Element): number {
+  const cs = getComputedStyle(el);
+  const r = el.getBoundingClientRect();
+  const left = r.left + parseFloat(cs.borderLeftWidth || '0') + parseFloat(cs.paddingLeft || '0');
+  const right = r.right - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0');
+
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  const ink = range.getBoundingClientRect();
+  range.detach();
+
+  if (ink.height === 0 && ink.width === 0) return 0;
+  return Math.max(0, Math.round(ink.right - right)) + Math.max(0, Math.round(left - ink.left));
+}
+
 export function contentOverflowPx(el: Element): number {
   const cs = getComputedStyle(el);
   const r = el.getBoundingClientRect();
@@ -322,7 +537,14 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
   const clearFitState = () => {
     root.style.setProperty('--answers-cols', '1fr 1fr');
     questionSlot.classList.remove('qm-scroll-y', 'qm-scroll-x');
-    answersSlot.classList.remove('qm-scroll-y');
+    answersSlot.classList.remove('qm-scroll-y', 'qm-scroll-x');
+  };
+
+  /** Widest horizontal escape across the question and every answer box. */
+  const worstOverflowX = () => {
+    let worst = contentOverflowXPx(questionSlot);
+    for (const b of answerBoxes()) worst = Math.max(worst, contentOverflowXPx(b));
+    return worst;
   };
 
   const fit = () => {
@@ -354,6 +576,18 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
       questionSlot.classList.add('qm-scroll-y');
       answersSlot.classList.add('qm-scroll-y');
     } finally {
+      // Horizontal is independent of the vertical ladder and has no scaling remedy: overflow-wrap
+      // handles long tokens, but a table with fixed column widths cannot wrap at all. Scrolling is
+      // the only option left that does not restyle the author's markup.
+      // Per region, not blanket. Tagging both slots gave the answers region a scrollbar with
+      // nothing to scroll whenever the overflow was actually in the question.
+      if (contentOverflowXPx(questionSlot) > 1) {
+        questionSlot.classList.add('qm-scroll-x');
+      }
+      // An answer box scrolls itself; scrolling its slot would not reveal content inside the box.
+      for (const b of answerBoxes()) {
+        b.classList.toggle('qm-scroll-x', contentOverflowXPx(b) > 1);
+      }
       fitting = false;
     }
   };
@@ -378,8 +612,10 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
     answersSlot,
     submitSlot,
     bannerSlot,
-    setTimer(text: string) {
-      timer.textContent = text;
+    setTimer(secondsRemaining: number) {
+      const s = Math.max(0, Math.floor(secondsRemaining));
+      timer.textContent = `Time: ${s}`;
+      timer.classList.toggle('is-urgent', s <= 5);
     },
     fit,
     dispose() {

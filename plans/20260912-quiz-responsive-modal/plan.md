@@ -227,7 +227,15 @@ that as a working rule for Phases 3-5:
 | Moving fish/name/timer/paper from Phaser to DOM | Which question is selected, or `fishQuizQuestionIndex` |
 | Removing duplicated *rendering* of the same thing | Anything gated on `gameType` |
 
-Two calls made under this rule, both open to veto:
+Three calls made under this rule, all open to veto:
+
+0. **`overflow-wrap: anywhere` / `word-break: break-word` on `.qm-choice` and `.qm-question`.**
+   Added during the visual pass because an unbreakable token — a 160-digit number, a repeated long
+   word — escaped its box by up to 721px. Reasoning for calling it UI: backend markup does not set
+   `overflow-wrap`, so nothing authored is being overridden; this is our container deciding how to
+   cope with content that does not fit. The alternative is a horizontal scrollbar inside every
+   answer box, which is worse for the age group. Say so if you read it as content interference.
+
 
 1. **Phase 4's level-2 grid switch** (`1fr 1fr` → `1fr` when content will not fit) is treated as
    UI and therefore allowed. It changes column count, not content. Say so if you consider a

@@ -20,23 +20,51 @@ const SIZES = [
  * bank, which is NOT representative of backend content. A fixture from a captured real API
  * response is still missing; until then this matrix bounds nothing about production content.
  */
-const FIXTURES = ['fallback3', 'fallback4', 'short', 'wrap', 'img', 'imgq', 'mixed'] as const;
+const FIXTURES = [
+  'fallback3',
+  'fallback4',
+  'short',
+  'wrap',
+  'img',
+  'imgq',
+  'mixed',
+  // Shapes chosen because they are the ones that break layouts: tables and unbreakable tokens
+  // resist shrinking horizontally, MathML takes its own rendering path, choice counts other than
+  // four break grid assumptions, rich inline markup nests, and a missing image must still trigger
+  // a refit through the error listener rather than the load one.
+  'table',
+  'longword',
+  'math',
+  'many6',
+  'two',
+  'rich',
+  'brokenimg'
+] as const;
 
 const FONT_FLOOR_PX = 11;
 
 interface ChoiceReport {
   key: string;
   overflowBy: number;
+  overflowXBy: number;
+  scrollXActive: boolean;
+  scrollableX: boolean;
   fontPx: number;
   rect: { x: number; y: number; w: number; h: number };
 }
 
 interface LayoutReport {
   found: { question: boolean; answers: boolean; submit: boolean };
-  question: { overflowBy: number; rect: { x: number; y: number; w: number; h: number } } | null;
+  question: {
+    overflowBy: number;
+    overflowXBy: number;
+    rect: { x: number; y: number; w: number; h: number };
+  } | null;
   answers: { rect: { x: number; y: number; w: number; h: number } } | null;
   submit: { rect: { x: number; y: number; w: number; h: number } } | null;
   answersRegion: { overflowY: string; scrollable: boolean } | null;
+  answersScrollX: { active: boolean; scrollable: boolean } | null;
+  questionScrollX: { active: boolean; scrollable: boolean } | null;
   choices: ChoiceReport[];
   viewport: { w: number; h: number };
   bannerCount: number;
@@ -90,6 +118,21 @@ async function collectLayout(page: Page): Promise<LayoutReport> {
      * Range rects and element rects are both viewport-relative, so the comparison is valid as
      * long as nothing is scrolled — this suite never scrolls.
      */
+    /** Horizontal twin of `overflow`. Tables and unbreakable tokens escape sideways, not down. */
+    const overflowX = (el: Element) => {
+      const cs = getComputedStyle(el);
+      const r = el.getBoundingClientRect();
+      const left = r.left + parseFloat(cs.borderLeftWidth || '0') + parseFloat(cs.paddingLeft || '0');
+      const right =
+        r.right - parseFloat(cs.borderRightWidth || '0') - parseFloat(cs.paddingRight || '0');
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const ink = range.getBoundingClientRect();
+      range.detach();
+      if (ink.height === 0 && ink.width === 0) return 0;
+      return Math.max(0, Math.round(ink.right - right)) + Math.max(0, Math.round(left - ink.left));
+    };
+
     const overflow = (el: Element) => {
       const cs = getComputedStyle(el);
       const r = el.getBoundingClientRect();
@@ -122,6 +165,11 @@ async function collectLayout(page: Page): Promise<LayoutReport> {
       choices.push({
         key: el.getAttribute('data-choice-key') || '?',
         overflowBy: overflow(el),
+        overflowXBy: overflowX(el),
+        // A box that cannot wrap its content scrolls itself; scrolling its container would not
+        // reveal anything inside the box.
+        scrollXActive: ['auto', 'scroll'].includes(getComputedStyle(el).overflowX),
+        scrollableX: el.scrollWidth > el.clientWidth + 1,
         fontPx: parseFloat(getComputedStyle(textHost).fontSize) || 0,
         rect: box(el)
       });
@@ -148,12 +196,28 @@ async function collectLayout(page: Page): Promise<LayoutReport> {
         }
       : null;
 
+    // Horizontal escape has no scaling remedy — overflow-wrap handles long tokens, but a table with
+    // fixed column widths cannot wrap. Scrolling sideways is the terminal option, so the same
+    // reachability rule applies: off-screen is fine, unreachable is not.
+    const qSlot = document.querySelector('#quiz-modal .qm-question');
+    const scrollXRegion = (el: Element | null) =>
+      el
+        ? {
+            active: ['auto', 'scroll'].includes(getComputedStyle(el).overflowX),
+            scrollable: el.scrollWidth > el.clientWidth + 1
+          }
+        : null;
+    const answersScrollX = scrollXRegion(slot);
+    const questionScrollX = scrollXRegion(qSlot);
+
     return {
       found: { question: !!q, answers: !!a, submit: !!s },
-      question: q ? { overflowBy: overflow(q), rect: box(q) } : null,
+      question: q ? { overflowBy: overflow(q), overflowXBy: overflowX(q), rect: box(q) } : null,
       answers: a ? { rect: box(a) } : null,
       submit: s ? { rect: box(s) } : null,
       answersRegion,
+      answersScrollX,
+      questionScrollX,
       choices,
       viewport: { w: window.innerWidth, h: window.innerHeight },
       bannerCount
@@ -221,6 +285,37 @@ for (const size of SIZES) {
           r.question!.overflowBy,
           `question content extends ${r.question!.overflowBy}px past the space its box provides`
         ).toBeLessThanOrEqual(1);
+
+        // 2b. Nothing escapes sideways unreachably. Long tokens wrap; a fixed-width table cannot,
+        // so sideways scrolling is the terminal option. Same rule as vertical: off-screen is fine,
+        // unreachable is not.
+        for (const c of r.choices) {
+          if (c.scrollXActive) {
+            expect(
+              c.scrollableX,
+              `answer ${c.key} is in horizontal scroll mode but has nothing to scroll`
+            ).toBe(true);
+          } else {
+            expect(
+              c.overflowXBy,
+              `answer ${c.key} content extends ${c.overflowXBy}px past its box horizontally with no ` +
+                'horizontal scroll available'
+            ).toBeLessThanOrEqual(1);
+          }
+        }
+
+        if (r.questionScrollX?.active) {
+          expect(
+            r.questionScrollX.scrollable,
+            'question is in horizontal scroll mode but has nothing to scroll'
+          ).toBe(true);
+        } else {
+          expect(
+            r.question!.overflowXBy,
+            `question content extends ${r.question!.overflowXBy}px past its box horizontally with ` +
+              'no horizontal scroll available'
+          ).toBeLessThanOrEqual(1);
+        }
 
         // 3. Answer text never renders below the readable floor.
         for (const c of r.choices) {

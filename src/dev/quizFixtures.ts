@@ -114,6 +114,130 @@ export const QUIZ_FIXTURES: Record<string, FixtureQuestion[]> = {
     }
   ],
 
+  /** An HTML table. Tables resist shrinking, so this is the main horizontal-overflow probe. */
+  table: [
+    {
+      question:
+        '<p>Which row shows the correct totals?</p>' +
+        // 12 columns with an explicit min width per cell, so it cannot shrink into any tested box.
+        // The earlier 6-column version fit inside the panel and therefore tested nothing.
+        '<table border="1" cellpadding="8" style="border-collapse: collapse;">' +
+        '<tr>' +
+        ['Item', 'Unit price', 'Quantity', 'Subtotal', 'Discount', 'Tax rate', 'Tax', 'Shipping',
+          'Handling', 'Rounding', 'Adjustment', 'Grand total']
+          .map(h => `<th style="min-width:110px;">${h}</th>`)
+          .join('') +
+        '</tr>' +
+        '<tr>' +
+        ['Notebook', '2.50', '12', '30.00', '1.50', '8%', '2.40', '4.99', '0.75', '0.01', '0.00',
+          '37.15'].map(d => `<td style="min-width:110px;">${d}</td>`).join('') +
+        '</tr>' +
+        '</table>',
+      choices: [
+        { key: 'A', text: '<p>Row 1 only</p>' },
+        { key: 'B', text: '<p>Row 2 only</p>' },
+        { key: 'C', text: '<p>Both rows</p>' },
+        { key: 'D', text: '<p>Neither row</p>' }
+      ],
+      correctAnswer: 'C'
+    }
+  ],
+
+  /** Unbreakable tokens. A long number or word cannot wrap, so it escapes horizontally. */
+  longword: [
+    {
+      // Deliberately far wider than any box at any tested size. A 40-character number fits a
+      // half-width answer box, so the first version of this fixture passed without proving
+      // anything — an overflow probe that cannot fail is not a probe.
+      question:
+        '<p>Round ' +
+        '9'.repeat(160) +
+        ' to the nearest million, then compare with ' +
+        'Supercalifragilisticexpialidocious'.repeat(4) +
+        '.</p>',
+      choices: [
+        { key: 'A', text: '<p>' + '1234567890'.repeat(16) + '</p>' },
+        { key: 'B', text: '<p>' + 'Antidisestablishmentarianism'.repeat(5) + '</p>' },
+        { key: 'C', text: '<p>' + '8'.repeat(140) + '</p>' },
+        { key: 'D', text: '<p>Cannot be determined</p>' }
+      ],
+      correctAnswer: 'A'
+    }
+  ],
+
+  /** MathML. quizScene styles <math> explicitly, so this exercises that path. */
+  math: [
+    {
+      question:
+        '<p>Simplify:</p><p><math xmlns="http://www.w3.org/1998/Math/MathML">' +
+        '<mfrac><mrow><mn>12</mn><mo>+</mo><mn>8</mn></mrow><mn>4</mn></mfrac></math></p>',
+      choices: [
+        { key: 'A', text: '<p><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>5</mn></math></p>' },
+        { key: 'B', text: '<p><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>4</mn></math></p>' },
+        { key: 'C', text: '<p><math xmlns="http://www.w3.org/1998/Math/MathML"><mn>3</mn></math></p>' }
+      ],
+      correctAnswer: 'A'
+    }
+  ],
+
+  /** Six choices. The grid must not assume four. */
+  many6: [
+    {
+      question: '<p>Which of these are prime?</p>',
+      choices: [
+        { key: 'A', text: '<p>2</p>' },
+        { key: 'B', text: '<p>9</p>' },
+        { key: 'C', text: '<p>11</p>' },
+        { key: 'D', text: '<p>15</p>' },
+        { key: 'E', text: '<p>17</p>' },
+        { key: 'F', text: '<p>21</p>' }
+      ],
+      correctAnswer: 'A'
+    }
+  ],
+
+  /** Two choices only — the grid leaves a hole in a 2x2 assumption. */
+  two: [
+    {
+      question: '<p>Is 17 a prime number?</p>',
+      choices: [
+        { key: 'A', text: '<p>Yes</p>' },
+        { key: 'B', text: '<p>No</p>' }
+      ],
+      correctAnswer: 'A'
+    }
+  ],
+
+  /** Nested markup, entities, sub/superscript, a list — rich text rather than a bare paragraph. */
+  rich: [
+    {
+      question:
+        '<p><strong>Read carefully.</strong> Which statement about 5<sup>2</sup> &minus; 3<sub>10</sub> ' +
+        'is <em>true</em>?</p><ul><li>It is greater than 20</li><li>It is a multiple of&nbsp;11</li></ul>',
+      choices: [
+        { key: 'A', text: '<p>5<sup>2</sup> &gt; 20 &amp; not a multiple of 11</p>' },
+        { key: 'B', text: '<p><em>Both</em> statements are true</p>' },
+        { key: 'C', text: '<p>Neither &mdash; see the <strong>note</strong></p>' },
+        { key: 'D', text: '<p>5<sup>2</sup> &minus; 3 = 22, a multiple of&nbsp;11</p>' }
+      ],
+      correctAnswer: 'D'
+    }
+  ],
+
+  /** An image that will never load. The refit must still run, via the error listener. */
+  brokenimg: [
+    {
+      question: '<p>Study the figure.</p><p><img src="assets/does-not-exist-12345.png" alt=""></p>',
+      choices: [
+        { key: 'A', text: '<p><img src="assets/also-missing-98765.png" alt=""> First</p>' },
+        { key: 'B', text: '<p>Second</p>' },
+        { key: 'C', text: '<p>Third</p>' },
+        { key: 'D', text: '<p>Fourth</p>' }
+      ],
+      correctAnswer: 'B'
+    }
+  ],
+
   /** Uneven rows: short, wrapping, inline image, medium. Worst case for a fixed-row grid. */
   mixed: [
     {

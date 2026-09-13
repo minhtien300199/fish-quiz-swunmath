@@ -147,7 +147,7 @@ export class QuizScene extends Phaser.Scene {
       fishName: this.formatFishName(this.currentFish)
     });
 
-    this.modalShell.setTimer(`Time: ${this.timeRemaining}`);
+    this.modalShell.setTimer(this.timeRemaining);
   }
 
   private disposeModalShell(): void {
@@ -160,7 +160,7 @@ export class QuizScene extends Phaser.Scene {
   update(): void {
     // The timer lives in the modal shell header now, not in a Phaser text object.
     if (this.modalShell) {
-      this.modalShell.setTimer(`Time: ${this.timeRemaining}`);
+      this.modalShell.setTimer(this.timeRemaining);
     }
   }
 
@@ -918,26 +918,31 @@ export class QuizScene extends Phaser.Scene {
   private highlightHtmlAnswers(isCorrect: boolean): void {
     if (!this.htmlAnswersContainer) return;
     
-    // Disable all option containers to prevent further interaction
+    // Lock all option containers against further interaction. The class also freezes the hover
+    // state, which inline pointer-events alone did not.
     const optionContainers = this.htmlAnswersContainer.querySelectorAll('div[data-choice-key]');
     optionContainers.forEach(container => {
-      (container as HTMLElement).style.pointerEvents = 'none';
+      (container as HTMLElement).classList.add('is-locked');
     });
-    
-    // Hide the submit button
-    const submitButton = this.htmlAnswersContainer.querySelector('button');
-    if (submitButton) {
-      (submitButton.parentNode as HTMLElement).style.display = 'none';
+
+    // Hide the submit button. It lives in the shell's own row now, so looking it up inside
+    // htmlAnswersContainer returns null and the button would stay on screen during the result.
+    if (this.modalShell) {
+      this.modalShell.submitSlot.style.display = 'none';
+    } else {
+      const submitButton = this.htmlAnswersContainer.querySelector('button');
+      if (submitButton && submitButton.parentNode) {
+        (submitButton.parentNode as HTMLElement).style.display = 'none';
+      }
     }
-    
-    // Highlight correct answers in green
+
+    // Mark correct answers. Colours come from .qm-choice.is-correct; note the old code also forced
+    // `color: white` on the box, which recoloured the backend's own answer markup — not allowed.
     this.correctAnswerKeys.forEach(correctKey => {
       const correctContainer = this.htmlAnswersContainer?.querySelector(`div[data-choice-key="${correctKey}"]`);
       if (correctContainer) {
-        (correctContainer as HTMLElement).style.backgroundColor = '#4caf50'; // Green
-        (correctContainer as HTMLElement).style.borderColor = '#2e7d32'; // Dark green
-        (correctContainer as HTMLElement).style.color = 'white';
-        (correctContainer as HTMLElement).style.fontWeight = 'bold';
+        (correctContainer as HTMLElement).classList.remove('is-selected');
+        (correctContainer as HTMLElement).classList.add('is-correct');
       }
     });
     
@@ -946,9 +951,8 @@ export class QuizScene extends Phaser.Scene {
       if (!this.correctAnswerKeys.includes(selectedKey)) {
         const incorrectContainer = this.htmlAnswersContainer?.querySelector(`div[data-choice-key="${selectedKey}"]`);
         if (incorrectContainer) {
-          (incorrectContainer as HTMLElement).style.backgroundColor = '#f44336'; // Red
-          (incorrectContainer as HTMLElement).style.borderColor = '#c62828'; // Dark red
-          (incorrectContainer as HTMLElement).style.color = 'white';
+          (incorrectContainer as HTMLElement).classList.remove('is-selected');
+          (incorrectContainer as HTMLElement).classList.add('is-wrong');
         }
       }
     });
@@ -961,21 +965,18 @@ export class QuizScene extends Phaser.Scene {
     // ancestor, so that percentage resolved against the initial containing block and the 24px
     // hardcoded font made it huge relative to the panel at small sizes.
     resultMessage.style.padding = 'calc(10px * var(--ui-scale)) calc(24px * var(--ui-scale))';
-    resultMessage.style.borderRadius = 'calc(8px * var(--ui-scale))';
+    resultMessage.style.borderRadius = '999px';
     resultMessage.style.fontWeight = 'bold';
-    resultMessage.style.fontSize = 'max(12px, calc(24px * var(--ui-scale)))';
+    resultMessage.style.fontSize = 'max(12px, calc(22px * var(--ui-scale)))';
     resultMessage.style.textAlign = 'center';
     resultMessage.style.maxWidth = '100%';
 
-    if (isCorrect) {
-      resultMessage.textContent = 'CORRECT! You caught the fish!';
-      resultMessage.style.backgroundColor = '#4caf50'; // Green
-      resultMessage.style.color = 'white';
-    } else {
-      resultMessage.textContent = 'WRONG! The fish got away!';
-      resultMessage.style.backgroundColor = '#f44336'; // Red
-      resultMessage.style.color = 'white';
-    }
+    // Tinted rather than saturated: a full-bleed #4caf50 / #f44336 block next to the answer boxes
+    // fought with the correct/incorrect tint on the boxes themselves.
+    resultMessage.className = isCorrect ? 'qm-banner is-ok' : 'qm-banner is-bad';
+    resultMessage.textContent = isCorrect
+      ? 'CORRECT! You caught the fish!'
+      : 'WRONG! The fish got away!';
     
     if (this.modalShell) {
       this.modalShell.bannerSlot.appendChild(resultMessage);
@@ -1033,60 +1034,40 @@ export class QuizScene extends Phaser.Scene {
       // Create answer option container
       const optionContainer = document.createElement('div');
       optionContainer.setAttribute('data-choice-key', choice.key);
-      optionContainer.style.padding = 'calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale))';
-      optionContainer.style.border = '2px solid #90caf9';
-      optionContainer.style.borderRadius = '8px';
-      optionContainer.style.cursor = 'none';
-      optionContainer.style.transition = 'all 0.3s ease';
-      optionContainer.style.backgroundColor = '#f5f5f5';
-      // Was clamp(11px, 1.4vw, 16px): sized from iframe WIDTH while the box shrank with canvas
-      // HEIGHT. Now one scale drives both, with an 11px readability floor.
+      // Appearance lives in the shell stylesheet (.qm-choice and its state classes). Inline styles
+      // were how the same box ended up with two different "unselected" looks — one painted at
+      // creation, another by the toggle handler. One source of truth now.
+      optionContainer.className = 'qm-choice';
+      optionContainer.style.padding = 'calc(10px * var(--ui-scale)) calc(12px * var(--ui-scale))';
+      // Font stays here because it is scale-driven: sized from one --ui-scale for both axes, with an
+      // 11px readability floor. It used to be clamp(11px, 1.4vw, 16px) — iframe width only.
       optionContainer.style.fontSize = 'max(11px, calc(16px * var(--ui-scale)))';
-      optionContainer.style.lineHeight = '1.3';
-      optionContainer.style.color = '#000000';
-      optionContainer.style.fontFamily = 'Arial, sans-serif';
-      optionContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-      // 'auto' here used to clip silently: a box only ~15px tall cannot show a usable scrollbar, so
-      // overflowing text just disappeared. The shell now scales and reflows before scrolling is ever
-      // reached, and turns scrolling on deliberately as the terminal level.
-      optionContainer.style.overflow = 'hidden';
+      optionContainer.style.lineHeight = '1.35';
+      optionContainer.style.color = 'var(--ink)';
       optionContainer.style.boxSizing = 'border-box';
+      // Overflow is set in .qm-choice, not here: an inline value would beat the fit ladder's
+      // .qm-scroll-x class. It is 'hidden' by default because a box ~15px tall cannot show a usable
+      // scrollbar, so overflow used to just vanish; the ladder enables scrolling deliberately.
       optionContainer.dataset.choiceKey = choice.key;
       optionContainer.dataset.choiceIndex = index.toString();
-      
-      // Add hover effects
-      optionContainer.addEventListener('mouseenter', () => {
-        if (!this.selectedAnswers.has(choice.key)) {
-          optionContainer.style.backgroundColor = '#e3f2fd';
-          optionContainer.style.borderColor = '#2196f3';
-          optionContainer.style.transform = 'scale(1.02)';
-        }
-      });
-      
-      optionContainer.addEventListener('mouseleave', () => {
-        if (!this.selectedAnswers.has(choice.key)) {
-          optionContainer.style.backgroundColor = '#f5f5f5';
-          optionContainer.style.borderColor = '#90caf9';
-          optionContainer.style.transform = 'scale(1)';
-        }
-      });
-      
+
+      // Hover is CSS now (.qm-choice:hover). The old JS handlers also applied scale(1.02), which
+      // resampled text mid-transition and made small type look smeared.
+
       // Add click handler
       optionContainer.addEventListener('click', () => {
         this.toggleHtmlAnswer(choice.key, index, optionContainer);
       });
-      
-      // Create choice label
+
+      // Letter badge
       const choiceLabel = document.createElement('div');
-      choiceLabel.style.fontWeight = 'bold';
-      choiceLabel.style.marginBottom = '4px';
-      choiceLabel.style.color = '#333';
-      choiceLabel.style.fontSize = 'max(12px, calc(18px * var(--ui-scale)))';
-      choiceLabel.textContent = `${choice.key}.`;
+      choiceLabel.className = 'qm-chip';
+      choiceLabel.textContent = choice.key;
       optionContainer.appendChild(choiceLabel);
-      
+
       // Create choice content
       const choiceContent = document.createElement('div');
+      choiceContent.className = 'qm-choice-body';
       choiceContent.innerHTML = processedChoiceText;
       
       // Style images in choice content
@@ -1107,23 +1088,17 @@ export class QuizScene extends Phaser.Scene {
     // Create submit button below the grid
     const submitButtonContainer = document.createElement('div');
     submitButtonContainer.style.flexShrink = '0';
-    submitButtonContainer.style.padding = '4px 0';
-    
+    submitButtonContainer.style.padding = 'calc(4px * var(--ui-scale)) 0';
+
     const submitButton = document.createElement('button');
     submitButton.setAttribute('data-testid', 'quiz-submit');
+    submitButton.className = 'qm-submit-btn';
     submitButton.textContent = 'Submit Answer';
-    submitButton.style.padding = 'calc(8px * var(--ui-scale)) calc(24px * var(--ui-scale))';
+    submitButton.style.padding = 'calc(9px * var(--ui-scale)) calc(28px * var(--ui-scale))';
     submitButton.style.fontSize = 'max(12px, calc(18px * var(--ui-scale)))';
-    submitButton.style.fontWeight = 'bold';
-    submitButton.style.backgroundColor = '#4caf50';
-    submitButton.style.color = 'white';
-    submitButton.style.border = 'none';
-    submitButton.style.borderRadius = '6px';
-    submitButton.style.cursor = 'none';
-    submitButton.style.transition = 'background-color 0.3s ease';
-    submitButton.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.2)';
+    // Colours, hover and the disabled look come from .qm-submit-btn in the shell stylesheet, so the
+    // enabled/disabled appearance cannot drift from the `disabled` attribute the logic sets.
     submitButton.disabled = true;
-    submitButton.style.opacity = '0.5';
     
     submitButton.addEventListener('click', () => {
       this.submitHtmlAnswer();
@@ -1186,26 +1161,17 @@ export class QuizScene extends Phaser.Scene {
         const allOptions = this.htmlAnswersContainer.querySelectorAll('[data-choice-key]');
         allOptions.forEach(option => {
           const element = option as HTMLElement;
-          const key = element.dataset.choiceKey;
-          if (key === selectedKey) {
-            element.style.backgroundColor = '#c8e6c9';
-            element.style.borderColor = '#4caf50';
-          } else {
-            element.style.backgroundColor = '#f9f9f9';
-            element.style.borderColor = '#ddd';
-          }
+          element.classList.toggle('is-selected', element.dataset.choiceKey === selectedKey);
         });
       }
     } else {
       // Multiple selection - toggle this selection
       if (this.selectedAnswers.has(selectedKey)) {
         this.selectedAnswers.delete(selectedKey);
-        optionContainer.style.backgroundColor = '#f9f9f9';
-        optionContainer.style.borderColor = '#ddd';
+        optionContainer.classList.remove('is-selected');
       } else {
         this.selectedAnswers.add(selectedKey);
-        optionContainer.style.backgroundColor = '#c8e6c9';
-        optionContainer.style.borderColor = '#4caf50';
+        optionContainer.classList.add('is-selected');
       }
     }
     
@@ -1232,10 +1198,9 @@ export class QuizScene extends Phaser.Scene {
       shouldEnable = this.selectedAnswers.size > 0;
     }
     
+    // Only the attribute is set; .qm-submit-btn:disabled owns the appearance. Previously the colour
+    // was written inline in three places and could disagree with the actual disabled state.
     submitButton.disabled = !shouldEnable;
-    submitButton.style.opacity = shouldEnable ? '1' : '0.5';
-    submitButton.style.backgroundColor = shouldEnable ? '#4caf50' : '#cccccc';
-    submitButton.style.cursor = 'none';
   }
 
   /**
@@ -1249,8 +1214,9 @@ export class QuizScene extends Phaser.Scene {
       const allOptions = this.htmlAnswersContainer.querySelectorAll('[data-choice-key]');
       allOptions.forEach(option => {
         const element = option as HTMLElement;
-        element.style.pointerEvents = 'none';
-        element.style.opacity = '0.7';
+        // 0.7 opacity used to wash out every option, including the one about to be shown as the
+        // correct answer. The class stops interaction without dimming the content.
+        element.classList.add('is-locked');
       });
       
       // Disable submit button
