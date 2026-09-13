@@ -235,6 +235,95 @@ const insideViewport = (
   v: { w: number; h: number }
 ) => r.x >= -1 && r.y >= -1 && r.x + r.w <= v.w + 1 && r.y + r.h <= v.h + 1;
 
+/**
+ * Answer-review modal. Built on the same shell and given the same data-testid hooks, so the same
+ * measurements apply. Covered because the previous version was a Phaser/DOM hybrid at hardcoded
+ * pixel sizes and clipped silently below a ~1038x532 host iframe — the exact defect the answering
+ * UI had, in a screen nobody was testing.
+ */
+const REVIEW_FIXTURES = ['short', 'wrap', 'img', 'table', 'many6'] as const;
+
+async function openReview(page: Page, fixture: string): Promise<void> {
+  await page.goto(`/index.html?devReview=${fixture}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('[data-testid="quiz-answers"]', { state: 'attached', timeout: 60_000 });
+  await page.waitForSelector('[data-choice-key]', { state: 'attached', timeout: 60_000 });
+  await page
+    .waitForFunction(
+      () => {
+        const imgs = Array.from(document.querySelectorAll('#quiz-modal img'));
+        return imgs.every(i => (i as HTMLImageElement).complete);
+      },
+      { timeout: 20_000 }
+    )
+    .catch(() => {
+      /* a stuck image is itself a finding, reported by the overflow assertions */
+    });
+  await page.evaluate(() => new Promise(r => requestAnimationFrame(() => r(null))));
+}
+
+for (const size of SIZES) {
+  test.describe(`review @ ${size.label}`, () => {
+    test.use({ viewport: { width: size.width, height: size.height } });
+
+    for (const fixture of REVIEW_FIXTURES) {
+      test(`review "${fixture}" fits without clipping`, async ({ page }) => {
+        await openReview(page, fixture);
+        const r = await collectLayout(page);
+
+        expect(r.found.question, 'question block present').toBe(true);
+        expect(r.found.answers, 'answers block present').toBe(true);
+        expect(r.choices.length, 'choices rendered').toBeGreaterThan(0);
+
+        for (const c of r.choices) {
+          expect(
+            c.overflowBy,
+            `review answer ${c.key} content extends ${c.overflowBy}px past the space its box provides`
+          ).toBeLessThanOrEqual(1);
+          if (!c.scrollXActive) {
+            expect(
+              c.overflowXBy,
+              `review answer ${c.key} extends ${c.overflowXBy}px past its box horizontally with no ` +
+                'horizontal scroll available'
+            ).toBeLessThanOrEqual(1);
+          }
+          expect(c.fontPx, `review answer ${c.key} font-size`).toBeGreaterThanOrEqual(FONT_FLOOR_PX);
+        }
+
+        expect(
+          r.question!.overflowBy,
+          `review question content extends ${r.question!.overflowBy}px past the space provided`
+        ).toBeLessThanOrEqual(1);
+
+        expect(
+          intersects(r.question!.rect, r.answers!.rect),
+          'review question overlaps the answers block'
+        ).toBe(false);
+
+        // The Close button carries the quiz-submit testid. It must be visible and clear of the
+        // question — the old modal's clickable area was a Phaser rect that drifted from its label.
+        expect(r.found.submit, 'close button present').toBe(true);
+        expect(
+          insideViewport(r.submit!.rect, r.viewport),
+          `close button escapes the viewport: ${JSON.stringify(r.submit!.rect)}`
+        ).toBe(true);
+        expect(
+          intersects(r.submit!.rect, r.question!.rect),
+          'close button overlaps the question'
+        ).toBe(false);
+
+        // The result/points banner is always shown in review.
+        await expect(page.locator('[data-testid="quiz-banner"]')).toHaveCount(1);
+      });
+    }
+
+    test('review closes via the Close button', async ({ page }) => {
+      await openReview(page, 'short');
+      await page.locator('[data-testid="quiz-submit"]').click();
+      await expect(page.locator('#quiz-modal')).toHaveCount(0);
+    });
+  });
+}
+
 test.describe('dev route containment', () => {
   test.use({ viewport: { width: 1036, height: 530 } });
 

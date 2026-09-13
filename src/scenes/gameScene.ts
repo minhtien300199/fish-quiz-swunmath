@@ -18,7 +18,12 @@ import { CursorManager } from '../managers/cursorManager';
 import gameSdk from '../service/apiService.js';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
-import { getRequestedFixtureId, applyQuizFixture } from '../dev/quizFixtures';
+import {
+  getRequestedFixtureId,
+  applyQuizFixture,
+  getRequestedReviewFixtureId,
+  buildReviewFixture
+} from '../dev/quizFixtures';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -364,6 +369,27 @@ export class GameScene extends Phaser.Scene {
 
     // DEV ONLY: ?devQuiz=<fixture> jumps straight into the quiz. No-op in production.
     this.maybeLaunchDevQuiz();
+    // DEV ONLY: ?devReview=<fixture> opens the answer-review modal directly. No-op in production.
+    this.maybeShowDevReview();
+  }
+
+  /**
+   * DEV ONLY. Opens the answer-review modal with a fixture payload, so its layout can be checked
+   * without catching a fish and clicking it in the storage box. Inert unless served from localhost
+   * and a valid ?devReview= fixture id is present — see src/dev/quizFixtures.ts.
+   */
+  private maybeShowDevReview(): void {
+    const fixtureId = getRequestedReviewFixtureId();
+    if (!fixtureId) return;
+
+    const data = buildReviewFixture(fixtureId);
+    if (!data) return;
+
+    // Goes through the same onFishClicked path the player uses, not a parallel one.
+    if (this.fishQuizModal) {
+      this.fishQuizDataList = [data];
+      this.onFishClicked(0);
+    }
   }
 
   /**
@@ -3592,13 +3618,21 @@ export class GameScene extends Phaser.Scene {
     this.points += pointsAwarded;
 
     // Check if there's a time bonus for answering quickly
+    let bonusPointsAwarded = 0;
     if (data.timeBonus && data.timeBonus > 0) {
       // Calculate bonus points - 10 points per second remaining
       const bonusPoints = data.timeBonus * 10;
+      bonusPointsAwarded = bonusPoints;
       this.points += bonusPoints;
 
       // Show bonus points notification
       this.showBonusPointsNotification(bonusPoints);
+    }
+
+    // Record the credited total on the review entry pushed earlier in this function. Display only —
+    // nothing reads it except the answer-review modal, and the scoring arithmetic above is unchanged.
+    if (data.quizData) {
+      data.quizData.pointsAwarded = pointsAwarded + bonusPointsAwarded;
     }
 
     // Show points awarded notification for the fish

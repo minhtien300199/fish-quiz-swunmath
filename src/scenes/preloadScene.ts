@@ -8,7 +8,11 @@ import { HourglassLoadingBar } from '../components/HourglassLoadingBar';
 // @ts-ignore
 import gameSdk from '../service/apiService.js';
 import { QuizQuestion } from "types/quiz.model";
-import { getRequestedFixtureId, applyQuizFixture } from '../dev/quizFixtures';
+import {
+  getRequestedFixtureId,
+  applyQuizFixture,
+  isAnyDevRouteRequested
+} from '../dev/quizFixtures';
 // Define global variables to store the questions and total count
 declare global {
   interface Window {
@@ -98,9 +102,11 @@ export class PreloadScene extends Phaser.Scene {
         // then opens QuizScene with the fixture (see GameScene.maybeLaunchDevQuiz). Installing
         // the fixture here overrides the API questions before any scene reads them.
         // Inert unless served from localhost — see src/dev/quizFixtures.ts.
-        const devFixtureId = getRequestedFixtureId();
-        if (devFixtureId) {
-          applyQuizFixture(devFixtureId);
+        if (isAnyDevRouteRequested()) {
+          // Only the quiz route needs the question bank swapped; the review route builds its own
+          // payload from a fixture and never reads window.QUIZ_QUESTIONS.
+          const devFixtureId = getRequestedFixtureId();
+          if (devFixtureId) applyQuizFixture(devFixtureId);
           this.scene.start('GameScene', { reset: true });
           return;
         }

@@ -258,6 +258,31 @@ export const QUIZ_FIXTURES: Record<string, FixtureQuestion[]> = {
 export const FIXTURE_IDS = Object.keys(QUIZ_FIXTURES);
 
 /**
+ * Builds an answer-review payload from a fixture, for `?devReview=<id>`.
+ *
+ * Deliberately picks a WRONG answer the player did not get right, so the review renders both the
+ * "correct answer" and "your answer" states at once. Picking the correct one would leave half the
+ * layout untested.
+ */
+export function buildReviewFixture(fixtureId: string): any | null {
+  const fixture = QUIZ_FIXTURES[fixtureId];
+  if (!fixture || !fixture.length) return null;
+  const q = fixture[0];
+  const correct = (q.correctAnswer || '').split(',').map(k => k.trim());
+  const wrong = q.choices.find(c => !correct.includes(c.key));
+  return {
+    fishType: 'shark_whale', // the only non-square fish (48x16), so the header art is stressed too
+    question: q.question,
+    choices: q.choices,
+    correctAnswer: q.correctAnswer,
+    userAnswer: wrong ? wrong.key : q.choices[0]?.key,
+    isCorrect: false,
+    timeBonus: 7,
+    pointsAwarded: 120
+  };
+}
+
+/**
  * Dev surface gate. Mirrors the check in src/index.html so the two cannot disagree.
  * A leaked `?devQuiz=` param on a production hostname does nothing.
  */
@@ -266,6 +291,27 @@ export function isDevHost(): boolean {
   return (
     h === 'localhost' || h === '127.0.0.1' || h === '::1' || h === '' || /\.local$/.test(h)
   );
+}
+
+/** Returns the requested review-modal fixture id, or null when that dev route is not active. */
+export function getRequestedReviewFixtureId(): string | null {
+  return readFixtureParam('devReview');
+}
+
+/** True when any dev route is asking to skip the menu and go straight into GameScene. */
+export function isAnyDevRouteRequested(): boolean {
+  return getRequestedFixtureId() !== null || getRequestedReviewFixtureId() !== null;
+}
+
+function readFixtureParam(param: string): string | null {
+  if (!isDevHost()) return null;
+  const raw = new URLSearchParams(window.location.search).get(param);
+  if (!raw) return null;
+  if (!Object.prototype.hasOwnProperty.call(QUIZ_FIXTURES, raw)) {
+    console.warn(`[${param}] unknown fixture "${raw}". Available: ${FIXTURE_IDS.join(', ')}`);
+    return null;
+  }
+  return raw;
 }
 
 /** Returns the requested fixture id, or null when the dev route is not active. */

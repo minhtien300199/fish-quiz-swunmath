@@ -41,6 +41,8 @@ export interface QuizModalShell {
   bannerSlot: HTMLDivElement;
   /** Seconds remaining. Formatting and the urgent state are presentation, decided here. */
   setTimer(secondsRemaining: number): void;
+  /** Arbitrary header chip text — the review modal shows points here rather than a countdown. */
+  setChip(text: string, urgent?: boolean): void;
   /** Run the fit ladder. Safe to call repeatedly; no-ops after dispose. */
   fit(): void;
   dispose(): void;
@@ -616,6 +618,10 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
       const s = Math.max(0, Math.floor(secondsRemaining));
       timer.textContent = `Time: ${s}`;
       timer.classList.toggle('is-urgent', s <= 5);
+    },
+    setChip(text: string, urgent = false) {
+      timer.textContent = text;
+      timer.classList.toggle('is-urgent', urgent);
     },
     fit,
     dispose() {
