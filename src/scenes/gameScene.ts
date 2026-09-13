@@ -19,6 +19,7 @@ import gameSdk from '../service/apiService.js';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
 import { MapDecorFactory, MapDecor } from '../factories/mapDecorFactory';
+import { QUIZ_OPEN_CLASS } from '../components/quizModalShell';
 import {
   getRequestedFixtureId,
   applyQuizFixture,
@@ -2390,7 +2391,20 @@ export class GameScene extends Phaser.Scene {
     const canvas = this.game.canvas;
     const canvasRect = canvas.getBoundingClientRect();
 
+    // One rule, injected once: stay out of the way while a quiz modal is mounted.
+    // This overlay is z-index 1000, above the modal's 999, and it is anchored to
+    // the canvas rect — which Scale.FIT pushes down the screen on any viewport
+    // taller/narrower than the canvas aspect. On a half-height or snapped window
+    // that put the HUD right on top of the answers.
+    if (!document.getElementById('gameHudStyles')) {
+      const hudStyle = document.createElement('style');
+      hudStyle.id = 'gameHudStyles';
+      hudStyle.textContent = `body.${QUIZ_OPEN_CLASS} #game-hud { display: none; }`;
+      document.head.appendChild(hudStyle);
+    }
+
     this.htmlUIContainer = document.createElement('div');
+    this.htmlUIContainer.id = 'game-hud';
     this.htmlUIContainer.style.position = 'fixed';
     this.htmlUIContainer.style.left = (canvasRect.left + 10) + 'px';
     this.htmlUIContainer.style.top = (canvasRect.top + 10) + 'px';

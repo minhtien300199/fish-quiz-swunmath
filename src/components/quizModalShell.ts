@@ -24,8 +24,20 @@ const BASE_H = 808;
 const FONT_FLOOR_PX = 11;
 const ANSWER_FONT_PX = 16;
 
-/** Width the lives/progress/points HUD occupies at the top-left (gameScene.ts:2320). */
-const HUD_SAFE_W = 350;
+/**
+ * Set on <body> for as long as a shell is mounted. GameScene hides the game HUD
+ * while this is present, so the modal owns the whole viewport.
+ *
+ * The HUD is a viewport-fixed DOM overlay at z-index 1000, i.e. above this modal
+ * (999). It is anchored to the canvas rect, and Phaser's Scale.FIT letterboxes a
+ * canvas whose aspect is wider than the viewport — so on a tall or narrow screen
+ * the canvas top edge moves down and the HUD lands in the middle of the answers.
+ * Reserving a gutter for it could not fix that: the gutter scaled with
+ * --ui-scale while the HUD's 350px did not, and the collision is vertical
+ * anyway. Hiding it for the few seconds a question is open is both simpler and
+ * complete.
+ */
+export const QUIZ_OPEN_CLASS = 'quiz-open';
 
 const STYLE_ID = 'quiz-modal-style';
 
@@ -148,13 +160,16 @@ function styleSheet(): string {
     0 var(--line-first);
 }
 
-/* Header: fish, name, timer. Its left region is kept clear for the game HUD. */
+/* Header: fish, name, timer. Uses the full width — the game HUD is hidden while
+   the modal is up (see QUIZ_OPEN_CLASS), so there is nothing to reserve space for.
+   The old 350px gutter only indented this row anyway, never the question or the
+   answers, so removing it costs those nothing and buys the header real room at
+   small sizes. */
 #quiz-modal .qm-header {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: calc(10px * var(--ui-scale));
-  padding-left: calc(${HUD_SAFE_W}px * var(--ui-scale));
   padding-bottom: calc(8px * var(--ui-scale));
   margin-bottom: calc(8px * var(--ui-scale));
   border-bottom: 1px solid var(--paper-edge);
@@ -510,6 +525,7 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
   root.appendChild(backdrop);
   root.appendChild(panel);
   document.body.appendChild(root);
+  document.body.classList.add(QUIZ_OPEN_CLASS);
 
   let disposed = false;
   let fitting = false;
@@ -630,6 +646,12 @@ export function createQuizModalShell(opts: ShellOptions): QuizModalShell {
       if (ro) ro.disconnect();
       window.removeEventListener('resize', onResize);
       if (root.parentNode) root.parentNode.removeChild(root);
+      // Only the last shell standing may un-hide the HUD. The answer-review modal
+      // can be built while the answering modal is still tearing down, and clearing
+      // the flag unconditionally would flash the HUD back over the new modal.
+      if (!document.querySelector('#quiz-modal')) {
+        document.body.classList.remove(QUIZ_OPEN_CLASS);
+      }
     }
   };
 }
