@@ -1,0 +1,164 @@
+# Baseline — BEFORE the layout rewrite
+
+Recorded 2026-09-12, branch `fix/quiz-responsive-modal`, after Phase 1 and Phase 2 only.
+Command: `npm run test:layout`
+
+Result: **50 tests, 5 passed, 45 failed.**
+
+This file was regenerated after the overflow predicate was changed. An earlier version
+measured `scrollHeight - clientHeight`, which counted an author's trailing block margin
+as overflow and made every fixture fail by ~30px for that reason alone. The predicate now
+bounds the rendered content with a Range and compares it to the space the container
+provides, so author margins are content rather than overflow. Rendering was not touched.
+
+## Failures by cause
+
+| Cause | Count |
+|---|---|
+| content clipped | 36 |
+| question box overlaps answers region | 6 |
+| banner overlaps question | 3 |
+
+Reading these counts: assertions run in order, so each test reports only its FIRST failure.
+Clipping is checked before the overlap check, which is why "question box overlaps answers region"
+shows up in just 6 tests — those are the cases where content happened to fit and the geometry was
+the next thing to break. The fixed `500x350` question block (`quizScene.ts:727-728`) overlaps the
+answers region at every size regardless of content; it is masked in the other 36.
+
+So there are two independent defects here, not 45: content that does not fit the space provided,
+and a question box whose geometry ignores the answers region. Both are Phase 3's to remove.
+
+## Per size
+
+
+### dev route containment
+
+- [PASS] without ?devQuiz the game boots to the menu and no quiz opens
+- [PASS] an unknown ?devQuiz value is ignored
+
+### @ 1586x808 (viewport 1920x1080)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      question rect {"x":542.21875,"y":157.296875,"w":500,"h":350} overlaps answers rect {"x":263.609375,"y":472.671875,"w":1057.203125,"h":254.109375}
+- [FAIL] fixture "fallback4" fits without clipping
+      question rect {"x":542.21875,"y":157.296875,"w":500,"h":350} overlaps answers rect {"x":263.609375,"y":472.671875,"w":1057.203125,"h":254.109375}
+- [FAIL] fixture "short" fits without clipping
+      question rect {"x":542.21875,"y":157.296875,"w":500,"h":350} overlaps answers rect {"x":263.609375,"y":472.671875,"w":1057.203125,"h":254.109375}
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 27px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 175px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 27px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer B content extends 27px past the space its box provides
+- [PASS] result banner renders once and clear of the question
+
+### @ 1586x709 (Chrome maximized 1920x969)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      question rect {"x":542.21875,"y":128.828125,"w":500,"h":350} overlaps answers rect {"x":328.375,"y":414.75,"w":927.671875,"h":222.96875}
+- [FAIL] fixture "fallback4" fits without clipping
+      question rect {"x":542.21875,"y":128.828125,"w":500,"h":350} overlaps answers rect {"x":328.375,"y":414.75,"w":927.671875,"h":222.96875}
+- [FAIL] fixture "short" fits without clipping
+      question rect {"x":542.21875,"y":128.828125,"w":500,"h":350} overlaps answers rect {"x":328.375,"y":414.75,"w":927.671875,"h":222.96875}
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 43px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 190px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 43px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer B content extends 43px past the space its box provides
+- [PASS] result banner renders once and clear of the question
+
+### @ 1268x648 (viewport 1600x900)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      answer A content extends 11px past the space its box provides
+- [FAIL] fixture "fallback4" fits without clipping
+      answer A content extends 11px past the space its box provides
+- [FAIL] fixture "short" fits without clipping
+      answer A content extends 11px past the space its box provides
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 73px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 200px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 73px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer A content extends 11px past the space its box provides
+- [PASS] result banner renders once and clear of the question
+
+### @ 1036x530 (viewport 1366x768)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      answer A content extends 21px past the space its box provides
+- [FAIL] fixture "fallback4" fits without clipping
+      answer A content extends 21px past the space its box provides
+- [FAIL] fixture "short" fits without clipping
+      answer A content extends 21px past the space its box provides
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 78px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 211px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 78px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer A content extends 21px past the space its box provides
+- [FAIL] result banner renders once and clear of the question
+      result banner overlaps the question text
+
+### @ 951x488 (viewport 1280x720)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      answer A content extends 22px past the space its box provides
+- [FAIL] fixture "fallback4" fits without clipping
+      answer A content extends 22px past the space its box provides
+- [FAIL] fixture "short" fits without clipping
+      answer A content extends 22px past the space its box provides
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 74px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 206px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 74px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer A content extends 22px past the space its box provides
+- [FAIL] result banner renders once and clear of the question
+      result banner overlaps the question text
+
+### @ 898x418 (stress, below all real sizes)
+
+- [FAIL] fixture "fallback3" fits without clipping
+      answer A content extends 30px past the space its box provides
+- [FAIL] fixture "fallback4" fits without clipping
+      answer A content extends 30px past the space its box provides
+- [FAIL] fixture "short" fits without clipping
+      answer A content extends 30px past the space its box provides
+- [FAIL] fixture "wrap" fits without clipping
+      answer A content extends 96px past the space its box provides
+- [FAIL] fixture "img" fits without clipping
+      answer A content extends 184px past the space its box provides
+- [FAIL] fixture "imgq" fits without clipping
+      answer A content extends 96px past the space its box provides
+- [FAIL] fixture "mixed" fits without clipping
+      answer A content extends 30px past the space its box provides
+- [FAIL] result banner renders once and clear of the question
+      result banner overlaps the question text
+
+## Notes
+
+- The 5 passes are the banner test at the three largest sizes plus the two dev-route
+  containment tests. The banner passes are genuine Phase 1 verification: exactly one node
+  holds the result message, and it does not intersect the question. There were two before.
+- With the corrected predicate, a short answer no longer reports overflow at 1586x808.
+  That restores the original arithmetic in plan.md: the answers region fits ~2.6 lines at
+  the 1588x810 baseline and fails at one line by 1366x768. An intermediate revision of
+  plan.md retracted that conclusion; the retraction was caused by the old predicate and is
+  itself withdrawn.
+- Fixtures are not representative of backend content. `src/datas/quesionBank.ts` is the
+  offline fallback only. A fixture from a captured real API response is still outstanding;
+  the user will supply one. Until then this matrix bounds nothing about production content.
+- Phases 3-4 must turn these green without restyling injected markup — see the
+  "question/answer core is off limits" constraint in plan.md.

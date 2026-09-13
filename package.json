@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "build": "webpack --config webpack.config.js",
-    "start": "webpack-dev-server --config webpack.config.js --open"
+    "start": "webpack-dev-server --config webpack.config.js --open",
+    "test:layout": "playwright test"
   },
   "keywords": [
     "phaser",
@@ -17,6 +18,7 @@
   "author": "",
   "license": "ISC",
   "devDependencies": {
+    "@playwright/test": "1.63.0",
     "copy-webpack-plugin": "^11.0.0",
     "ts-loader": "^9.4.2",
     "typescript": "^5.0.4",

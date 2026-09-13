@@ -1,0 +1,420 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fish Quiz — iframe host simulator (DEV)</title>
+    <style>
+        :root {
+            --bar-h: 44px;
+            --ink: #e8eef5;
+            --muted: #93a4b8;
+            --bg: #10161d;
+            --panel: #18212b;
+            --line: #2a3744;
+            --accent: #4ea1ff;
+            --warn: #ffb84d;
+            --bad: #ff6b6b;
+            --ok: #5ad18f;
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        html,
+        body {
+            margin: 0;
+            padding: 0;
+            height: 100%;
+            background: var(--bg);
+            color: var(--ink);
+            font: 12px/1.45 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+        }
+
+        /* ---------- dev toolbar (not part of the emulation) ---------- */
+        #bar {
+            position: fixed;
+            inset: 0 0 auto 0;
+            height: var(--bar-h);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 0 10px;
+            background: var(--panel);
+            border-bottom: 1px solid var(--line);
+            z-index: 10;
+            flex-wrap: nowrap;
+            overflow-x: auto;
+        }
+
+        #bar label {
+            color: var(--muted);
+            white-space: nowrap;
+        }
+
+        select,
+        input[type="text"],
+        button {
+            font: inherit;
+            color: var(--ink);
+            background: #0e151c;
+            border: 1px solid var(--line);
+            border-radius: 4px;
+            padding: 4px 6px;
+        }
+
+        button {
+            cursor: pointer;
+        }
+
+        button:hover {
+            border-color: var(--accent);
+        }
+
+        input[type="text"] {
+            min-width: 220px;
+            flex: 1 1 220px;
+        }
+
+        .chk {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            white-space: nowrap;
+            color: var(--muted);
+            cursor: pointer;
+        }
+
+        #tag {
+            color: var(--warn);
+            font-weight: bold;
+            white-space: nowrap;
+        }
+
+        /* ---------- readout ---------- */
+        #readout {
+            position: fixed;
+            right: 10px;
+            bottom: 10px;
+            z-index: 10;
+            background: rgba(16, 22, 29, .92);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 8px 10px;
+            min-width: 260px;
+            pointer-events: none;
+        }
+
+        #readout div {
+            display: flex;
+            justify-content: space-between;
+            gap: 14px;
+        }
+
+        #readout b {
+            font-weight: 600;
+            color: var(--muted);
+        }
+
+        .v-ok {
+            color: var(--ok);
+        }
+
+        .v-warn {
+            color: var(--warn);
+        }
+
+        .v-bad {
+            color: var(--bad);
+        }
+
+        /* ---------- emulated host page ----------
+           Mirrors the real wrapper described in iframe_clue.md:
+           #game-root scrolls, a 32px header with 24px margin-bottom sits above
+           #iframe-wrap, which uses height:100% (the defect), and the iframe
+           itself is height:89% with a 1px border and border-box sizing.        */
+        #stage {
+            position: fixed;
+            inset: var(--bar-h) 0 0 0;
+            background: #0b1015;
+        }
+
+        #game-root {
+            width: 100%;
+            height: 100%;
+            overflow: auto;
+            padding: 0 16px;
+            background: #f4f6f8;
+        }
+
+        #game-head {
+            height: 32px;
+            margin-bottom: 24px;
+            display: flex;
+            align-items: center;
+            font: 600 16px/32px system-ui, sans-serif;
+            color: #24303d;
+        }
+
+        #iframe-wrap {
+            height: 100%;
+            /* defect kept on purpose: does not subtract 32px + 24px */
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+        }
+
+        body.fix-host #iframe-wrap {
+            height: calc(100% - 56px);
+        }
+
+        #frame {
+            display: block;
+            width: 100%;
+            height: 89%;
+            border: 1px solid #c9d3dd;
+            background: #000;
+        }
+
+        body.fix-host #frame {
+            height: 100%;
+        }
+
+        /* fixed-size mode overrides the emulated CSS with exact pixels */
+        body.fixed-size #iframe-wrap {
+            height: auto;
+        }
+
+        body.fixed-size #frame {
+            width: var(--fw);
+            height: var(--fh);
+        }
+
+        #note {
+            position: fixed;
+            left: 10px;
+            bottom: 10px;
+            z-index: 10;
+            color: var(--muted);
+            background: rgba(16, 22, 29, .92);
+            border: 1px solid var(--line);
+            border-radius: 6px;
+            padding: 6px 8px;
+            max-width: 46vw;
+        }
+    </style>
+</head>
+
+<body>
+    <div id="bar">
+        <span id="tag">DEV iframe sim</span>
+
+        <label for="preset">size</label>
+        <select id="preset"></select>
+
+        <label class="chk"><input type="checkbox" id="fixHost"> fix host CSS (+56px, 89%&rarr;100%)</label>
+
+        <label for="params">inner params</label>
+        <input type="text" id="params" spellcheck="false" placeholder="gameType=1&amp;userId=...">
+
+        <button id="apply">apply</button>
+        <button id="reload">reload frame</button>
+        <button id="standalone" title="Open the game directly, without the emulated host iframe. Keeps all game params.">standalone &#8599;</button>
+    </div>
+
+    <div id="stage">
+        <div id="game-root">
+            <div id="game-head">Game Challenge</div>
+            <div id="iframe-wrap">
+                <iframe id="frame" data-testid="game-frame" title="Fish Quiz (emulated host iframe)"></iframe>
+            </div>
+        </div>
+    </div>
+
+    <div id="readout"></div>
+    <div id="note"></div>
+
+    <script>
+        (function () {
+            'use strict';
+
+            // Sizes measured on the real host page. See iframe_clue.md.
+            // Values are border-box and include the 1px border on each side.
+            var PRESETS = [
+                { id: 'auto', label: 'auto — emulate host CSS at my viewport', w: 0, h: 0 },
+                { id: '1920x1080', label: '1588x810   @ viewport 1920x1080', w: 1588, h: 810 },
+                { id: '1920x969', label: '1588x711   @ 1920x969 (Chrome maximized)', w: 1588, h: 711 },
+                { id: '1600x900', label: '1270x650   @ viewport 1600x900', w: 1270, h: 650 },
+                { id: '1366x768', label: '1038x532   @ viewport 1366x768', w: 1038, h: 532 },
+                { id: '1280x720', label: '953x490    @ viewport 1280x720', w: 953, h: 490 },
+                { id: 'stress', label: '900x420    stress (below all real sizes)', w: 900, h: 420 }
+            ];
+
+            // Derived from the table above; reproduces all five rows within 1px.
+            // height = (viewport_height - 170) * 0.89   width = viewport_width - 330
+            function predict(vw, vh) {
+                return { w: Math.round(vw - 330), h: Math.round((vh - 170) * 0.89) };
+            }
+
+            var DESIGN_H = 1080; // src/index.ts game config height
+            var DESIGN_W = 1920;
+
+            var $ = function (id) { return document.getElementById(id); };
+            var frame = $('frame'), presetEl = $('preset'), fixHostEl = $('fixHost'),
+                paramsEl = $('params'), readoutEl = $('readout'), noteEl = $('note');
+
+            var hostParams = new URLSearchParams(location.search);
+
+            // Everything except the harness's own controls is forwarded to the game.
+            // 'dev' and 'sim' are the index.html aliases for iframe=true; they must be
+            // stripped too, otherwise the inner frame would bounce back into the harness.
+            var HARNESS_KEYS = ['iframe', 'simSize', 'simFixHost', 'dev', 'sim'];
+            function innerParamString() {
+                var p = new URLSearchParams(location.search);
+                HARNESS_KEYS.forEach(function (k) { p.delete(k); });
+                return p.toString();
+            }
+
+            PRESETS.forEach(function (p) {
+                var o = document.createElement('option');
+                o.value = p.id;
+                o.textContent = p.label;
+                presetEl.appendChild(o);
+            });
+
+            presetEl.value = hostParams.get('simSize') || 'auto';
+            fixHostEl.checked = hostParams.get('simFixHost') === '1';
+            paramsEl.value = innerParamString();
+
+            function currentPreset() {
+                for (var i = 0; i < PRESETS.length; i++) {
+                    if (PRESETS[i].id === presetEl.value) return PRESETS[i];
+                }
+                return PRESETS[0];
+            }
+
+            function applyLayout() {
+                var p = currentPreset();
+                document.body.classList.toggle('fix-host', fixHostEl.checked);
+                document.body.classList.toggle('fixed-size', p.id !== 'auto');
+                if (p.id !== 'auto') {
+                    document.documentElement.style.setProperty('--fw', p.w + 'px');
+                    document.documentElement.style.setProperty('--fh', p.h + 'px');
+                }
+                // Reflect state in the URL so a broken layout is shareable/bookmarkable.
+                var q = new URLSearchParams(location.search);
+                q.set('iframe', 'true');
+                q.set('simSize', p.id);
+                if (fixHostEl.checked) { q.set('simFixHost', '1'); } else { q.delete('simFixHost'); }
+                history.replaceState(null, '', location.pathname + '?' + q.toString());
+            }
+
+            function loadFrame() {
+                var qs = paramsEl.value.replace(/^[?&]+/, '');
+                frame.src = 'index.html' + (qs ? '?' + qs : '');
+            }
+
+            // ---- live readout -------------------------------------------------
+            function row(k, v, cls) {
+                return '<div><b>' + k + '</b><span class="' + (cls || '') + '">' + v + '</span></div>';
+            }
+
+            function refresh() {
+                var r = frame.getBoundingClientRect();
+                var fw = Math.round(r.width), fh = Math.round(r.height);
+                var innerW = fw - 2, innerH = fh - 2; // 1px border each side
+
+                var canvasTxt = 'n/a', scaleTxt = 'n/a', scaleCls = '';
+                var scale = null;
+                try {
+                    var doc = frame.contentDocument;
+                    var cv = doc && doc.querySelector('canvas');
+                    if (cv) {
+                        var cw = Math.round(cv.getBoundingClientRect().width);
+                        var ch = Math.round(cv.getBoundingClientRect().height);
+                        canvasTxt = cw + 'x' + ch;
+                        scale = ch / DESIGN_H;
+                        scaleTxt = scale.toFixed(3) + 'x';
+                        scaleCls = scale < 0.55 ? 'v-bad' : (scale < 0.7 ? 'v-warn' : 'v-ok');
+                    }
+                } catch (e) { canvasTxt = 'cross-origin'; }
+
+                // The bug: DOM font tracks iframe width, box height tracks canvas scale.
+                var fontPx = null, ratioTxt = 'n/a', ratioCls = '';
+                if (innerW > 0) {
+                    fontPx = Math.min(16, Math.max(11, innerW * 0.014)); // clamp(11px,1.4vw,16px)
+                    if (scale) {
+                        // 1.0 = same balance as the 1588x810 baseline; >1 = font too big for the box
+                        var baseFont = Math.min(16, Math.max(11, 1588 * 0.014));
+                        var ratio = (fontPx / baseFont) / (scale / 0.75);
+                        ratioTxt = ratio.toFixed(2) + 'x';
+                        ratioCls = ratio > 1.25 ? 'v-bad' : (ratio > 1.05 ? 'v-warn' : 'v-ok');
+                    }
+                }
+
+                var pr = predict(window.innerWidth, window.innerHeight);
+                var scrolled = document.getElementById('game-root');
+                var hasScroll = scrolled.scrollHeight > scrolled.clientHeight + 1;
+
+                // Make it visible that the real launch params survived the hand-off.
+                var fwd = [];
+                new URLSearchParams(paramsEl.value.replace(/^[?&]+/, ''))
+                    .forEach(function (v, k) { fwd.push(k); });
+                var fwdTxt = fwd.length ? fwd.join(',') : 'none (questionBank fallback)';
+
+                readoutEl.innerHTML =
+                    row('forwarded params', fwdTxt, fwd.length ? 'v-ok' : 'v-warn') +
+                    row('harness viewport', window.innerWidth + 'x' + window.innerHeight) +
+                    row('iframe (border-box)', fw + 'x' + fh) +
+                    row('iframe (inner)', innerW + 'x' + innerH) +
+                    row('predicted for host', pr.w + 'x' + pr.h) +
+                    row('canvas', canvasTxt) +
+                    row('canvas scale /1080', scaleTxt, scaleCls) +
+                    row('answer font (1.4vw)', fontPx ? fontPx.toFixed(1) + 'px' : 'n/a') +
+                    row('font vs box balance', ratioTxt, ratioCls) +
+                    row('host scrollbar', hasScroll ? 'YES' : 'no', hasScroll ? 'v-warn' : 'v-ok');
+
+                var notes = [];
+                if (window.innerHeight < 625) {
+                    notes.push('viewport height < 625px: the real host grows a vertical scrollbar here (iframe_clue.md).');
+                }
+                if (ratioCls === 'v-bad') {
+                    notes.push('font/box balance > 1.25x: answer text is far too large for its box at this size. Expect clipping.');
+                }
+                if (currentPreset().id === 'auto') {
+                    notes.push('auto mode: iframe sized by the emulated host CSS, so it tracks YOUR viewport. Pick a fixed row to reproduce a specific machine.');
+                }
+                noteEl.textContent = notes.join('  ');
+                noteEl.style.display = notes.length ? '' : 'none';
+            }
+
+            // ---- wiring -------------------------------------------------------
+            presetEl.addEventListener('change', function () { applyLayout(); refresh(); });
+            fixHostEl.addEventListener('change', function () { applyLayout(); refresh(); });
+            $('apply').addEventListener('click', function () { applyLayout(); loadFrame(); });
+            $('reload').addEventListener('click', loadFrame);
+            $('standalone').addEventListener('click', function () {
+                var qs = innerParamString();
+                location.href = 'index.html' + (qs ? '?' + qs : '');
+            });
+            paramsEl.addEventListener('keydown', function (e) {
+                if (e.key === 'Enter') { applyLayout(); loadFrame(); }
+            });
+
+            if (window.ResizeObserver) {
+                new ResizeObserver(refresh).observe(frame);
+            }
+            window.addEventListener('resize', refresh);
+            frame.addEventListener('load', refresh);
+            setInterval(refresh, 700); // canvas appears asynchronously after Phaser boots
+
+            applyLayout();
+            loadFrame();
+            refresh();
+        })();
+    </script>
+</body>
+
+</html>

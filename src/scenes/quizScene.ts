@@ -1,8 +1,9 @@
 import { GameState } from '../types/gameState';
 import { CompletionData, fetchCompletionData } from '../datas/completion';
-import { FishType, fishSizes, FishVariantType, fishVariants } from '../const/fishType';
+import { FishType, fishSizes, FishVariantType, fishVariants, getFishPath } from '../const/fishType';
 import { FishFactory, FishState, FishSizeCategory } from '../factories/fishFactory';
 import { CursorManager } from '../managers/cursorManager';
+import { createQuizModalShell, QuizModalShell } from '../components/quizModalShell';
 // @ts-ignore
 import gameSdk, { replaceURL } from '../service/apiService.js';
 
@@ -43,6 +44,7 @@ export class QuizScene extends Phaser.Scene {
   private htmlAnswersContainer: HTMLDivElement | null = null; // HTML container for answer choices
   private handleWindowResize: (() => void) | null = null; // Window resize handler
   private htmlCursor: HTMLImageElement | null = null; // HTML cursor overlay
+  private modalShell: QuizModalShell | null = null; // Owns modal DOM structure, scale and fitting
   private mouseMoveHandler: ((event: MouseEvent) => void) | null = null; // Mouse move handler
 
   constructor() {
@@ -99,8 +101,12 @@ export class QuizScene extends Phaser.Scene {
     // Reset selected answers
     this.selectedAnswers.clear();
 
-    // Create UI with paper background
-    this.createPaperBackground();
+    // Build the modal shell first: it owns the paper surface, the header (fish, name, timer) and
+    // the slots the question/answers mount into. The Phaser paper background, fish sprite, fish
+    // name and timer text are gone — a full-viewport DOM overlay always sits above the canvas, so
+    // keeping them on canvas would only hide them, and aligning the overlay to the canvas rect is
+    // the exact mechanism this change removes.
+    this.createModalShell();
     this.createQuizUI();
 
     // Start timer
@@ -115,57 +121,47 @@ export class QuizScene extends Phaser.Scene {
     //console.log('QuizScene: Scene creation completed');
   }
 
-  private createPaperBackground(): void {
-    // Check if paper-bg asset exists, otherwise create a custom one
-    if (!this.textures.exists('paper-bg')) {
-      // Create a custom paper texture if the asset doesn't exist
-      const graphics = this.make.graphics();
+  /**
+   * Build the DOM modal shell. Replaces createPaperBackground(), which generated a 400x500 Phaser
+   * texture and stretched it 3.84x horizontally against 1.84x vertically — the reason the notebook
+   * binding holes rendered as ovals. The paper is now CSS and stays proportional.
+   */
+  private createModalShell(): void {
+    this.disposeModalShell();
 
-      // Create the main paper background (light gray)
-      graphics.fillStyle(0xf0f0f0);
-      graphics.fillRect(0, 0, 400, 500);
-
-      // Add notebook lines
-      graphics.lineStyle(1, 0xccccff, 0.5);
-      for (let y = 40; y < 500; y += 30) {
-        graphics.beginPath();
-        graphics.moveTo(20, y);
-        graphics.lineTo(380, y);
-        graphics.strokePath();
-      }
-
-      // Add left margin with holes (notebook binding)
-      graphics.fillStyle(0xdddddd);
-      graphics.fillRect(0, 0, 20, 500);
-
-      // Add notebook holes
-      graphics.fillStyle(0x333333);
-      for (let y = 50; y < 500; y += 80) {
-        graphics.fillCircle(10, y, 5);
-      }
-
-      // Generate texture
-      graphics.generateTexture('paper-bg', 400, 500);
-      graphics.destroy();
+    // Reuse FishFactory's variant selection verbatim (fishFactory.ts:121-126) so the fish shown is
+    // chosen exactly as before. Deliberately NOT "fixed" to match the caught fish: that would mean
+    // threading variant state through gameScene, which is gameType-0 logic and out of scope.
+    const variants = fishVariants[this.currentFish];
+    let variant: string | undefined;
+    if (variants && variants.length > 0) {
+      variant = variants[Math.floor(Math.random() * variants.length)];
     }
 
-    // Calculate dimensions for the paper background
-    const width = this.cameras.main.width * 0.8;
-    const height = this.cameras.main.height * 0.85; // Increased height to cover more of the screen
+    const dim = fishSizes[this.currentFish] || { width: 16, height: 16 };
 
-    // Add the paper background
-    this.paperBg = this.add.image(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2,
-      'paper-bg'
-    )
-      .setDisplaySize(width, height)
-      .setDepth(0); // Set to back layer
+    this.modalShell = createQuizModalShell({
+      fishSrc: getFishPath(this.currentFish, variant),
+      fishW: dim.width,
+      fishH: dim.height,
+      fishName: this.formatFishName(this.currentFish)
+    });
+
+    this.modalShell.setTimer(`Time: ${this.timeRemaining}`);
+  }
+
+  private disposeModalShell(): void {
+    if (this.modalShell) {
+      this.modalShell.dispose();
+      this.modalShell = null;
+    }
   }
 
   update(): void {
-    // Update timer text
-    this.timerText.setText(`Time: ${this.timeRemaining}`);
+    // The timer lives in the modal shell header now, not in a Phaser text object.
+    if (this.modalShell) {
+      this.modalShell.setTimer(`Time: ${this.timeRemaining}`);
+    }
   }
 
   private createQuizQuestions(): void {
@@ -221,68 +217,15 @@ export class QuizScene extends Phaser.Scene {
       this.currentFish = FishType.bass;
     }
 
-    // Create fish image at the top of the paper using FishFactory
-    const paperTop = this.paperBg.y - (this.paperBg.displayHeight / 2);
-    const fishY = paperTop + 60;
-    const fishSprite = FishFactory.createFish(this, this.cameras.main.width / 2, fishY, this.currentFish);
-    fishSprite.setScale(0.5);
-    this.fishSprite = fishSprite;
+    // The fish image, fish name and countdown timer are rendered by the modal shell as DOM, in its
+    // header row. They used to be Phaser objects placed relative to paperBg; a full-viewport DOM
+    // overlay always covers the canvas, so on canvas they would simply be invisible.
 
     // Create HTML cursor overlay for proper display over HTML elements
     this.createHtmlCursor();
 
-    // Set depth to ensure it's on top
-    this.fishSprite.setDepth(2);
-
-    // Get fish size category and adjust scale accordingly
-    const sizeCategory = FishFactory.getFishSizeCategory(this.currentFish);
-
-    // Scale the fish based on its size category
-    switch (sizeCategory) {
-      case FishSizeCategory.LARGE:
-        this.fishSprite.setScale(1);
-        break;
-      case FishSizeCategory.MEDIUM:
-        this.fishSprite.setScale(1);
-        break;
-      case FishSizeCategory.SMALL:
-      default:
-        this.fishSprite.setScale(1);
-        break;
-    }
-
-    // Add fish name below the fish image
-    const fishName = this.formatFishName(this.currentFish);
-    this.fishNameText = this.add.text(
-      this.cameras.main.width / 2,
-      this.fishSprite.y + (this.fishSprite.displayHeight / 2) + 5, // Reduced spacing from 20px to 5px
-      fishName,
-      {
-        fontSize: '24px',
-        color: '#2c3e50', // Dark blue-gray color for good readability on paper
-        fontStyle: 'bold',
-        stroke: '#ffffff',
-        strokeThickness: 2
-      }
-    ).setOrigin(0.5).setDepth(2); // Center aligned and on top layer
-
     // Extract and display question content
     this.displayQuestionContent();
-
-
-    // Add timer text - position at the top of the screen
-    this.timerText = this.add.text(
-      this.cameras.main.width - 80, // Position in top-right corner
-      30, // Near the top
-      `Time: ${this.timeRemaining}`,
-      {
-        fontSize: '28px',
-        color: '#ffff00', // Yellow color for better visibility
-        stroke: '#000000',
-        strokeThickness: 4,
-        fontStyle: 'bold' // Make it bold for emphasis
-      }
-    ).setOrigin(1, 0.5); // Right-align the text
 
     // PHASER ANSWER BUTTONS HIDDEN - Only HTML answers are shown
     // The following code creates Phaser answer buttons but they are commented out
@@ -692,6 +635,8 @@ export class QuizScene extends Phaser.Scene {
     
     // Create HTML container
     this.htmlQuestionContainer = document.createElement('div');
+    // Stable hook for the layout test suite. Must survive the modal rewrite.
+    this.htmlQuestionContainer.setAttribute('data-testid', 'quiz-question');
     
     // Process question content through replaceURL function
     const processedQuestionContent = replaceURL(this.currentQuestion.question);
@@ -701,51 +646,16 @@ export class QuizScene extends Phaser.Scene {
     contentWrapper.innerHTML = processedQuestionContent;
     this.htmlQuestionContainer.appendChild(contentWrapper);
     
-    // Calculate position based on canvas and paper background
-    const canvas = this.game.canvas as HTMLCanvasElement;
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Get the actual canvas scale factors
-    const scaleX = canvasRect.width / canvas.width;
-    const scaleY = canvasRect.height / canvas.height;
-    
-    // Calculate the question position in world coordinates
-    const questionY = this.paperBg.y - (this.paperBg.displayHeight * 0.25);
-    
-    // Convert world coordinates to screen coordinates
-    const worldX = this.cameras.main.width / 2;
-    const worldY = questionY;
-    
-    const screenX = canvasRect.left + (worldX * scaleX);
-    const screenY = canvasRect.top + (worldY * scaleY) + 100;
-    
-    // Style the HTML container to blend seamlessly with canvas
-    this.htmlQuestionContainer.style.position = 'fixed';
-    this.htmlQuestionContainer.style.left = screenX + 'px';
-    this.htmlQuestionContainer.style.top = screenY + 'px';
-    this.htmlQuestionContainer.style.transform = 'translate(-50%, -50%)';
-    this.htmlQuestionContainer.style.width = '500px';
-    this.htmlQuestionContainer.style.height = '350px'; // Fixed height
-    this.htmlQuestionContainer.style.overflow = 'hidden'; // No scrolling
-    this.htmlQuestionContainer.style.zIndex = '1000';
-    this.htmlQuestionContainer.style.backgroundColor = 'transparent';
-    this.htmlQuestionContainer.style.padding = '15px';
-    this.htmlQuestionContainer.style.borderRadius = '0px';
-    this.htmlQuestionContainer.style.boxShadow = 'none';
-    this.htmlQuestionContainer.style.fontSize = '16px';
-    this.htmlQuestionContainer.style.lineHeight = '1.5';
-    this.htmlQuestionContainer.style.color = '#000000';
-    this.htmlQuestionContainer.style.textAlign = 'left';
-    this.htmlQuestionContainer.style.fontFamily = 'Arial, sans-serif';
-    this.htmlQuestionContainer.style.border = 'none';
+    // Layout comes entirely from the shell. What used to be here — a canvas rect converted through
+    // scaleX/scaleY, a magic +100 offset, a fixed 500x350 box and a resize handler that recomputed
+    // the position WITHOUT the +100 (so the question jumped on first resize) — is all gone. The
+    // slot is a flex child, so it cannot overlap the answers row by construction.
+    this.htmlQuestionContainer.style.width = '100%';
     this.htmlQuestionContainer.style.boxSizing = 'border-box';
-    this.htmlQuestionContainer.style.display = 'flex';
-    this.htmlQuestionContainer.style.flexDirection = 'column';
-    this.htmlQuestionContainer.style.justifyContent = 'center';
-    
+
     // Process content to fit without scrolling and add hover functionality
     this.processQuestionContentNoScroll();
-    
+
     // Handle any custom styling elements
     const styleElements = this.htmlQuestionContainer.querySelectorAll('style');
     styleElements.forEach(style => {
@@ -753,31 +663,13 @@ export class QuizScene extends Phaser.Scene {
         style.textContent = style.textContent.replace(/margin-left:\s*30%/g, 'margin-left: auto');
       }
     });
-    
-    // Add to document body
-    document.body.appendChild(this.htmlQuestionContainer);
-    
-    // Update position on window resize
-    const updatePosition = () => {
-      if (this.htmlQuestionContainer && canvas.parentElement) {
-        const newCanvasRect = canvas.getBoundingClientRect();
-        const newScaleX = newCanvasRect.width / canvas.width;
-        const newScaleY = newCanvasRect.height / canvas.height;
-        
-        const newScreenX = newCanvasRect.left + (worldX * newScaleX);
-        const newScreenY = newCanvasRect.top + (worldY * newScaleY);
-        
-        this.htmlQuestionContainer.style.left = newScreenX + 'px';
-        this.htmlQuestionContainer.style.top = newScreenY + 'px';
-        this.htmlQuestionContainer.style.width = Math.min(500, this.paperBg.displayWidth * 0.7 * newScaleX) + 'px';
-        this.htmlQuestionContainer.style.maxHeight = Math.min(400, this.paperBg.displayHeight * 0.4 * newScaleY) + 'px';
-      }
-    };
-    
-    window.addEventListener('resize', updatePosition);
-    
-    // Store the resize handler for cleanup
-    this.handleWindowResize = updatePosition;
+
+    // Mount into the shell instead of document.body
+    if (this.modalShell) {
+      this.modalShell.questionSlot.appendChild(this.htmlQuestionContainer);
+    } else {
+      document.body.appendChild(this.htmlQuestionContainer);
+    }
   }
   
   /**
@@ -791,9 +683,10 @@ export class QuizScene extends Phaser.Scene {
     images.forEach(img => {
       const imageElement = img as HTMLImageElement;
       
-      // Make images small to fit in container
-      imageElement.style.maxWidth = '150px';
-      imageElement.style.maxHeight = '100px';
+      // Keep the pre-existing cap on question images, but scale it instead of pinning pixels, and
+      // never let one exceed the slot width. Click-to-enlarge below still shows the full image.
+      imageElement.style.maxWidth = 'min(100%, calc(150px * var(--ui-scale)))';
+      imageElement.style.maxHeight = 'calc(100px * var(--ui-scale))';
       imageElement.style.width = 'auto';
       imageElement.style.height = 'auto';
       imageElement.style.cursor = 'none';
@@ -826,7 +719,7 @@ export class QuizScene extends Phaser.Scene {
         // Toggle off if already showing
         const existingOverlay = (imageElement as any).hoverOverlay;
         if (existingOverlay && existingOverlay.parentNode) {
-          document.body.removeChild(existingOverlay);
+          existingOverlay.parentNode.removeChild(existingOverlay);
           (imageElement as any).hoverOverlay = null;
           return;
         }
@@ -863,7 +756,7 @@ export class QuizScene extends Phaser.Scene {
         // Click overlay to close
         detailOverlay.addEventListener('click', () => {
           if (detailOverlay.parentNode) {
-            document.body.removeChild(detailOverlay);
+            detailOverlay.parentNode.removeChild(detailOverlay);
           }
           (imageElement as any).hoverOverlay = null;
         });
@@ -879,20 +772,9 @@ export class QuizScene extends Phaser.Scene {
       (math as HTMLElement).style.fontSize = '14px';
     });
     
-    // Adjust font size based on content length to ensure it fits
-    const textContent = this.htmlQuestionContainer.textContent || '';
-    const contentLength = textContent.length;
-    
-    if (contentLength > 600) {
-      this.htmlQuestionContainer.style.fontSize = '12px';
-      this.htmlQuestionContainer.style.lineHeight = '1.3';
-    } else if (contentLength > 400) {
-      this.htmlQuestionContainer.style.fontSize = '14px';
-      this.htmlQuestionContainer.style.lineHeight = '1.4';
-    } else {
-      this.htmlQuestionContainer.style.fontSize = '16px';
-      this.htmlQuestionContainer.style.lineHeight = '1.5';
-    }
+    // The old character-count font heuristic (>600 chars -> 12px, >400 -> 14px, else 16px) is gone.
+    // It guessed at fit from string length, which ignores images, markup and the available height.
+    // The shell measures the rendered result instead and drives font size from --ui-scale.
   }
 
   /**
@@ -992,7 +874,7 @@ export class QuizScene extends Phaser.Scene {
       images.forEach(img => {
         const overlay = (img as any).hoverOverlay;
         if (overlay && overlay.parentNode) {
-          document.body.removeChild(overlay);
+          overlay.parentNode.removeChild(overlay);
         }
       });
       
@@ -1014,8 +896,18 @@ export class QuizScene extends Phaser.Scene {
    */
   private disposeHtmlAnswersContainer(): void {
     if (this.htmlAnswersContainer) {
-      document.body.removeChild(this.htmlAnswersContainer);
+      // Remove from the actual parent, not from document.body. This container is mounted into the
+      // modal shell now, and the unconditional document.body.removeChild that used to be here threw
+      // NotFoundError on the first answer submitted.
+      if (this.htmlAnswersContainer.parentNode) {
+        this.htmlAnswersContainer.parentNode.removeChild(this.htmlAnswersContainer);
+      }
       this.htmlAnswersContainer = null;
+    }
+    // The submit button lives in its own shell row, so it is not covered by the removal above.
+    if (this.modalShell) {
+      const submitSlot = this.modalShell.submitSlot;
+      while (submitSlot.firstChild) submitSlot.removeChild(submitSlot.firstChild);
     }
   }
 
@@ -1063,16 +955,18 @@ export class QuizScene extends Phaser.Scene {
     
     // Add a result message at the bottom of the container
     const resultMessage = document.createElement('div');
-    resultMessage.style.position = 'absolute';
-    resultMessage.style.bottom = '10%';
-    resultMessage.style.left = '50%';
-    resultMessage.style.transform = 'translateX(-50%)';
-    resultMessage.style.padding = '15px 30px';
-    resultMessage.style.borderRadius = '8px';
+    resultMessage.setAttribute('data-testid', 'quiz-banner');
+    // Sits in the shell's reserved banner row, so it cannot cover the question. It used to be
+    // `position: absolute; bottom: 10%` appended to document.body — body is not a positioned
+    // ancestor, so that percentage resolved against the initial containing block and the 24px
+    // hardcoded font made it huge relative to the panel at small sizes.
+    resultMessage.style.padding = 'calc(10px * var(--ui-scale)) calc(24px * var(--ui-scale))';
+    resultMessage.style.borderRadius = 'calc(8px * var(--ui-scale))';
     resultMessage.style.fontWeight = 'bold';
-    resultMessage.style.fontSize = '24px';
-    resultMessage.style.zIndex = '1002';
-    
+    resultMessage.style.fontSize = 'max(12px, calc(24px * var(--ui-scale)))';
+    resultMessage.style.textAlign = 'center';
+    resultMessage.style.maxWidth = '100%';
+
     if (isCorrect) {
       resultMessage.textContent = 'CORRECT! You caught the fish!';
       resultMessage.style.backgroundColor = '#4caf50'; // Green
@@ -1083,12 +977,17 @@ export class QuizScene extends Phaser.Scene {
       resultMessage.style.color = 'white';
     }
     
-    document.body.appendChild(resultMessage);
-    
+    if (this.modalShell) {
+      this.modalShell.bannerSlot.appendChild(resultMessage);
+      this.modalShell.fit();
+    } else {
+      document.body.appendChild(resultMessage);
+    }
+
     // Remove the result message when the answers are disposed
     this.time.delayedCall(1900, () => {
       if (resultMessage.parentNode) {
-        document.body.removeChild(resultMessage);
+        resultMessage.parentNode.removeChild(resultMessage);
       }
     });
   }
@@ -1102,50 +1001,28 @@ export class QuizScene extends Phaser.Scene {
     
     // Create HTML answers container
     this.htmlAnswersContainer = document.createElement('div');
+    // Stable hook for the layout test suite. Must survive the modal rewrite.
+    this.htmlAnswersContainer.setAttribute('data-testid', 'quiz-answers');
     
     // Calculate position based on canvas and paper background
-    const canvas = this.game.canvas as HTMLCanvasElement;
-    const canvasRect = canvas.getBoundingClientRect();
-    
-    // Get the actual canvas scale factors
-    const scaleX = canvasRect.width / canvas.width;
-    const scaleY = canvasRect.height / canvas.height;
-    
-    // Calculate the answers area in screen coordinates based on paper background
-    const paperCenterX = this.paperBg.x;
-    const paperWidth = this.paperBg.displayWidth;
-    const answersTopWorldY = this.paperBg.y + (this.paperBg.displayHeight * 0.10);
-    const paperBottomWorldY = this.paperBg.y + (this.paperBg.displayHeight * 0.47);
-    
-    // Convert to screen coordinates
-    const screenCenterX = canvasRect.left + (paperCenterX * scaleX);
-    const screenWidth = paperWidth * scaleX * 0.92;
-    const screenTop = canvasRect.top + (answersTopWorldY * scaleY);
-    const screenBottom = canvasRect.top + (paperBottomWorldY * scaleY);
-    const screenHeight = screenBottom - screenTop;
-    
-    // Position container over the paper answers area
-    this.htmlAnswersContainer.style.position = 'fixed';
-    this.htmlAnswersContainer.style.left = (screenCenterX - screenWidth / 2) + 'px';
-    this.htmlAnswersContainer.style.top = screenTop + 'px';
-    this.htmlAnswersContainer.style.width = screenWidth + 'px';
-    this.htmlAnswersContainer.style.height = screenHeight + 'px';
-    this.htmlAnswersContainer.style.zIndex = '1001';
+    // No canvas rect, no scale factors, no fixed slice of the paper height. The old code pinned this
+    // area to paperBg 10%..47% converted through scaleY, so the box shrank with the canvas while the
+    // font tracked the iframe width — the mismatch that clipped answer text.
     this.htmlAnswersContainer.style.display = 'flex';
     this.htmlAnswersContainer.style.flexDirection = 'column';
     this.htmlAnswersContainer.style.alignItems = 'center';
-    this.htmlAnswersContainer.style.gap = '6px';
-    this.htmlAnswersContainer.style.padding = '4px';
+    this.htmlAnswersContainer.style.gap = 'calc(6px * var(--ui-scale))';
+    this.htmlAnswersContainer.style.padding = 'calc(4px * var(--ui-scale))';
+    this.htmlAnswersContainer.style.width = '100%';
     this.htmlAnswersContainer.style.boxSizing = 'border-box';
-    this.htmlAnswersContainer.style.overflow = 'hidden';
-    
-    // Create CSS grid for answer options (2x2 responsive layout)
+
+    // Answer grid. Column count is a custom property so the shell's fit ladder can drop to a single
+    // column when two will not fit. Any choice count works — CSS auto-placement handles 3 as 2 + 1.
     const answersGrid = document.createElement('div');
     answersGrid.style.display = 'grid';
-    answersGrid.style.gridTemplateColumns = '1fr 1fr';
-    answersGrid.style.gap = '6px';
+    answersGrid.style.gridTemplateColumns = 'var(--answers-cols, 1fr 1fr)';
+    answersGrid.style.gap = 'calc(6px * var(--ui-scale))';
     answersGrid.style.width = '100%';
-    answersGrid.style.flex = '1';
     answersGrid.style.minHeight = '0';
     
     // Create answer options in responsive grid
@@ -1156,18 +1033,23 @@ export class QuizScene extends Phaser.Scene {
       // Create answer option container
       const optionContainer = document.createElement('div');
       optionContainer.setAttribute('data-choice-key', choice.key);
-      optionContainer.style.padding = '8px 10px';
+      optionContainer.style.padding = 'calc(8px * var(--ui-scale)) calc(10px * var(--ui-scale))';
       optionContainer.style.border = '2px solid #90caf9';
       optionContainer.style.borderRadius = '8px';
       optionContainer.style.cursor = 'none';
       optionContainer.style.transition = 'all 0.3s ease';
       optionContainer.style.backgroundColor = '#f5f5f5';
-      optionContainer.style.fontSize = 'clamp(11px, 1.4vw, 16px)';
+      // Was clamp(11px, 1.4vw, 16px): sized from iframe WIDTH while the box shrank with canvas
+      // HEIGHT. Now one scale drives both, with an 11px readability floor.
+      optionContainer.style.fontSize = 'max(11px, calc(16px * var(--ui-scale)))';
       optionContainer.style.lineHeight = '1.3';
       optionContainer.style.color = '#000000';
       optionContainer.style.fontFamily = 'Arial, sans-serif';
       optionContainer.style.boxShadow = '0 2px 4px rgba(0, 0, 0, 0.1)';
-      optionContainer.style.overflow = 'auto';
+      // 'auto' here used to clip silently: a box only ~15px tall cannot show a usable scrollbar, so
+      // overflowing text just disappeared. The shell now scales and reflows before scrolling is ever
+      // reached, and turns scrolling on deliberately as the terminal level.
+      optionContainer.style.overflow = 'hidden';
       optionContainer.style.boxSizing = 'border-box';
       optionContainer.dataset.choiceKey = choice.key;
       optionContainer.dataset.choiceIndex = index.toString();
@@ -1199,7 +1081,7 @@ export class QuizScene extends Phaser.Scene {
       choiceLabel.style.fontWeight = 'bold';
       choiceLabel.style.marginBottom = '4px';
       choiceLabel.style.color = '#333';
-      choiceLabel.style.fontSize = 'clamp(12px, 1.5vw, 18px)';
+      choiceLabel.style.fontSize = 'max(12px, calc(18px * var(--ui-scale)))';
       choiceLabel.textContent = `${choice.key}.`;
       optionContainer.appendChild(choiceLabel);
       
@@ -1228,9 +1110,10 @@ export class QuizScene extends Phaser.Scene {
     submitButtonContainer.style.padding = '4px 0';
     
     const submitButton = document.createElement('button');
+    submitButton.setAttribute('data-testid', 'quiz-submit');
     submitButton.textContent = 'Submit Answer';
-    submitButton.style.padding = '8px 24px';
-    submitButton.style.fontSize = 'clamp(12px, 1.5vw, 18px)';
+    submitButton.style.padding = 'calc(8px * var(--ui-scale)) calc(24px * var(--ui-scale))';
+    submitButton.style.fontSize = 'max(12px, calc(18px * var(--ui-scale)))';
     submitButton.style.fontWeight = 'bold';
     submitButton.style.backgroundColor = '#4caf50';
     submitButton.style.color = 'white';
@@ -1247,13 +1130,42 @@ export class QuizScene extends Phaser.Scene {
     });
     
     submitButtonContainer.appendChild(submitButton);
-    this.htmlAnswersContainer.appendChild(submitButtonContainer);
-    
-    // Store reference to submit button for enabling/disabling
+    // Its own shell row, outside the answers region. Nested inside the answers container it scrolled
+    // away with the options once the fit ladder enabled scrolling, leaving the quiz unfinishable.
+    if (this.modalShell) {
+      this.modalShell.submitSlot.appendChild(submitButtonContainer);
+    } else {
+      this.htmlAnswersContainer.appendChild(submitButtonContainer);
+    }
+
+    // Store reference to submit button for enabling/disabling. updateHtmlSubmitButton() reads it
+    // from htmlAnswersContainer, so the stash stays there even though the button moved.
     (this.htmlAnswersContainer as any).submitButton = submitButton;
     
     // Add to DOM
-    document.body.appendChild(this.htmlAnswersContainer);
+    // Mount into the shell. Same flex column as the question, so the two cannot overlap.
+    if (this.modalShell) {
+      this.modalShell.answersSlot.appendChild(this.htmlAnswersContainer);
+      // Content is in place; measure and fit. Images decode asynchronously, so refit on each load
+      // and once more on the next frame after layout has flushed.
+      const shell = this.modalShell;
+      shell.fit();
+      const imgs = Array.from(
+        this.htmlAnswersContainer.querySelectorAll('img')
+      ) as HTMLImageElement[];
+      const questionImgs = this.htmlQuestionContainer
+        ? (Array.from(this.htmlQuestionContainer.querySelectorAll('img')) as HTMLImageElement[])
+        : [];
+      for (const img of imgs.concat(questionImgs)) {
+        if (img.complete) continue; // cache hit: no event will fire
+        const refit = () => shell.fit();
+        img.addEventListener('load', refit, { once: true });
+        img.addEventListener('error', refit, { once: true }); // a broken image changes layout too
+      }
+      requestAnimationFrame(() => shell.fit());
+    } else {
+      document.body.appendChild(this.htmlAnswersContainer);
+    }
     
     // Update submit button state
     this.updateHtmlSubmitButton();
@@ -1421,63 +1333,10 @@ export class QuizScene extends Phaser.Scene {
       );
     }
 
-    // Since Phaser answer buttons are hidden, we don't highlight them
-    // The following code is kept for compatibility but won't execute since buttons don't exist
-    this.correctAnswerKeys.forEach(correctKey => {
-      const correctAnswerIndex = this.currentQuestion.choices.findIndex(
-        choice => choice.key === correctKey
-      );
-
-      if (correctAnswerIndex >= 0 && correctAnswerIndex < this.optionButtons.length) {
-        this.optionButtons[correctAnswerIndex].setFillStyle(0x00ff00); // Green for correct
-      }
-    });
-
-    this.selectedAnswers.forEach(selectedKey => {
-      if (!this.correctAnswerKeys.includes(selectedKey)) {
-        const incorrectIndex = this.currentQuestion.choices.findIndex(
-          choice => choice.key === selectedKey
-        );
-
-        if (incorrectIndex >= 0 && incorrectIndex < this.optionButtons.length) {
-          this.optionButtons[incorrectIndex].setFillStyle(0xff0000); // Red for incorrect
-        }
-      }
-    });
-
-    // Show result text - position it more prominently
-    const resultText = this.add.text(
-      this.cameras.main.width / 2,
-      this.cameras.main.height / 2 + 55, // More visible position
-      isCorrect ? 'CORRECT! You caught the fish!' : 'WRONG! The fish got away!',
-      {
-        fontSize: '36px',
-        color: isCorrect ? '#00ff00' : '#ff0000',
-        stroke: '#000000',
-        strokeThickness: 4,
-        fontStyle: 'bold'
-      }
-    ).setOrigin(0.5).setDepth(10); // Higher depth to ensure visibility
-
-    // Add explanation text for incorrect answers
-    if (!isCorrect) {
-      // Create a string showing the correct answers
-      const correctAnswersText = 'Correct answer' +
-        (this.correctAnswerKeys.length > 1 ? 's' : '') +
-        ': ' + this.correctAnswerKeys.join(', ');
-
-      const explanationText = this.add.text(
-        this.cameras.main.width / 2,
-        this.cameras.main.height / 2, // Just below the result text
-        correctAnswersText,
-        {
-          fontSize: '28px',
-          color: '#ffffff',
-          stroke: '#000000',
-          strokeThickness: 3
-        }
-      ).setOrigin(0.5).setDepth(10);
-    }
+    // The result banner and the correct/incorrect answer highlighting are both owned
+    // by the DOM overlay (highlightHtmlAnswers, called above). The legacy Phaser
+    // result text that used to live here was removed: it drew a second copy of the
+    // same message at camera centre, directly on top of the question text.
 
     // Wait a moment before returning to game (save progress for next fish)
     this.time.delayedCall(2000, () => {
@@ -1486,6 +1345,7 @@ export class QuizScene extends Phaser.Scene {
       // Clean up HTML containers before transitioning
       this.disposeHtmlAnswersContainer();
       this.disposeHtmlContainer();
+      this.disposeModalShell();
 
       // Increment question index for next fish caught
       this.currentQuestionIndex++;
@@ -1745,6 +1605,8 @@ export class QuizScene extends Phaser.Scene {
     this.disposeHtmlContainer();
     this.disposeHtmlAnswersContainer();
     this.disposeHtmlCursor();
+    // Disposes the modal root, its ResizeObserver and its resize listener.
+    this.disposeModalShell();
 
     //console.log('QuizScene: Cleanup completed');
   }

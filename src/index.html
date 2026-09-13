@@ -5,6 +5,70 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Fish Quiz</title>
+    <script>
+        // DEV ONLY: hand off to the host-iframe simulator so the game renders inside a
+        // real nested browsing context. A CSS-resized container cannot reproduce the bug
+        // class we care about, because vw/vh and ResizeObserver resolve against the
+        // iframe's own viewport.
+        //
+        // Every existing query param is carried through untouched, so a real launch URL
+        // (UserId / StandardId / LnpId / GameId / GameType) keeps working: apiService.js
+        // reads window.location.search inside the iframe, which is the forwarded copy.
+        //
+        // Three ways in, so a long GUID URL never has to be hand-edited:
+        //   1. add &iframe=true  (or &dev=1, or &sim=1)
+        //   2. click the "iframe sim" button bottom-left
+        //   3. press Alt+Shift+D
+        // All of it is inert unless served from localhost.
+        (function () {
+            var h = location.hostname;
+            var isLocal = h === 'localhost' || h === '127.0.0.1' || h === '::1' ||
+                h === '' || /\.local$/.test(h);
+            if (!isLocal) return;
+
+            var TRIGGERS = { iframe: 'true', dev: '1', sim: '1' };
+            var p = new URLSearchParams(location.search);
+            for (var k in TRIGGERS) {
+                if (p.get(k) === TRIGGERS[k]) {
+                    // Normalise onto iframe=true and drop the aliases so the harness
+                    // forwards a clean param set to the inner frame.
+                    p.delete('dev'); p.delete('sim'); p.set('iframe', 'true');
+                    location.replace('iframe-host.html?' + p.toString());
+                    return;
+                }
+            }
+
+            // Not in sim mode: offer a one-click way in that preserves the current params.
+            function openSim() {
+                var q = new URLSearchParams(location.search);
+                q.set('iframe', 'true');
+                location.href = 'iframe-host.html?' + q.toString();
+            }
+
+            window.addEventListener('keydown', function (e) {
+                if (e.altKey && e.shiftKey && (e.key === 'D' || e.key === 'd')) {
+                    e.preventDefault();
+                    openSim();
+                }
+            });
+
+            window.addEventListener('DOMContentLoaded', function () {
+                var b = document.createElement('button');
+                b.type = 'button';
+                b.textContent = 'iframe sim';
+                b.title = 'Open in the host-iframe simulator (Alt+Shift+D). ' +
+                    'Dev only, keeps all current URL params.';
+                b.style.cssText = 'position:fixed;left:8px;bottom:8px;z-index:2147483647;' +
+                    'font:11px/1 ui-monospace,Menlo,Consolas,monospace;padding:5px 8px;' +
+                    'color:#cfe3ff;background:rgba(12,18,25,.82);border:1px solid #2a3744;' +
+                    'border-radius:4px;cursor:pointer;opacity:.45;transition:opacity .15s';
+                b.addEventListener('mouseenter', function () { b.style.opacity = '1'; });
+                b.addEventListener('mouseleave', function () { b.style.opacity = '.45'; });
+                b.addEventListener('click', openSim);
+                document.body.appendChild(b);
+            });
+        })();
+    </script>
     <style>
         body {
             margin: 0;

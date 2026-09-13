@@ -18,6 +18,7 @@ import { CursorManager } from '../managers/cursorManager';
 import gameSdk from '../service/apiService.js';
 import { JoystickManager } from '../managers/joystickManager';
 import { ConversationBox } from '../components/ConversationBox';
+import { getRequestedFixtureId, applyQuizFixture } from '../dev/quizFixtures';
 
 export class GameScene extends Phaser.Scene {
   private player!: Phaser.Physics.Arcade.Sprite;
@@ -361,7 +362,48 @@ export class GameScene extends Phaser.Scene {
       this.startIdleDetection();
     });
 
+    // DEV ONLY: ?devQuiz=<fixture> jumps straight into the quiz. No-op in production.
+    this.maybeLaunchDevQuiz();
+  }
 
+  /**
+   * DEV ONLY. Opens QuizScene immediately with a fixture question set, so quiz layout can be
+   * inspected without fishing for it first. Inert unless served from localhost and a valid
+   * ?devQuiz= fixture id is present — see src/dev/quizFixtures.ts.
+   *
+   * Deliberately reuses the same pause + launch pair as the real catch flow (see the
+   * gameType === 0 branch below) so the fixture exercises the production code path rather
+   * than a parallel one. Pausing also suppresses the tutorial and conversation-box timers,
+   * which would otherwise draw over the quiz.
+   */
+  private maybeLaunchDevQuiz(): void {
+    const fixtureId = getRequestedFixtureId();
+    if (!fixtureId) return;
+
+    // NO_MATH mode never opens QuizScene; do not let a dev flag change that.
+    if (gameSdk.getGameType() === 1) {
+      console.warn('[devQuiz] ignored: gameType=1 (NO_MATH) does not use QuizScene');
+      return;
+    }
+
+    applyQuizFixture(fixtureId);
+
+    if (!this.currentFish) {
+      this.currentFish = FishType.bass;
+    }
+
+    this.scene.pause();
+    this.scene.launch('QuizScene', {
+      gameState: this.gameState,
+      currentFish: this.currentFish,
+      completionData: this.completionData
+    });
+
+    // The dev route exists to inspect layout, not to continue a run. Report the outcome and
+    // stop there rather than re-entering the catch flow with synthetic state.
+    this.events.once('resume', (_sys: Phaser.Scenes.Systems, data: any) => {
+      console.log(`[devQuiz] quiz closed, success=${data && data.success}`);
+    });
   }
 
   /**

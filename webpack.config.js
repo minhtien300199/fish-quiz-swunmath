@@ -29,6 +29,7 @@ module.exports = {
     new CopyWebpackPlugin({
       patterns: [
         { from: 'src/index.html' },
+        { from: 'src/iframe-host.html' },
         { from: 'assets', to: 'assets' }
       ],
     }),
